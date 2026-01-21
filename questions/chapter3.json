@@ -1,0 +1,143 @@
+﻿[
+    {
+        "id": 1,
+        "question": "【基础】缠论中笔的基本定义要求是什么？",
+        "type": "chart_recognition",
+        "chart_config": {
+            "type": "candlestick",
+            "data": [
+                {"open": 10,  "high": 11,   "low": 9.5,  "close": 10.5},
+                {"open": 10.5,"high": 12,   "low": 10,   "close": 11.5},
+                {"open": 11,  "high": 11.8, "low": 10.8, "close": 11.2},
+                {"open": 10.8,"high": 11.5, "low": 10.5, "close": 11.0},
+                {"open": 10.5,"high": 11.2, "low": 10,   "close": 10.8},
+                {"open": 10.8,"high": 11.0, "low": 9.8,  "close": 10.5}
+            ]
+        },
+        "options": [
+            "至少5根K线",
+            "顶分型 + 底分型 + 中间至少一根不共用的K线",
+            "只要连起来像笔一样",
+            "顶分型和底分型直接连接"
+        ],
+        "answer": 1,
+        "explanation": "笔的构成：顶分型+底分型，且两个分型之间至少有一根独立的K线（不属于顶分型也不属于底分型）。"
+    },
+    {
+        "id": 2,
+        "question": "【进阶】在上升笔中，顶分型和底分型的高低点关系必须满足什么？",
+        "type": "chart_recognition",
+        "chart_config": {
+            "type": "candlestick",
+            "data": [
+                {"open": 10,  "high": 10.5, "low": 9.5, "close": 10},
+                {"open": 10,  "high": 10.2, "low": 9.0, "close": 9.5},
+                {"open": 9.5, "high": 11.0, "low": 9.5, "close": 10.8},
+                {"open": 10.8,"high": 11.5, "low": 10.5,"close": 11.2},
+                {"open": 11.2,"high": 12.0, "low": 11.0,"close": 11.8},
+                {"open": 11.8,"high": 12.5, "low": 11.5,"close": 12.0},
+                {"open": 12.0,"high": 12.2, "low": 11.2,"close": 11.5}
+            ],
+            "shapes": [
+                {"type": "line", "x0": 1, "y0": 9.0, "x1": 5, "y1": 12.5, "line": {"color": "red", "width": 3}}
+            ],
+            "annotations": [
+                {"x": 1, "y": 8.8, "text": "底(Low)", "showarrow": false},
+                {"x": 5, "y": 12.7, "text": "顶(High)", "showarrow": false}
+            ]
+        },
+        "options": [
+            "顶分型最高点 > 底分型最高点",
+            "顶分型最高点 > 底分型最高点 且 顶分型最低点 > 底分型最低点",
+            "顶分最低 > 底分最高",
+            "没有要求"
+        ],
+        "answer": 1,
+        "explanation": "这是笔成立的几何条件。如果是上升笔，后面顶分型一定要比前面底分型高（不仅高点高，低点也要高）。"
+    },
+    {
+        "id": 3,
+        "question": "【挑战】当新一笔生成时，对旧的一笔意味着什么？",
+        "type": "chart_recognition",
+        "chart_config": {
+            "type": "candlestick",
+            "data": [
+                 {"open": 10, "high": 11, "low": 9, "close": 10.5},
+                 {"open": 10.5, "high": 12, "low": 10, "close": 11.5},
+                 {"open": 11.5, "high": 13, "low": 11, "close": 12.5},
+                 {"open": 12.5, "high": 12.8, "low": 11.5, "close": 12}, 
+                 {"open": 12, "high": 12.2, "low": 11, "close": 11.5},
+                 {"open": 11.5, "high": 11.8, "low": 10.5, "close": 11},
+                 {"open": 11, "high": 11.2, "low": 10, "close": 10.5}
+            ],
+             "shapes": [
+                {"type": "line", "x0": 0, "y0": 9, "x1": 2, "y1": 13, "line": {"color": "gray", "width": 2, "dash": "dash"}, "label": {"text": "旧笔"}},
+                {"type": "line", "x0": 2, "y0": 13, "x1": 6, "y1": 10, "line": {"color": "blue", "width": 3}, "label": {"text": "新笔确认"}}
+            ],
+            "annotations": [
+                {"x": 1, "y": 13.5, "text": "旧笔向上", "showarrow": false},
+                {"x": 4, "y": 10.2, "text": "新笔向下生成 -> 旧笔确立", "showarrow": true, "ax": 0, "ay": 30}
+            ]
+        },
+        "options": [
+            "旧笔被确立",
+            "旧笔被破坏",
+            "没关系",
+            "旧笔延长"
+        ],
+        "answer": 0,
+        "explanation": "只有当反向的一笔形成时，前一笔才算真正完成（确立）。否则前一笔随时可能延伸。"
+    },
+    {
+        "id": 4,
+        "question": "【进阶】所谓的‘新笔’（修订版定义）与‘老笔’最大的区别是？",
+        "type": "chart_recognition",
+        "chart_config": {
+            "type": "candlestick",
+            "data": [
+                {"open": 10, "high": 11, "low": 9, "close": 10.5},
+                {"open": 10.5, "high": 12, "low": 10, "close": 11},
+                {"open": 11, "high": 11.5, "low": 10.5, "close": 10.8},
+                {"open": 10.8, "high": 11, "low": 9.5, "close": 10}
+            ],
+            "annotations": [
+                {"x": 1.5, "y": 12.2, "text": "顶分与底分紧邻", "showarrow": false},
+                {"x": 1.5, "y": 11.8, "text": "无独立K线 -> 新笔允许", "showarrow": false, "font": {"color": "red"}}
+            ]
+        },
+        "options": [
+            "不需要分型",
+            "不需要独立K线",
+            "不需要顶底对比",
+            "必须包含中枢"
+        ],
+        "answer": 1,
+        "explanation": "新笔为了实战灵敏度，放宽了限制，不再强制要求顶底分型之间必须有‘独立K线’。"
+    },
+    {
+        "id": 5,
+        "question": "【进阶】如果采用‘老笔’定义，一笔至少需要由多少根K线构成（不含包含处理）？",
+        "type": "chart_recognition",
+        "chart_config": {
+             "type": "candlestick",
+             "data": [
+                 {"open": 10, "high": 10.5, "low": 9.5, "close": 10}, 
+                 {"open": 9.5, "high": 10, "low": 9, "close": 9.5},   
+                 {"open": 9.5, "high": 10.8, "low": 9.5, "close": 10.5},
+                 {"open": 10.5, "high": 11, "low": 10, "close": 10.8}, 
+                 {"open": 10.8, "high": 11.5, "low": 10.5, "close": 11}
+             ],
+             "annotations": [
+                 {"x": 2, "y": 12, "text": "5根K线示意", "showarrow": false}
+             ]
+        },
+        "options": [
+            "3根",
+            "4根",
+            "5根",
+            "6根"
+        ],
+        "answer": 2,
+        "explanation": "顶分型3根 + 底分型3根，去掉重复的一根，中间还必须有至少1根独立的，所以 3-1 + 3 = 5。"
+    }
+]
