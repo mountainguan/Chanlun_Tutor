@@ -1,41 +1,85 @@
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
 
-def create_candlestick_chart(data, title="K线图展示", annotations=None, shapes=None):
+def create_candlestick_chart(data, title="K线图展示", annotations=None, shapes=None, macd_data=None):
     """
-    创建一个Plotly K线图
+    创建一个Plotly K线图，支持MACD副图
     :param data: list of dict, e.g. [{'open': 10, 'high': 12, ...}, ...]
     :param title: 图表标题
     :param annotations: list of dict, Plotly layout.annotations
     :param shapes: list of dict, Plotly layout.shapes (lines, rects)
+    :param macd_data: dict, keys: 'dif', 'dea', 'hist' (lists of values matching data len)
     :return: plotly figure dict or object
     """
     df = pd.DataFrame(data)
     # 确保索引是数字，方便画线
     df.reset_index(drop=True, inplace=True)
     
-    # 构建基础K线
-    fig = go.Figure(data=[go.Candlestick(
-        x=df.index,
-        open=df['open'],
-        high=df['high'],
-        low=df['low'],
-        close=df['close'],
-        increasing_line_color='red', 
-        decreasing_line_color='green',
-        name='K线'
-    )])
+    if macd_data:
+        # 创建子图：上K线，下MACD
+        fig = make_subplots(
+            rows=2, cols=1, 
+            shared_xaxes=True, 
+            vertical_spacing=0.03, 
+            row_heights=[0.7, 0.3],
+            specs=[[{"secondary_y": False}], [{"secondary_y": False}]]
+        )
+        
+        # Row 1: K线
+        fig.add_trace(go.Candlestick(
+            x=df.index,
+            open=df['open'], high=df['high'], low=df['low'], close=df['close'],
+            increasing_line_color='red', decreasing_line_color='green',
+            name='K线'
+        ), row=1, col=1)
+        
+        # Row 2: MACD
+        # Hist
+        colors = ['red' if v > 0 else 'green' for v in macd_data['hist']]
+        fig.add_trace(go.Bar(
+            x=df.index, y=macd_data['hist'], marker_color=colors, name='MACD柱'
+        ), row=2, col=1)
+        # DIF & DEA
+        fig.add_trace(go.Scatter(
+            x=df.index, y=macd_data['dif'], line=dict(color='black', width=1), name='DIF'
+        ), row=2, col=1)
+        fig.add_trace(go.Scatter(
+            x=df.index, y=macd_data['dea'], line=dict(color='orange', width=1), name='DEA'
+        ), row=2, col=1)
+        
+        # 隐藏下方子图的Rangeslider
+        fig.update_layout(xaxis2_rangeslider_visible=False)
+        fig.update_xaxes(showgrid=False, range=[df.index[0]-1, df.index[-1]+1])
+        
+    else:
+        # 构建基础K线 (单图)
+        fig = go.Figure(data=[go.Candlestick(
+            x=df.index,
+            open=df['open'],
+            high=df['high'],
+            low=df['low'],
+            close=df['close'],
+            increasing_line_color='red', 
+            decreasing_line_color='green',
+            name='K线'
+        )])
 
     layout_update = {
         "title": title,
         "xaxis_rangeslider_visible": False,
         "template": "plotly_white",
         "margin": dict(l=20, r=20, t=40, b=20),
-        "height": 400,
+        "height": 500 if macd_data else 400,
         "xaxis": dict(showgrid=False),
         "yaxis": dict(showgrid=True, gridcolor='lightgray')
     }
+    
+    if macd_data:
+         # Annotations/Shapes 默认加在主图(row=1)吗？Plotly layout shapes 默认参考 paper 或 x/y domain
+         # 这里保持 simplest, shapes/annotations 使用 xref='x', yref='y' 会指向 row 1
+         pass
 
     if annotations:
         layout_update["annotations"] = annotations
@@ -407,12 +451,342 @@ def get_chart_data(scene_name):
             dict(type="line", x0=i4, y0=13, x1=i5, y1=11.5, line=dict(color="red", width=4), label=dict(text="确立笔P3"))
         ]
         annotations = [
-            dict(x=i3, y=12.2, text="P1底(12.5) > S2底(11)\n(未包含)", showarrow=True, ax=0, ay=30, arrowcolor="green"),
-            dict(x=i5, y=11.2, text="最终跌破P1底\n(分型确立)", showarrow=True, ax=0, ay=30, font=dict(color="red"))
+            dict(x=i3, y=12.5, text="跌破S2(有缺口)", showarrow=True, ax=0, ay=-30),
+            dict(x=i5, y=11.5, text="线段破坏确立", showarrow=True, ax=0, ay=-30)
         ]
-        return data, "第二种破坏(线段分型)-图解", annotations, shapes
+        return data, "线段破坏：有缺口", annotations, shapes
 
-    # 场景7：超强顶分型（断头铡刀）
+    # 场景10：盘整趋势 (Up -> Center -> Up? No, Consolidation is Center)
+    elif scene_name == 'trend_panzheng':
+        # Up (Enter) -> Center [Down -> Up -> Down] -> Up (Exit)
+        # ZG=12, ZD=10
+        bi1 = _generate_bi(8, 11, 5) # Enter
+        bi2 = _generate_bi(11, 10, 5) # C-Down1
+        bi3 = _generate_bi(10, 12, 5) # C-Up
+        bi4 = _generate_bi(12, 11, 5) # C-Down2
+        bi5 = _generate_bi(11, 14, 6) # Exit
+        
+        data = bi1 + bi2[1:] + bi3[1:] + bi4[1:] + bi5[1:]
+        
+        i_bi1 = len(bi1) - 1
+        i_bi4 = i_bi1 + len(bi2) - 1 + len(bi3) - 1 + len(bi4) - 1
+        
+        shapes = [
+            # Center Box
+            dict(type="rect", x0=i_bi1, y0=10, x1=i_bi4, y1=12, fillcolor="rgba(128,0,128,0.2)", line=dict(width=0)),
+            dict(type="line", x0=i_bi1, y0=12, x1=i_bi4, y1=12, line=dict(color="purple", dash="dash")),
+            dict(type="line", x0=i_bi1, y0=10, x1=i_bi4, y1=10, line=dict(color="purple", dash="dash"))
+        ]
+        annotations = [
+            dict(x=(i_bi1+i_bi4)/2, y=12.2, text="只有一个中枢 = 盘整", showarrow=False, font=dict(color="purple"))
+        ]
+        return data, "盘整走势类型", annotations, shapes
+
+    # 场景11：趋势 (上涨)
+    elif scene_name == 'trend_qushi_up':
+        # Center 1 (10-12) -> Up -> Center 2 (14-16) -> Up
+        # No overlap!
+        
+        # C1
+        bi1 = _generate_bi(10, 12, 4)
+        bi2 = _generate_bi(12, 10, 4)
+        bi3 = _generate_bi(10, 12, 4)
+        
+        # Connect
+        bi4 = _generate_bi(12, 16, 5)
+        
+        # C2
+        bi5 = _generate_bi(16, 14, 4) # Low 14 > High 12 (No overlap)
+        bi6 = _generate_bi(14, 16, 4)
+        bi7 = _generate_bi(16, 14, 4)
+        
+        # Exit
+        bi8 = _generate_bi(14, 18, 5)
+        
+        data = bi1 + bi2[1:] + bi3[1:] + bi4[1:] + bi5[1:] + bi6[1:] + bi7[1:] + bi8[1:]
+        
+        # Ranges
+        i_c1_start = 0
+        i_c1_end = len(bi1)+len(bi2)+len(bi3)-3
+        i_c2_start = i_c1_end + len(bi4)-1
+        i_c2_end = i_c2_start + len(bi5)+len(bi6)+len(bi7)-3
+        
+        shapes = [
+            dict(type="rect", x0=i_c1_start, y0=10, x1=i_c1_end, y1=12, fillcolor="rgba(128,0,128,0.2)", line=dict(width=0), label=dict(text="中枢A")),
+            dict(type="rect", x0=i_c2_start, y0=14, x1=i_c2_end, y1=16, fillcolor="rgba(128,0,128,0.2)", line=dict(width=0), label=dict(text="中枢B")),
+            # Gaps? No, just no overlap
+            dict(type="line", x0=i_c1_end, y0=12, x1=i_c2_start, y1=12, line=dict(color="red", width=1, dash="dot")),
+            dict(type="line", x0=i_c2_start, y0=14, x1=i_c2_end, y1=14, line=dict(color="red", width=1, dash="dot"))
+        ]
+        annotations = [
+            dict(x=i_c1_end, y=16, text="ZD(B) = 14 > ZG(A) = 12", showarrow=False, font=dict(color="red")),
+            dict(x=(i_c1_end+i_c2_start)/2, y=14, text="至少两个中枢且无重叠", ax=0, ay=30)
+        ]
+        return data, "上涨趋势 (a+A+b+B+c)", annotations, shapes
+
+    # 场景12：背驰 (标准趋势背驰)
+    elif scene_name == 'beichi_standard':
+        # Up (a) -> Center A -> Up (b) -> Center B -> Up (c)
+        # b is strong, c is weak (Divergence)
+        
+        # a
+        bi_a = _generate_bi(10, 12, 4)
+        # A (12-11)
+        bi_A1 = _generate_bi(12, 11, 4)
+        bi_A2 = _generate_bi(11, 12, 4)
+        bi_A3 = _generate_bi(12, 11, 4)
+        # b (Strong) 11 -> 16 (Len 5, Rise 5)
+        bi_b = _generate_bi(11, 16, 8) 
+        # B (16-15)
+        bi_B1 = _generate_bi(16, 15, 4)
+        bi_B2 = _generate_bi(15, 16, 4)
+        bi_B3 = _generate_bi(16, 15, 4)
+        # c (Weak) 15 -> 17 (Len 5, Rise 2) - New High but weak
+        bi_c = _generate_bi(15, 17, 6)
+        
+        data = bi_a + bi_A1[1:] + bi_A2[1:] + bi_A3[1:] + bi_b[1:] + bi_B1[1:] + bi_B2[1:] + bi_B3[1:] + bi_c[1:]
+        
+        # Calc indices for b and c
+        idx_b_start = len(bi_a)+len(bi_A1)+len(bi_A2)+len(bi_A3)-4
+        idx_b_end = idx_b_start + len(bi_b) -1
+        
+        idx_c_start = idx_b_end + len(bi_B1)+len(bi_B2)+len(bi_B3)-3
+        idx_c_end = idx_c_start + len(bi_c) - 1
+        
+        shapes = [
+            dict(type="line", x0=idx_b_start, y0=11, x1=idx_b_end, y1=16, line=dict(color="red", width=3), label=dict(text="b段(强)")),
+            dict(type="line", x0=idx_c_start, y0=15, x1=idx_c_end, y1=17, line=dict(color="red", width=2, dash="dash"), label=dict(text="c段(弱)")),
+            dict(type="rect", x0=idx_b_end, y0=15, x1=idx_c_start, y1=16, fillcolor="rgba(128,0,128,0.2)", line=dict(width=0))
+        ]
+        annotations = [
+            dict(x=idx_c_end, y=17.5, text="创新高但力度减弱\n(c < b) -> 背驰", showarrow=True, font=dict(color="red"))
+        ]
+        
+        # MACD Mock Data (Divergence Simulation)
+        n = len(data)
+        x_pts = [0, idx_b_start, idx_b_end, idx_c_start, idx_c_end]
+        # b peak=2.0, c peak=1.0 -> Divergence
+        y_pts = [0, 0.5,         2.0,       -0.5,        1.0] 
+        
+        dif = np.interp(np.arange(n), x_pts, y_pts)
+        dea = dif * 0.8
+        hist = (dif - dea) * 2
+        
+        macd_data = {"dif": dif.tolist(), "dea": dea.tolist(), "hist": hist.tolist()}
+        
+        return data, "趋势背驰示意图", annotations, shapes, macd_data
+
+    # 场景12.1：盘整背驰
+    elif scene_name == 'beichi_panzheng':
+        # Up (a) -> Center A -> Up (b)
+        # a is strong, b is weak
+        
+        # a (Strong) 10 -> 14
+        bi_a = _generate_bi(10, 14, 5)
+        # A (14-12)
+        bi_A1 = _generate_bi(14, 12, 4)
+        bi_A2 = _generate_bi(12, 13.5, 4)
+        bi_A3 = _generate_bi(13.5, 12.5, 4)
+        # b (Weak) 12.5 -> 15 (New High)
+        bi_b = _generate_bi(12.5, 15, 6) 
+        
+        data = bi_a + bi_A1[1:] + bi_A2[1:] + bi_A3[1:] + bi_b[1:]
+        
+        idx_a_end = len(bi_a) - 1
+        idx_b_start = idx_a_end + len(bi_A1) + len(bi_A2) + len(bi_A3) - 3
+        idx_b_end = len(data) - 1
+        
+        shapes = [
+            dict(type="line", x0=0, y0=10, x1=idx_a_end, y1=14, line=dict(color="red", width=3), label=dict(text="a段(进)")),
+            dict(type="line", x0=idx_b_start, y0=12.5, x1=idx_b_end, y1=15, line=dict(color="red", width=2, dash="dash"), label=dict(text="b段(出)")),
+            dict(type="rect", x0=idx_a_end, y0=12, x1=idx_b_start, y1=14, fillcolor="rgba(128,0,128,0.2)", line=dict(width=0), label=dict(text="中枢A"))
+        ]
+        
+        annotations = [
+            dict(x=idx_b_end, y=15.5, text="b < a 且创新高\n盘整背驰", showarrow=True, font=dict(color="red"))
+        ]
+        
+        # MACD Mock Data
+        n = len(data)
+        x_pts = [0, idx_a_end, idx_b_start, idx_b_end]
+        # a peak=2.0, b peak=1.2
+        y_pts = [0, 2.0,       0.5,         1.2]
+        
+        dif = np.interp(np.arange(n), x_pts, y_pts)
+        dea = dif * 0.8
+        hist = (dif - dea) * 2
+        
+        macd_data = {"dif": dif.tolist(), "dea": dea.tolist(), "hist": hist.tolist()}
+        
+        return data, "盘整背驰示意图 (a+A+b)", annotations, shapes, macd_data
+
+    # 场景13：三类买卖点
+    elif scene_name == 'buy_points':
+        # Down Trend -> 1st Buy -> Up -> 2nd Buy -> Up -> 3rd Buy
+        
+        # 1. Down Trend (simplified) 15 -> 10
+        bi1 = _generate_bi(15, 12, 4)
+        bi2 = _generate_bi(12, 13, 4) # Center
+        bi3 = _generate_bi(13, 10, 5) # Divergence Low (1st Buy)
+        
+        # 2. 1st Buy Rebound 10 -> 12.5 (Enter Center 12-13)
+        bi4 = _generate_bi(10, 12.5, 5)
+        
+        # 3. Pullback (2nd Buy) to 11 ( > 10)
+        bi5 = _generate_bi(12.5, 11, 4)
+        
+        # 4. Strong Up (Leave Center) 11 -> 15
+        bi6 = _generate_bi(11, 15, 6)
+        
+        # 5. Pullback (3rd Buy) to 13.5 (> ZG 13)
+        bi7 = _generate_bi(15, 13.5, 4)
+        
+        # 6. Up
+        bi8 = _generate_bi(13.5, 16, 5)
+        
+        data = bi1 + bi2[1:] + bi3[1:] + bi4[1:] + bi5[1:] + bi6[1:] + bi7[1:] + bi8[1:]
+        
+        idx_1 = len(bi1)+len(bi2)+len(bi3)-3 # End of bi3 (Low 10)
+        idx_2 = idx_1 + len(bi4)+len(bi5)-2 # End of bi5 (Low 11)
+        idx_3 = idx_2 + len(bi6)+len(bi7)-2 # End of bi7 (Low 13.5)
+        
+        shapes = [
+            # Center ref
+            dict(type="line", x0=0, y0=13, x1=idx_3, y1=13, line=dict(color="gray", dash="dot")),
+            dict(type="line", x0=0, y0=12, x1=idx_3, y1=12, line=dict(color="gray", dash="dot")),
+        ]
+        annotations = [
+            dict(x=idx_1, y=9.8, text="一买\n(背驰转折)", showarrow=True, ax=0, ay=30, arrowcolor="red"),
+            dict(x=idx_2, y=10.8, text="二买\n(次低点)", showarrow=True, ax=0, ay=30, arrowcolor="red"),
+            dict(x=idx_3, y=13.3, text="三买\n(不回中枢)", showarrow=True, ax=0, ay=30, arrowcolor="red")
+        ]
+        return data, "三类买点综合图解", annotations, shapes
+
+    # 场景13.1：第一类买点详解（背驰）
+    elif scene_name == 'buy_point_1':
+        # 下跌a + 中枢A + 下跌b + 中枢B + 下跌c (背驰)
+        # a: 20 -> 18
+        bi_a = _generate_bi(20, 18, 3)
+        # A: 18 -> 19 -> 17.5 -> 18.5
+        bi_A1 = _generate_bi(18, 19, 3)
+        bi_A2 = _generate_bi(19, 17.5, 3)
+        bi_A3 = _generate_bi(17.5, 18.5, 3)
+        # b: 18.5 -> 14 (Strong)
+        bi_b = _generate_bi(18.5, 14, 5)
+        # B: 14 -> 15 -> 13.5 -> 14.5
+        bi_B1 = _generate_bi(14, 15, 3)
+        bi_B2 = _generate_bi(15, 13.5, 3)
+        bi_B3 = _generate_bi(13.5, 14.5, 3)
+        # c: 14.5 -> 12 (Weak)
+        bi_c = _generate_bi(14.5, 12, 6) # Longer time, less slope
+        
+        data = bi_a + bi_A1[1:] + bi_A2[1:] + bi_A3[1:] + bi_b[1:] + bi_B1[1:] + bi_B2[1:] + bi_B3[1:] + bi_c[1:]
+        
+        idx_b_start = len(bi_a) + len(bi_A1) + len(bi_A2) + len(bi_A3) - 4
+        idx_b_end = idx_b_start + len(bi_b) - 1
+        idx_c_start = idx_b_end + len(bi_B1) + len(bi_B2) + len(bi_B3) - 3
+        idx_c_end = idx_c_start + len(bi_c) - 1
+        
+        shapes = [
+            dict(type="line", x0=idx_b_start, y0=18.5, x1=idx_b_end, y1=14, line=dict(color="blue", width=2), label=dict(text="b段")),
+            dict(type="line", x0=idx_c_start, y0=14.5, x1=idx_c_end, y1=12, line=dict(color="blue", width=2, dash="dot"), label=dict(text="c段")),
+             # Divergence indicator
+            dict(type="line", x0=idx_b_end, y0=13, x1=idx_c_end, y1=12.5, line=dict(color="green", width=1, dash="longdash"), label=dict(text="MACD面积缩小(示意)"))
+        ]
+        annotations = [
+            dict(x=idx_c_end, y=11.5, text="1买：力度衰竭\n(c段斜率缓，跌幅小)", showarrow=True, arrowcolor="red", ax=0, ay=30)
+        ]
+        
+        # MACD Mock Data (Bottom Divergence)
+        n = len(data)
+        x_pts = [0, idx_b_start, idx_b_end, idx_c_start, idx_c_end]
+        # b valley=-2.0, c valley=-1.0 -> Bottom Divergence
+        y_pts = [0, -0.5,        -2.0,       0.5,         -1.0]
+
+        dif = np.interp(np.arange(n), x_pts, y_pts)
+        dea = dif * 0.8
+        hist = (dif - dea) * 2
+        
+        macd_data = {"dif": dif.tolist(), "dea": dea.tolist(), "hist": hist.tolist()}
+        
+        return data, "第一类买点：趋势背驰", annotations, shapes, macd_data
+
+    # 场景13.2：第二类买点详解（确认）
+    elif scene_name == 'buy_point_2':
+        # 1买后反弹 -> 回调不破低
+        # 0. 1买点(10)
+        bi_pre = _generate_bi(12, 10, 4)
+        # 1. First Up (Strong) 10 -> 13
+        bi_up = _generate_bi(10, 13, 5)
+        # 2. Retracement (Weak) 13 -> 11.5 (>10)
+        bi_down = _generate_bi(13, 11.5, 4)
+        # 3. Resume Up
+        bi_resume = _generate_bi(11.5, 14, 4)
+        
+        data = bi_pre + bi_up[1:] + bi_down[1:] + bi_resume[1:]
+        
+        idx_1 = len(bi_pre) - 1 # 1s buy
+        idx_2 = idx_1 + len(bi_up) + len(bi_down) - 2 # 2nd buy
+        
+        shapes = [
+            dict(type="line", x0=0, y0=10, x1=len(data), y1=10, line=dict(color="red", dash="dot", width=1)),
+        ]
+        annotations = [
+            dict(x=idx_1, y=9.8, text="1买(最低点)", showarrow=True, ax=0, ay=20),
+            dict(x=idx_2, y=11.3, text="2买(次低点)\n不破前低=确认", showarrow=True, arrowcolor="red", ax=0, ay=30)
+        ]
+        return data, "第二类买点：回试确认", annotations, shapes
+
+    # 场景13.3：第三类买点详解（主升）
+    elif scene_name == 'buy_point_3':
+        # Box [10, 12] -> Breakout -> Pullback > 12
+        # Box
+        bi1 = _generate_bi(10, 12, 3)
+        bi2 = _generate_bi(12, 10, 3)
+        bi3 = _generate_bi(10, 12, 3)
+        # Breakout
+        bi4 = _generate_bi(12, 15, 5) # Powerful
+        # Pullback
+        bi5 = _generate_bi(15, 12.5, 4) # Low 12.5 > ZG 12
+        # Boom
+        bi6 = _generate_bi(12.5, 18, 6)
+        
+        data = bi1 + bi2[1:] + bi3[1:] + bi4[1:] + bi5[1:] + bi6[1:]
+        
+        idx_3 = len(bi1) + len(bi2) + len(bi3) + len(bi4) + len(bi5) - 5
+        
+        shapes = [
+            dict(type="rect", x0=0, y0=10, x1=len(bi1)+len(bi2)+len(bi3)-2, y1=12, fillcolor="rgba(100,100,100,0.2)", line=dict(width=0)),
+            dict(type="line", x0=0, y0=12, x1=len(data), y1=12, line=dict(color="green", dash="dash", width=1)),
+        ]
+        annotations = [
+             dict(x=len(bi1)+len(bi2)+len(bi3)-2, y=11, text="中枢区间", showarrow=False),
+             dict(x=idx_3, y=12.2, text="3买\n(回踩不进中枢)", showarrow=True, arrowcolor="red", ax=0, ay=30)
+        ]
+        return data, "第三类买点：空中加油", annotations, shapes
+
+
+    # 场景14：同级别分解
+    elif scene_name == 'decomposition_demo':
+        # Up-Down-Up-Down... all same level roughly
+        bi1 = _generate_bi(10, 12, 5)
+        bi2 = _generate_bi(12, 10.5, 5)
+        bi3 = _generate_bi(10.5, 13, 5)
+        bi4 = _generate_bi(13, 11.5, 5)
+        bi5 = _generate_bi(11.5, 14, 5)
+        
+        data = bi1 + bi2[1:] + bi3[1:] + bi4[1:] + bi5[1:]
+        
+        shapes = [
+            dict(type="line", x0=0, y0=10, x1=len(bi1)-1, y1=12, line=dict(color="blue", width=2)),
+            dict(type="line", x0=len(bi1)-1, y0=12, x1=len(bi1)+len(bi2)-2, y1=10.5, line=dict(color="blue", width=2)),
+            # ... and so on
+        ]
+        annotations = [
+            dict(x=10, y=14, text="连接点即买卖点\n机械化操作", showarrow=False)
+        ]
+        return data, "同级别分解示意", annotations, shapes
+
     elif scene_name == 'fenxing_top_strong':
         data = [
             {"open": 10, "high": 11, "low": 9.5, "close": 10.8},   # K1: 阳线

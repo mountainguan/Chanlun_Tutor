@@ -139,14 +139,24 @@ def main_page():
                 scene_name = chart_match.group(1)
                 
                 # 获取动态图表数据
-                data, title, annotations, shapes = get_chart_data(scene_name)
-                if data:
-                    with ui.card().classes('w-full q-my-md p-2 bg-gray-50'):
-                        ui.label(f'【图解】{title}').classes('text-subtitle1 text-grey-8 q-mb-sm')
-                        fig = create_candlestick_chart(data, title, annotations=annotations, shapes=shapes)
-                        ui.plotly(fig).classes('w-full h-80')
+                chart_res = get_chart_data(scene_name)
+                # 解包，支持 4 个或 5 个返回值 (MACD)
+                if len(chart_res) >= 4:
+                    data = chart_res[0]
+                    title = chart_res[1]
+                    annotations = chart_res[2]
+                    shapes = chart_res[3]
+                    macd_data = chart_res[4] if len(chart_res) > 4 else None
+                    
+                    if data:
+                        with ui.card().classes('w-full q-my-md p-2 bg-gray-50'):
+                            ui.label(f'【图解】{title}').classes('text-subtitle1 text-grey-8 q-mb-sm')
+                            fig = create_candlestick_chart(data, title, annotations=annotations, shapes=shapes, macd_data=macd_data)
+                            ui.plotly(fig).classes('w-full h-80')
+                    else:
+                        ui.label(f"⚠️ 暂无图表数据: {scene_name}").classes('text-red')
                 else:
-                    ui.label(f"⚠️ 暂无图表数据: {scene_name}").classes('text-red')
+                     ui.label(f"⚠️ 图表数据格式异常").classes('text-red')
             else:
                 # 普通 Markdown 文本
                 if part:
@@ -167,8 +177,15 @@ def main_page():
                 
                 # 如果题目包含图表数据
                 if q.get('type') == 'chart_recognition' and 'chart_config' in q:
-                    fig = create_candlestick_chart(q['chart_config']['data'], "识别形态")
-                    ui.plotly(fig).classes('w-full h-48')
+                    config = q['chart_config']
+                    fig = create_candlestick_chart(
+                        config['data'], 
+                        "识别形态", 
+                        annotations=config.get('annotations'),
+                        shapes=config.get('shapes'),
+                        macd_data=config.get('macd_data')
+                    )
+                    ui.plotly(fig).classes('w-full h-80')
 
                 # 选项逻辑
                 def check_answer(user_value, options_list, correct_idx, result_label, explain_container, explain_text):
