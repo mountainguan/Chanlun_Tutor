@@ -479,6 +479,11 @@ def main_page():
 
 if __name__ in {"__main__", "__mp_main__"}:
     # Zeabur deployment support: Use PORT env var and bind to 0.0.0.0
-    port = int(os.environ.get('PORT', 8080))
+    try:
+        port = int(os.environ.get('PORT', 8080))
+    except ValueError:
+        # Fallback to default port if PORT env var is not a valid integer (e.g. "${WEB_PORT}")
+        port = 8080
+        
     # reload=False is important for production to avoid file watching errors
     ui.run(title='缠论学习助手', port=port, host='0.0.0.0', reload=False, storage_secret='chanlun-secret')
