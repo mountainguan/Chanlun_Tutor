@@ -133,7 +133,7 @@ def main_page():
         };
         </script>
         <!-- MathJax: 优先本地加载，失败回退 BootCDN -->
-        <script src="/static/tex-chtml.js" id="MathJax-script" async onerror="this.onerror=null;this.src='https://cdn.bootcdn.net/ajax/libs/mathjax/3.2.2/es5/tex-chtml.js';"></script>
+        <script src="/static/tex-chtml.min.js" id="MathJax-script" async onerror="this.onerror=null;this.src='https://cdn.bootcdn.net/ajax/libs/mathjax/4.0.0/tex-chtml.min.js';"></script>
         
         <!-- Plotly Optimization -->
         <script src="/static/plotly.min.js"></script>
