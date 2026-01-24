@@ -263,8 +263,16 @@ def main_page():
                     paper_bgcolor='rgba(0,0,0,0)',
                     plot_bgcolor='rgba(0,0,0,0)',
                     showlegend=False,
-                    dragmode='pan' # 方便移动端拖拽
+                    dragmode=False, # 禁止交互，防止移动端误触
+                    # 移除 ModeBar 工具栏的所有按钮，变相隐藏工具条
+                    modebar=dict(
+                        remove=['zoom', 'pan', 'select', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d', 'toImage', 'hoverClosestCartesian', 'hoverCompareCartesian', 'toggleSpikelines']
+                    )
                 )
+                # 全局禁用缩放和平移
+                fig.update_xaxes(fixedrange=True)
+                fig.update_yaxes(fixedrange=True)
+                
                 ui.plotly(fig).classes('w-full h-full absolute')
 
             # Layer 2: Analysis & Control
