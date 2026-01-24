@@ -45,16 +45,21 @@ def create_candlestick_chart(data, title="K线图展示", annotations=None, shap
         
         # Row 2: MACD
         # Hist
-        colors = ['red' if v > 0 else 'green' for v in macd_data['hist']]
+        # Optimize size: round values to 3 decimal places
+        hist_vals = [round(v, 3) for v in macd_data['hist']]
+        dif_vals = [round(v, 3) for v in macd_data['dif']]
+        dea_vals = [round(v, 3) for v in macd_data['dea']]
+
+        colors = ['red' if v > 0 else 'green' for v in hist_vals]
         fig.add_trace(go.Bar(
-            x=x_vals, y=macd_data['hist'], marker_color=colors, name='MACD柱'
+            x=x_vals, y=hist_vals, marker_color=colors, name='MACD柱'
         ), row=2, col=1)
         # DIF & DEA
         fig.add_trace(go.Scatter(
-            x=x_vals, y=macd_data['dif'], line=dict(color='black', width=1), name='DIF'
+            x=x_vals, y=dif_vals, line=dict(color='black', width=1), name='DIF'
         ), row=2, col=1)
         fig.add_trace(go.Scatter(
-            x=x_vals, y=macd_data['dea'], line=dict(color='orange', width=1), name='DEA'
+            x=x_vals, y=dea_vals, line=dict(color='orange', width=1), name='DEA'
         ), row=2, col=1)
         
         # 隐藏下方子图的Rangeslider

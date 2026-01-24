@@ -4,14 +4,45 @@ import os
 os.environ['MPLCONFIGDIR'] = '/tmp'
 os.environ['XDG_CONFIG_HOME'] = '/tmp'
 
-from nicegui import ui
+from nicegui import ui, app
 import json
 import re
 from utils.charts import create_candlestick_chart, get_demo_fenxing_data, get_chart_data
 from utils.simulator_logic import generate_simulation_data, analyze_action
+import urllib.request
 
 # 获取当前文件所在的目录
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# --- 自动下载静态资源 ---
+def ensure_static_assets():
+    """检查并下载静态资源文件，避免手动下载"""
+    static_dir = os.path.join(BASE_DIR, 'static')
+    if not os.path.exists(static_dir):
+        os.makedirs(static_dir)
+    
+    # 资源配置: 文件名 -> 下载地址
+    assets = [
+        ('plotly.min.js', "https://cdn.bootcdn.net/ajax/libs/plotly.js/3.1.1/plotly.min.js"),
+        ('tex-chtml.min.js', "https://cdn.bootcdn.net/ajax/libs/mathjax/4.0.0/tex-chtml.min.js")
+    ]
+    
+    for filename, url in assets:
+        file_path = os.path.join(static_dir, filename)
+        if not os.path.exists(file_path):
+            print(f"检测到本地缺少 {file_path}，正在自动下载...")
+            try:
+                urllib.request.urlretrieve(url, file_path)
+                print(f"{filename} 下载完成！")
+            except Exception as e:
+                print(f"自动下载 {filename} 失败，将使用在线CDN回退: {e}")
+
+# 确保资源存在
+ensure_static_assets()
+
+# 挂载静态文件目录，用于本地服务 Plotly.js 等资源
+# 请确保下载 plotly.min.js 到 static 目录中
+app.add_static_files('/static', os.path.join(BASE_DIR, 'static'))
 
 # --- 数据加载 ---
 def load_chapter_content(chapter_id):
@@ -90,10 +121,28 @@ def main_page():
             },
             svg: {
                 fontCache: 'global'
+            },
+            // 通过置空 renderActions 彻底移除辅助功能模块的执行，防止浏览器尝试加载 speech-worker.js
+            options: {
+                enableMenu: false,
+                renderActions: {
+                    assistiveMml: [], 
+                    explorer: []
+                }
             }
         };
         </script>
-        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script" async></script>
+        <!-- MathJax: 优先本地加载，失败回退 BootCDN -->
+        <script src="/static/tex-chtml.js" id="MathJax-script" async onerror="this.onerror=null;this.src='https://cdn.bootcdn.net/ajax/libs/mathjax/3.2.2/es5/tex-chtml.js';"></script>
+        
+        <!-- Plotly Optimization -->
+        <script src="/static/plotly.min.js"></script>
+        <script>
+            if (typeof Plotly === 'undefined') {
+                // 如果本地没有，尝试使用 BootCDN (国内速度快)
+                document.write('<script src="https://cdn.bootcdn.net/ajax/libs/plotly.js/3.1.1/plotly.min.js"><\/script>');
+            }
+        </script>
     ''')
 
     # 左侧导航栏 - 重新梳理的目录
@@ -360,7 +409,8 @@ def main_page():
                     ui.markdown(part).classes('w-full nicegui-markdown')
         
         # 页面内容更新后，触发MathJax渲染
-        ui.run_javascript('if (window.MathJax) MathJax.typesetPromise()')
+        # 必须检查 typesetPromise 是否存在，因为 MathJax 可能还在加载中（此时 window.MathJax 是配置对象）
+        ui.run_javascript('if (window.MathJax && window.MathJax.typesetPromise) MathJax.typesetPromise()')
 
     def render_quiz_view():
         questions = load_questions(state.current_chapter)
