@@ -65,11 +65,12 @@ class AppState:
         self.sim_trade_percent = 100 # 交易仓位百分比
         self.sim_stats = {'correct': 0, 'wrong': 0, 'total': 0}
 
-state = AppState()
-
 # --- 界面构建 ---
 @ui.page('/')
 def main_page():
+    # 每个客户端连接创建一个新的状态实例
+    state = AppState()
+
     # 自定义样式
     ui.add_head_html('''
         <style>
