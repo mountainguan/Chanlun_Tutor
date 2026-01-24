@@ -53,6 +53,7 @@ class AppState:
         self.sim_feedback = "点击“开始新游戏”开始模拟交易。"
         self.sim_game_active = False
         self.sim_trade_percent = 100 # 交易仓位百分比
+        self.sim_stats = {'correct': 0, 'wrong': 0, 'total': 0}
 
 state = AppState()
 
@@ -148,6 +149,14 @@ def main_page():
             ui.label(f'持仓市值: {(state.sim_shares * state.sim_data[state.sim_index]["close"]) if state.sim_game_active and state.sim_index < len(state.sim_data) else 0:,.2f}').classes('text-lg')
             ui.label(f'总资产: {(state.sim_balance + (state.sim_shares * state.sim_data[state.sim_index]["close"] if state.sim_game_active and state.sim_index < len(state.sim_data) else 0)):,.2f}').classes('text-xl font-bold text-green-700')
             
+            # 显示操作合理率
+            if state.sim_game_active and (state.sim_stats['correct'] + state.sim_stats['wrong']) > 0:
+                total_rated = state.sim_stats['correct'] + state.sim_stats['wrong']
+                rate = (state.sim_stats['correct'] / total_rated) * 100
+                ui.label(f'操作合理率: {rate:.1f}%').classes('text-lg font-bold text-orange-700')
+            else:
+                 ui.label('操作合理率: --').classes('text-lg text-gray-500')
+
             ui.button('开始新游戏', on_click=start_new_game).props('color=primary icon=restart_alt')
 
         # 游戏区域
@@ -344,6 +353,7 @@ def main_page():
         state.sim_shares = 0
         state.sim_game_active = True
         state.sim_feedback = "游戏开始！请观察当前走势，寻找买卖点。"
+        state.sim_stats = {'correct': 0, 'wrong': 0, 'total': 0}
         render_content()
 
     def process_action(action):
@@ -396,9 +406,20 @@ def main_page():
              trade_msg = "观望"
         
         # 3. 产生评价
-        feedback = analyze_action(action, state.sim_data[:state.sim_index+1], {
+        feedback, score = analyze_action(action, state.sim_data[:state.sim_index+1], {
             k: v[:state.sim_index+1] for k, v in state.sim_macd.items()
         }, state.sim_index)
+        
+        # 更新统计
+        if score == 1:
+            state.sim_stats['correct'] += 1
+            state.sim_stats['total'] += 1
+        elif score == -1:
+            state.sim_stats['wrong'] += 1
+            state.sim_stats['total'] += 1
+        # score == 0 不计入正确或错误，也不增加总数（或者增加总数但不增加分子，视定义而定）
+        # 这里定义：只统计有明确对错的操作，中性操作不拉低也不提高胜率，或者算作Pass
+        # 如果要计算“有效操作合理率”，应该是 correct / (correct + wrong)
         
         state.sim_feedback = f"**操作**: {action.upper()} - {trade_msg}\n\n**分析**: {feedback}"
 

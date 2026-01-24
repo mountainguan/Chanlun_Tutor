@@ -166,42 +166,59 @@ def analyze_action(action, klines, macd_data, current_index):
 
     # 2. 操作评价
     eval_msg = ""
+    score = 0 # 1: 合理/极佳, 0: 普通/中性, -1: 不合理/失误
+    
     if action == 'buy':
         if divergence and "底背驰" in divergence:
             eval_msg = "🔥 **极佳操作**：捕捉到底背驰买点，反转概率大！"
+            score = 1
         elif fenxing == 'bottom' and trend == '多头':
             eval_msg = "✅ **合理操作**：顺势回调底分型买入。"
+            score = 1
         elif fenxing == 'bottom':
             eval_msg = "⚠️ **激进操作**：逆势底分型买入，注意止损。"
+            score = 0
         elif hist > 0 and hist > hist_prev:
             eval_msg = "👌 **追涨操作**：动能增强时买入，谨防回调。"
+            score = 0
         else:
             eval_msg = "❌ **风险操作**：当前缺乏明确买入信号（无底分型或背驰）。"
+            score = -1
             
     elif action == 'sell':
         if divergence and "顶背驰" in divergence:
             eval_msg = "🔥 **极佳操作**：捕捉到顶背驰卖点，逃顶及时！"
+            score = 1
         elif fenxing == 'top' and trend == '空头':
             eval_msg = "✅ **合理操作**：顺势反弹顶分型卖出。"
+            score = 1
         elif fenxing == 'top':
             eval_msg = "⚠️ **谨慎操作**：上升途中的顶分型，可能是中继。"
+            score = 0
         elif hist < 0 and hist < hist_prev:
             eval_msg = "👌 **杀跌操作**：空头增强时离场，规避风险。"
+            score = 0
         else:
             eval_msg = "❓ **疑惑操作**：未见明显卖出信号，或许卖飞。"
+            score = -1
             
     elif action == 'hold':
         if divergence and "底背驰" in divergence:
             eval_msg = "miss **错失良机**：当前出现底背驰，理应尝试买入。"
+            score = -1
         elif divergence and "顶背驰" in divergence:
             eval_msg = "warning **风险提示**：当前出现顶背驰，建议减仓或离场。"
+            score = -1
         elif fenxing == 'bottom' and trend == '多头':
             eval_msg = "info **关注**：多头回调出现底分型，是潜在买点。"
+            score = 0
         elif fenxing == 'top' and trend == '空头':
             eval_msg = "info **关注**：空头反弹出现顶分型，是卖出时机。"
+            score = 0
         else:
             eval_msg = "☕ **观望**：当前走势延续，持仓不动是明智的。"
+            score = 1
 
     msg.append(eval_msg)
     
-    return "\n\n".join(msg)
+    return "\n\n".join(msg), score
