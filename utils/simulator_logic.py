@@ -35,28 +35,53 @@ def generate_simulation_data(initial_price=100, length=300):
     生成模拟的K线数据
     """
     data = []
+    # 确保初始价格在合理范围内 (1~100)
+    initial_price = max(5.0, min(95.0, float(initial_price)))
     price = initial_price
-    trend = 0  # 趋势因子
+    trend = 0  # 趋势因子 (百分比)
     
     for i in range(length):
-        # 随机波动 + 趋势
-        change = np.random.normal(0, 1.0) + trend
+        # 1. 确定今日涨跌停限制 (昨收 * 1.1 / 0.9)
+        # 涨跌幅最大 10%
+        limit_up = round(price * 1.10, 2)
+        limit_down = round(price * 0.90, 2)
         
-        # 偶尔改变趋势
+        # 2. 只有在价格范围内 (1~100) 才有效
+        limit_up = min(limit_up, 100.0)
+        limit_down = max(limit_down, 1.0)
+        
+        # 偶尔改变趋势 (每30天)
         if i % 30 == 0: 
-            trend = np.random.normal(0, 0.2)
+            # 趋势偏置: 每天倾向涨/跌多少百分比 (-1% 到 1%)
+            trend = np.random.normal(0, 0.005) 
             
-        open_p = price
-        close_p = price + change
-        high_p = max(open_p, close_p) + abs(np.random.normal(0, 0.5))
-        low_p = min(open_p, close_p) - abs(np.random.normal(0, 0.5))
+        # 3. 生成开盘价 (Pre-market fluctuation)
+        # 多数时候平开，偶尔小幅高开低开
+        open_shock = np.random.normal(0, 0.005) 
+        open_p = price * (1 + open_shock)
         
-        # 确保价格不为负
-        if low_p <= 0:
-            low_p = 0.01
-            high_p = max(high_p, 0.02)
-            close_p = max(close_p, 0.01)
-            open_p = max(open_p, 0.01)
+        # 4. 生成收盘价 (Day fluctuation based on trend)
+        # 日内波动 ~2% + 趋势
+        day_change = np.random.normal(0, 0.02) + trend
+        close_p = price * (1 + day_change)
+        
+        # 5. 生成最高最低 (High/Low)
+        # 基于open/close 扩展
+        raw_high = max(open_p, close_p) * (1 + abs(np.random.normal(0, 0.01)))
+        raw_low = min(open_p, close_p) * (1 - abs(np.random.normal(0, 0.01)))
+        
+        # 6. 修正所有价格到限制范围内
+        def clamp(val):
+            return max(limit_down, min(limit_up, val))
+            
+        open_p = clamp(open_p)
+        close_p = clamp(close_p)
+        high_p = clamp(raw_high)
+        low_p = clamp(raw_low)
+        
+        # 7. 再次确保逻辑一致性 (H >= max(O,C), L <= min(O,C))
+        high_p = max(high_p, open_p, close_p)
+        low_p = min(low_p, open_p, close_p)
 
         data.append({
             'time': i,
