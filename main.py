@@ -333,7 +333,7 @@ def main_page():
                     ui.label('随机生成历史K线走势，完全模拟真实交易环境').classes('text-base md:text-lg text-gray-600')
                     ui.label('运用分型、笔、线段、中枢理论，通过实战检验你的缠论水平').classes('text-sm md:text-base text-gray-500 text-center max-w-lg')
 
-                ui.button('立即开始挑战', on_click=start_new_game) \
+                ui.button('开始挑战', on_click=start_new_game) \
                     .props('icon=rocket_launch size=lg color=primary glossy push') \
                     .classes('text-lg px-8 py-2 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1')
              return
