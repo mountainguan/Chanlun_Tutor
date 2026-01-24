@@ -97,39 +97,69 @@ def main_page():
     ''')
 
     # 左侧导航栏 - 重新梳理的目录
-    with ui.left_drawer(value=True).classes('w-64') as drawer:
-        ui.label('缠论学习系统').classes('text-h6 q-pa-md')
-        ui.separator()
+    with ui.header(elevated=True).classes('bg-white text-gray-800 border-b border-gray-200 md:hidden'):
+        ui.button(on_click=lambda: drawer.toggle(), icon='menu').props('flat color=primary')
+        ui.label('缠论学习系统').classes('text-lg font-bold text-primary q-ml-sm')
+
+    with ui.left_drawer(value=True).classes('bg-gray-50 border-r border-gray-200') as drawer:
+        ui.label('缠论学习系统').classes('text-h6 q-pa-md text-primary font-bold hidden md:block')
+        ui.separator().classes('hidden md:block')
         
-        with ui.list().classes('w-full'):
-            ui.label('第一卷：分型与笔').classes('q-ml-md text-grey-7 q-mt-sm text-sm')
-            ui.item('第1章：K线包含处理', on_click=lambda: load_chapter('chapter1')).classes('cursor-pointer hover:bg-gray-200')
-            ui.item('第2章：分型', on_click=lambda: load_chapter('chapter2')).classes('cursor-pointer hover:bg-gray-200')
-            ui.item('第3章：笔的定义', on_click=lambda: load_chapter('chapter3')).classes('cursor-pointer hover:bg-gray-200')
-            
-            ui.separator()
-            ui.label('第二卷：线段与中枢').classes('q-ml-md text-grey-7 q-mt-sm text-sm')
-            ui.item('第4章：线段', on_click=lambda: load_chapter('chapter4')).classes('cursor-pointer hover:bg-gray-200')
-            ui.item('第5章：中枢', on_click=lambda: load_chapter('chapter5')).classes('cursor-pointer hover:bg-gray-200')
-            ui.item('第6章：走势类型', on_click=lambda: load_chapter('chapter6')).classes('cursor-pointer hover:bg-gray-200')
-            
-            ui.separator()
-            ui.label('第三卷：动力学与背驰').classes('q-ml-md text-grey-7 q-mt-sm text-sm')
-            ui.item('第7章：背驰', on_click=lambda: load_chapter('chapter7')).classes('cursor-pointer hover:bg-gray-200')
-            ui.item('第8章：区间套与MACD', on_click=lambda: load_chapter('chapter8')).classes('cursor-pointer hover:bg-gray-200')
-            ui.item('第9章：三类买卖点', on_click=lambda: load_chapter('chapter9')).classes('cursor-pointer hover:bg-gray-200')
+        menu_container = ui.column().classes('w-full')
 
-            ui.separator()
-            ui.label('第四卷：实战心法').classes('q-ml-md text-grey-7 q-mt-sm text-sm')
-            ui.item('第10章：同级别分解', on_click=lambda: load_chapter('chapter10')).classes('cursor-pointer hover:bg-gray-200')
-            
-            ui.separator()
-            ui.label('第五卷：实战演练').classes('q-ml-md text-grey-7 q-mt-sm text-sm')
-            ui.item('股票走势模拟器', on_click=lambda: load_chapter('simulator')).classes('cursor-pointer hover:bg-gray-200 font-bold text-blue-800')
-
-    
     # 主要内容容器
     content_container = ui.column().classes('w-full content-area')
+
+    def render_menu():
+        menu_container.clear()
+        
+        chapters_struct = [
+            {'title': '第一卷：分型与笔', 'items': [
+                {'id': 'chapter1', 'label': '第1章：K线包含处理'},
+                {'id': 'chapter2', 'label': '第2章：分型'},
+                {'id': 'chapter3', 'label': '第3章：笔的定义'},
+            ]},
+            {'title': '第二卷：线段与中枢', 'items': [
+                {'id': 'chapter4', 'label': '第4章：线段'},
+                {'id': 'chapter5', 'label': '第5章：中枢'},
+                {'id': 'chapter6', 'label': '第6章：走势类型'},
+            ]},
+            {'title': '第三卷：动力学与背驰', 'items': [
+                {'id': 'chapter7', 'label': '第7章：背驰'},
+                {'id': 'chapter8', 'label': '第8章：区间套与MACD'},
+                {'id': 'chapter9', 'label': '第9章：三类买卖点'},
+            ]},
+            {'title': '第四卷：实战心法', 'items': [
+                {'id': 'chapter10', 'label': '第10章：同级别分解'},
+            ]},
+            {'title': '第五卷：实战演练', 'items': [
+                {'id': 'simulator', 'label': '股票走势模拟器', 'special': True},
+            ]}
+        ]
+
+        with menu_container:
+            for group in chapters_struct:
+                ui.label(group['title']).classes('q-ml-md text-grey-7 q-mt-sm text-sm font-bold')
+                for item in group['items']:
+                    is_active = state.current_chapter == item['id']
+                    
+                    # 动态计算样式
+                    base_classes = 'cursor-pointer q-px-md q-py-sm transition-colors duration-200'
+                    if is_active:
+                        # 选中状态
+                        style_classes = f'{base_classes} bg-blue-100 text-blue-800 border-r-4 border-blue-600 font-medium'
+                    else:
+                        # 未选中状态
+                        style_classes = f'{base_classes} hover:bg-gray-200 text-gray-700'
+                    
+                    # 特殊项目（模拟器）额外样式
+                    if item.get('special'):
+                         if not is_active:
+                             style_classes += ' font-bold text-blue-800'
+                    
+                    ui.label(item['label']) \
+                        .classes(style_classes) \
+                        .on('click', lambda _, i=item['id']: load_chapter(i))
 
     def render_content():
         content_container.clear()
@@ -140,11 +170,11 @@ def main_page():
                 return
 
             # 标题与切换
-            with ui.row().classes('w-full justify-between items-center q-mb-md'):
-                ui.label(f'当前章节: {state.current_chapter}').classes('text-h5')
-                with ui.button_group():
-                    ui.button('学习模式', on_click=lambda: switch_view('learn')).props('outline' if state.current_view != 'learn' else '')
-                    ui.button('实战练习', on_click=lambda: switch_view('quiz')).props('outline' if state.current_view != 'quiz' else '')
+            with ui.row().classes('w-full justify-between items-center q-mb-md wrap gap-2'):
+                ui.label(f'当前章节: {state.current_chapter}').classes('text-h5 font-bold text-gray-800')
+                with ui.button_group().classes('shadow-sm'):
+                    ui.button('学习模式', on_click=lambda: switch_view('learn')).props(f'{"outline" if state.current_view != "learn" else ""} color=primary')
+                    ui.button('实战练习', on_click=lambda: switch_view('quiz')).props(f'{"outline" if state.current_view != "quiz" else ""} color=primary')
 
             if state.current_view == 'learn':
                 render_learning_view()
@@ -153,25 +183,25 @@ def main_page():
 
     def render_simulator_view():
         # --- 1. 顶部紧凑工具栏 ---
-        with ui.row().classes('w-full items-center justify-between q-pa-sm bg-gray-100 rounded-lg shadow-sm q-mb-sm'):
+        with ui.row().classes('w-full items-center justify-between q-pa-sm bg-white rounded-lg shadow-sm border border-gray-100 q-mb-sm'):
             # 左侧：标题 + 核心数据
-            with ui.row().classes('items-center gap-4'):
+            with ui.row().classes('items-center gap-2 md:gap-4'):
                 ui.icon('candlestick_chart', size='sm', color='primary')
-                ui.label('实战模拟').classes('text-lg font-bold text-gray-800')
+                ui.label('实战模拟').classes('text-lg font-bold text-gray-800 hidden md:block') # 移动端隐藏文字节省空间
                 
                 if state.sim_game_active:
-                    ui.separator().props('vertical')
+                    ui.separator().props('vertical').classes('hidden md:block')
                     # 资金
                     with ui.column().classes('gap-0'):
                         ui.label('当前资金').classes('text-xs text-gray-500 line-height-none')
                         ui.label(f'{state.sim_balance:,.0f}').classes('text-sm font-bold text-blue-700 line-height-none')
                     
-                    # 持仓
-                    with ui.column().classes('gap-0'):
+                    # 持仓 (移动端精简显示)
+                    with ui.column().classes('gap-0 hidden md:flex'):
                         ui.label('持仓市值').classes('text-xs text-gray-500 line-height-none')
                         val = (state.sim_shares * state.sim_data[state.sim_index]["close"]) if state.sim_index < len(state.sim_data) else 0
                         ui.label(f'{val:,.0f}').classes('text-sm font-bold text-gray-700 line-height-none')
-
+                    
                     # 胜率
                     with ui.column().classes('gap-0'):
                         ui.label('合理率').classes('text-xs text-gray-500 line-height-none')
@@ -185,23 +215,38 @@ def main_page():
                         ui.label(rate_text).classes(f'text-sm font-bold {color} line-height-none')
             
             # 右侧：新游戏按钮
-            ui.button('重置/新游戏', on_click=start_new_game).props('flat dense icon=restart_alt color=primary').classes('text-sm')
+            ui.button(on_click=start_new_game).props('flat dense icon=restart_alt color=primary round').tooltip('重置/新游戏')
 
         # --- 2. 游戏未开始状态 ---
         if not state.sim_game_active:
-             with ui.column().classes('w-full h-96 items-center justify-center bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl'):
-                ui.icon('sports_esports', size='4xl', color='grey-4')
-                ui.label('请点击上方“新游戏”开始模拟').classes('text-xl text-gray-400 q-mt-md')
+             with ui.column().classes('w-full h-[400px] md:h-[500px] items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-8 shadow-sm'):
+                
+                # 视觉中心图像
+                with ui.element('div').classes('relative w-32 h-32 mb-6 flex items-center justify-center bg-white rounded-full shadow-md'):
+                    ui.icon('ssid_chart', size='4rem').classes('text-blue-500')
+                    # 装饰性小图标
+                    ui.icon('currency_yen', size='1.5rem').classes('absolute -top-2 -right-2 text-yellow-500 bg-yellow-100 rounded-full p-1')
+                    ui.icon('show_chart', size='1.5rem').classes('absolute -bottom-2 -left-2 text-green-500 bg-green-100 rounded-full p-1')
+
+                ui.label('缠论操盘手训练营').classes('text-3xl md:text-4xl font-extrabold text-gray-800 mb-3 tracking-tight')
+                
+                with ui.column().classes('items-center mb-8 gap-1'):
+                    ui.label('随机生成历史K线走势，完全模拟真实交易环境').classes('text-base md:text-lg text-gray-600')
+                    ui.label('运用分型、笔、线段、中枢理论，通过实战检验你的缠论水平').classes('text-sm md:text-base text-gray-500 text-center max-w-lg')
+
+                ui.button('立即开始挑战', on_click=start_new_game) \
+                    .props('icon=rocket_launch size=lg color=primary glossy push') \
+                    .classes('text-lg px-8 py-2 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1')
              return
 
-        # --- 3. 游戏主界面 (垂直布局) ---
+        # --- 3. 游戏主界面 (响应式布局) ---
         with ui.column().classes('w-full gap-4'):
             
             # Layer 1: Chart Area
-            # 固定高度，例如 500px，确保在大多数屏幕上能看清K线
-            with ui.card().classes('w-full h-[500px] p-0 overflow-hidden relative-position border-none shadow-sm'):
+            # 移动端高度较小，桌面端较大
+            with ui.card().classes('w-full h-[350px] md:h-[500px] p-0 overflow-hidden relative-position border-none shadow-sm'):
                 # Data prep
-                visible_start = max(0, state.sim_index - 80)
+                visible_start = max(0, state.sim_index - 80) # 移动端虽然屏幕窄，但Plotly缩放还可以，维持80根
                 visible_end = state.sim_index + 1
                 visible_data = state.sim_data[visible_start:visible_end]
                 visible_macd = {
@@ -213,29 +258,30 @@ def main_page():
                 # Chart creation
                 fig = create_candlestick_chart(visible_data, "", macd_data=visible_macd)
                 fig.update_layout(
-                    margin=dict(l=40, r=20, t=10, b=20),
+                    margin=dict(l=30, r=10, t=10, b=20), # 减小边距
                     height=None, 
                     paper_bgcolor='rgba(0,0,0,0)',
                     plot_bgcolor='rgba(0,0,0,0)',
-                    showlegend=False
+                    showlegend=False,
+                    dragmode='pan' # 方便移动端拖拽
                 )
                 ui.plotly(fig).classes('w-full h-full absolute')
 
-            # Layer 2: Analysis & Control (Composed Component)
-            # 使用 Grid 或 Row 来并排显示 分析解读 和 操作控件
-            with ui.row().classes('w-full items-stretch gap-4 no-wrap h-64'):
+            # Layer 2: Analysis & Control
+            # 移动端: 垂直堆叠 (Wrap), 桌面端: 水平排列 (No-wrap)
+            with ui.row().classes('w-full items-stretch gap-4 md:flex-nowrap flex-wrap'):
                 
-                # Part A: Analysis (Left, Scrollable, 60% Width)
-                with ui.card().classes('col-8 h-full flex flex-col p-3 bg-indigo-50 border-l-4 border-indigo-400 no-wrap'):
+                # Part A: Analysis (移动端占满, 桌面端占2/3)
+                with ui.card().classes('w-full md:w-2/3 min-h-[150px] md:min-h-[250px] flex flex-col p-3 bg-indigo-50 border-l-4 border-indigo-400'):
                     with ui.row().classes('items-center gap-2 q-mb-xs text-indigo-900'):
                         ui.icon('psychology', size='sm')
                         ui.label('分析师解读').classes('font-bold text-base')
                     
-                    with ui.scroll_area().classes('col-grow w-full pr-2'):
+                    with ui.scroll_area().classes('col-grow w-full pr-2 h-32 md:h-auto'): 
                          ui.markdown(state.sim_feedback).classes('text-sm leading-relaxed text-gray-800')
 
-                # Part B: Control Pad (Right, Fixed, 40% Width)
-                with ui.card().classes('col-4 h-full p-4 bg-white shadow-sm flex flex-col justify-between'):
+                # Part B: Control Pad (移动端占满, 桌面端占1/3)
+                with ui.card().classes('w-full md:w-1/3 p-4 bg-white shadow-sm flex flex-col justify-between gap-3'):
                     # Slider
                     with ui.column().classes('w-full gap-1'):
                         with ui.row().classes('justify-between w-full'):
@@ -374,13 +420,26 @@ def main_page():
                     ).classes('q-mt-sm')
 
     # --- 交互动作 ---
-    def load_chapter(chapter_id):
+    async def load_chapter(chapter_id):
         state.current_chapter = chapter_id
         if chapter_id == 'simulator':
             state.current_view = 'simulator'
         else:
             state.current_view = 'learn'
+        
+        # 刷新菜单状态（高亮当前章节）
+        render_menu()
         render_content()
+        
+        # 移动端加载章节后自动收起左侧菜单
+        # 通过 JS 检查屏幕宽度，如果小于 md (768px) 则收起抽屉
+        try:
+            is_mobile = await ui.run_javascript('window.innerWidth < 768')
+            if is_mobile:
+                drawer.value = False
+        except:
+            # 忽略可能的 JS 执行错误（例如连接断开）
+            pass
 
     def switch_view(view_mode):
         state.current_view = view_mode
@@ -476,6 +535,7 @@ def main_page():
 
 
     # 初始化渲染
+    render_menu()
     render_content()
 
 if __name__ in {"__main__", "__mp_main__"}:
