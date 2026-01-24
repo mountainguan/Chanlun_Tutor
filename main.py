@@ -473,4 +473,6 @@ def main_page():
     render_content()
 
 if __name__ in {"__main__", "__mp_main__"}:
-    ui.run(title='缠论学习助手', port=8080)
+    # Zeabur deployment support: Use PORT env var and bind to 0.0.0.0
+    port = int(os.environ.get('PORT', 8080))
+    ui.run(title='缠论学习助手', port=port, host='0.0.0.0')
