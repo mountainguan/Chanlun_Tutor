@@ -5,10 +5,14 @@ import re
 from utils.charts import create_candlestick_chart, get_demo_fenxing_data, get_chart_data
 from utils.simulator_logic import generate_simulation_data, analyze_action
 
+# 获取当前文件所在的目录
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # --- 数据加载 ---
 def load_chapter_content(chapter_id):
     try:
-        with open(f'content/{chapter_id}.md', 'r', encoding='utf-8-sig') as f:
+        file_path = os.path.join(BASE_DIR, 'content', f'{chapter_id}.md')
+        with open(file_path, 'r', encoding='utf-8-sig') as f:
             return f.read()
     except FileNotFoundError:
         return "章节内容未找到。"
@@ -32,7 +36,8 @@ def protect_math_content(text):
 
 def load_questions(chapter_id):
     try:
-        with open(f'questions/{chapter_id}.json', 'r', encoding='utf-8-sig') as f:
+        file_path = os.path.join(BASE_DIR, 'questions', f'{chapter_id}.json')
+        with open(file_path, 'r', encoding='utf-8-sig') as f:
             return json.load(f)
     except FileNotFoundError:
         return []
@@ -467,4 +472,5 @@ def main_page():
     # 初始化渲染
     render_content()
 
-ui.run(title='缠论学习助手', port=8080)
+if __name__ in {"__main__", "__mp_main__"}:
+    ui.run(title='缠论学习助手', port=8080)
