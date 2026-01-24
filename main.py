@@ -7,6 +7,8 @@ os.environ['XDG_CONFIG_HOME'] = '/tmp'
 from nicegui import ui, app
 import json
 import re
+import uuid
+from plotly.utils import PlotlyJSONEncoder
 from utils.charts import create_candlestick_chart, get_demo_fenxing_data, get_chart_data
 from utils.simulator_logic import generate_simulation_data, analyze_action
 import urllib.request
@@ -141,8 +143,26 @@ def main_page():
             if (typeof Plotly === 'undefined') {
                 // 如果本地没有，尝试使用 BootCDN (国内速度快)
                 document.write('<script src="https://cdn.bootcdn.net/ajax/libs/plotly.js/3.1.1/plotly.min.js"><\/script>');
-            }
-        </script>
+            }            
+            // 全局渲染函数：彻底解耦 NiceGUI 的 ui.plotly 依赖
+            window.renderPlotly = function(id, data, layout, config) {
+                // 简单的重试机制，确保 DOM 已创建
+                var attempt = 0;
+                function tryRender() {
+                    var el = document.getElementById(id);
+                    if (el && typeof Plotly !== 'undefined') {
+                        Plotly.newPlot(id, data, layout, config);
+                    } else {
+                        if (attempt < 10) {
+                            attempt++;
+                            setTimeout(tryRender, 50);
+                        } else {
+                            console.error('Plotly render failed: element or library not found', id);
+                        }
+                    }
+                }
+                tryRender();
+            }        </script>
     ''')
 
     # 左侧导航栏 - 重新梳理的目录
@@ -158,6 +178,36 @@ def main_page():
 
     # 主要内容容器
     content_container = ui.column().classes('w-full content-area')
+
+    # --- 自定义 Plotly 渲染组件 ---
+    # 目的：替代 ui.plotly 以避免 NiceGUI 从服务器加载庞大的 plotly.js (1.4MB)，改用本地/CDN静态资源
+    def custom_plotly(fig):
+        # 生成唯一ID
+        chart_id = f"chart_{uuid.uuid4().hex}"
+        
+        # 创建容器 div
+        c = ui.element('div').props(f'id="{chart_id}"')
+        
+        # 处理数据
+        if hasattr(fig, 'to_dict'):
+            fig = fig.to_dict()
+            
+        data = fig.get('data', [])
+        layout = fig.get('layout', {})
+        config = fig.get('config', {'responsive': True, 'displayModeBar': False})
+        
+        # 强制响应式
+        config['responsive'] = True
+        
+        # 序列化数据 (使用 Plotly 专用 Encoder 处理 Numpy 类型)
+        j_data = json.dumps(data, cls=PlotlyJSONEncoder)
+        j_layout = json.dumps(layout, cls=PlotlyJSONEncoder)
+        j_config = json.dumps(config, cls=PlotlyJSONEncoder)
+        
+        # 调用前端渲染
+        ui.run_javascript(f'window.renderPlotly("{chart_id}", {j_data}, {j_layout}, {j_config})')
+        
+        return c
 
     def render_menu():
         menu_container.clear()
@@ -322,7 +372,7 @@ def main_page():
                 fig.update_xaxes(fixedrange=True)
                 fig.update_yaxes(fixedrange=True)
                 
-                ui.plotly(fig).classes('w-full h-full absolute')
+                custom_plotly(fig).classes('w-full h-full absolute')
 
             # Layer 2: Analysis & Control
             # 移动端: 垂直堆叠 (Wrap), 桌面端: 水平排列 (No-wrap)
@@ -398,7 +448,7 @@ def main_page():
                         with ui.card().classes('w-full q-my-md p-2 bg-gray-50'):
                             ui.label(f'【图解】{title}').classes('text-subtitle1 text-grey-8 q-mb-sm')
                             fig = create_candlestick_chart(data, title, annotations=annotations, shapes=shapes, macd_data=macd_data)
-                            ui.plotly(fig).classes('w-full h-80')
+                            custom_plotly(fig).classes('w-full h-80')
                     else:
                         ui.label(f"⚠️ 暂无图表数据: {scene_name}").classes('text-red')
                 else:
@@ -432,7 +482,7 @@ def main_page():
                         shapes=config.get('shapes'),
                         macd_data=config.get('macd_data')
                     )
-                    ui.plotly(fig).classes('w-full h-80')
+                    custom_plotly(fig).classes('w-full h-80')
 
                 # 选项逻辑
                 def check_answer(user_value, options_list, correct_idx, result_label, explain_container, explain_text):
