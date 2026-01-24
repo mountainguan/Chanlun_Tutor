@@ -170,53 +170,53 @@ def analyze_action(action, klines, macd_data, current_index):
     
     if action == 'buy':
         if divergence and "底背驰" in divergence:
-            eval_msg = "🔥 **极佳操作**：捕捉到底背驰买点，反转概率大！"
+            eval_msg = "🔥 **极佳操作 (一买)**：捕捉到底背驰，是缠论定义的第一类买点！"
             score = 1
         elif fenxing == 'bottom' and trend == '多头':
-            eval_msg = "✅ **合理操作**：顺势回调底分型买入。"
+            eval_msg = "✅ **合理操作 (二买/三买)**：多头趋势回调出现的底分型，确认为次级别调整结束。"
             score = 1
         elif fenxing == 'bottom':
-            eval_msg = "⚠️ **激进操作**：逆势底分型买入，注意止损。"
+            eval_msg = "⚠️ **激进操作**：空头趋势下的底分型，若无大级别背驰支持，极可能是下跌中继。"
             score = 0
         elif hist > 0 and hist > hist_prev:
-            eval_msg = "👌 **追涨操作**：动能增强时买入，谨防回调。"
+            eval_msg = "⚠️ **追涨风险**：红柱加速伸长时买入，易买在笔的顶部，非缠论精确买点（应在绿柱缩短或红柱回抽时关注）。"
             score = 0
         else:
-            eval_msg = "❌ **风险操作**：当前缺乏明确买入信号（无底分型或背驰）。"
+            eval_msg = "❌ **无效操作**：当前无结构支持（无底分型、无背驰），属于盲目交易。"
             score = -1
             
     elif action == 'sell':
         if divergence and "顶背驰" in divergence:
-            eval_msg = "🔥 **极佳操作**：捕捉到顶背驰卖点，逃顶及时！"
+            eval_msg = "🔥 **极佳操作 (一卖)**：捕捉到顶背驰，是缠论定义的第一类卖点！"
             score = 1
         elif fenxing == 'top' and trend == '空头':
-            eval_msg = "✅ **合理操作**：顺势反弹顶分型卖出。"
+            eval_msg = "✅ **合理操作 (二卖/三卖)**：空头趋势反弹出现的顶分型，确认为下跌中继。"
             score = 1
         elif fenxing == 'top':
-            eval_msg = "⚠️ **谨慎操作**：上升途中的顶分型，可能是中继。"
+            eval_msg = "⚠️ **谨慎操作**：多头趋势中的顶分型，可能是上涨中继，仅适合短差减仓。"
             score = 0
         elif hist < 0 and hist < hist_prev:
-            eval_msg = "👌 **杀跌操作**：空头增强时离场，规避风险。"
+            eval_msg = "⚠️ **杀跌风险**：绿柱加速伸长时卖出往往滞后，易卖在低位，应在红柱缩短或背驰时离场。"
             score = 0
         else:
-            eval_msg = "❓ **疑惑操作**：未见明显卖出信号，或许卖飞。"
+            eval_msg = "❌ **无效操作**：当前无结构支持（无顶分型、无背驰），属于恐慌性或随意抛售。"
             score = -1
             
     elif action == 'hold':
         if divergence and "底背驰" in divergence:
-            eval_msg = "❌ **错失良机**：当前出现底背驰，理应尝试买入。"
+            eval_msg = "❌ **错失良机**：当前出现底背驰一买信号，理应尝试建仓。"
             score = -1
         elif divergence and "顶背驰" in divergence:
-            eval_msg = "⚠️ **风险提示**：当前出现顶背驰，建议减仓或离场。"
+            eval_msg = "⚠️ **风险提示**：当前出现顶背驰一卖信号，建议减仓或离场。"
             score = -1
         elif fenxing == 'bottom' and trend == '多头':
-            eval_msg = "ℹ️ **关注**：多头回调出现底分型，是潜在买点。"
+            eval_msg = "ℹ️ **关注机会**：多头回调出现底分型，是潜在买点，观望可能踏空。"
             score = 0
         elif fenxing == 'top' and trend == '空头':
-            eval_msg = "ℹ️ **关注**：空头反弹出现顶分型，是卖出时机。"
+            eval_msg = "ℹ️ **关注风险**：空头反弹出现顶分型，是潜在卖点，观望可能坐过山车。"
             score = 0
         else:
-            eval_msg = "☕ **观望**：当前走势延续，持仓不动是明智的。"
+            eval_msg = "☕ **合理观望**：走势延续中或无明确信号，持仓/持币不动是明智的（缠论讲究“不患”）。"
             score = 1
 
     msg.append(eval_msg)
