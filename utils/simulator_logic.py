@@ -1,14 +1,24 @@
 import numpy as np
-import pandas as pd
 import random
 
-def calculate_ema(series, period):
-    return series.ewm(span=period, adjust=False).mean()
+def calculate_ema(values, span):
+    values = np.array(values, dtype=float)
+    if len(values) == 0:
+        return np.array([])
+    alpha = 2 / (span + 1)
+    ema = np.zeros_like(values)
+    ema[0] = values[0]
+    for i in range(1, len(values)):
+        ema[i] = alpha * values[i] + (1 - alpha) * ema[i-1]
+    return ema
 
 def calculate_macd(close_prices, fast_period=12, slow_period=26, signal_period=9):
-    close_series = pd.Series(close_prices)
-    ema_fast = calculate_ema(close_series, fast_period)
-    ema_slow = calculate_ema(close_series, slow_period)
+    values = np.array(close_prices, dtype=float)
+    if len(values) == 0:
+        return {'dif': [], 'dea': [], 'hist': []}
+        
+    ema_fast = calculate_ema(values, fast_period)
+    ema_slow = calculate_ema(values, slow_period)
     
     dif = ema_fast - ema_slow
     dea = calculate_ema(dif, signal_period)

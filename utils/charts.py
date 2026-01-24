@@ -1,6 +1,5 @@
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import pandas as pd
 import numpy as np
 
 def create_candlestick_chart(data, title="K线图展示", annotations=None, shapes=None, macd_data=None):
@@ -13,9 +12,18 @@ def create_candlestick_chart(data, title="K线图展示", annotations=None, shap
     :param macd_data: dict, keys: 'dif', 'dea', 'hist' (lists of values matching data len)
     :return: plotly figure dict or object
     """
-    df = pd.DataFrame(data)
-    # 确保索引是数字，方便画线
-    df.reset_index(drop=True, inplace=True)
+    if not data:
+        x_vals = []
+        opens = []
+        highs = []
+        lows = []
+        closes = []
+    else:
+        x_vals = list(range(len(data)))
+        opens = [d['open'] for d in data]
+        highs = [d['high'] for d in data]
+        lows = [d['low'] for d in data]
+        closes = [d['close'] for d in data]
     
     if macd_data:
         # 创建子图：上K线，下MACD
@@ -29,8 +37,8 @@ def create_candlestick_chart(data, title="K线图展示", annotations=None, shap
         
         # Row 1: K线
         fig.add_trace(go.Candlestick(
-            x=df.index,
-            open=df['open'], high=df['high'], low=df['low'], close=df['close'],
+            x=x_vals,
+            open=opens, high=highs, low=lows, close=closes,
             increasing_line_color='red', decreasing_line_color='green',
             name='K线'
         ), row=1, col=1)
@@ -39,28 +47,31 @@ def create_candlestick_chart(data, title="K线图展示", annotations=None, shap
         # Hist
         colors = ['red' if v > 0 else 'green' for v in macd_data['hist']]
         fig.add_trace(go.Bar(
-            x=df.index, y=macd_data['hist'], marker_color=colors, name='MACD柱'
+            x=x_vals, y=macd_data['hist'], marker_color=colors, name='MACD柱'
         ), row=2, col=1)
         # DIF & DEA
         fig.add_trace(go.Scatter(
-            x=df.index, y=macd_data['dif'], line=dict(color='black', width=1), name='DIF'
+            x=x_vals, y=macd_data['dif'], line=dict(color='black', width=1), name='DIF'
         ), row=2, col=1)
         fig.add_trace(go.Scatter(
-            x=df.index, y=macd_data['dea'], line=dict(color='orange', width=1), name='DEA'
+            x=x_vals, y=macd_data['dea'], line=dict(color='orange', width=1), name='DEA'
         ), row=2, col=1)
         
         # 隐藏下方子图的Rangeslider
         fig.update_layout(xaxis2_rangeslider_visible=False)
-        fig.update_xaxes(showgrid=False, range=[df.index[0]-1, df.index[-1]+1])
+        start_x = x_vals[0] if x_vals else 0
+        end_x = x_vals[-1] if x_vals else 0
+        fig.update_xaxes(showgrid=False, range=[start_x-1, end_x+1])
         
     else:
         # 构建基础K线 (单图)
         fig = go.Figure(data=[go.Candlestick(
-            x=df.index,
-            open=df['open'],
-            high=df['high'],
-            low=df['low'],
-            close=df['close'],
+            x=x_vals,
+            open=opens,
+
+            high=highs,
+            low=lows,
+            close=closes,
             increasing_line_color='red', 
             decreasing_line_color='green',
             name='K线'
