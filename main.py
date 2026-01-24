@@ -1,6 +1,11 @@
+import os
+
+# 配置环境变量以解决云端部署可能的权限问题
+os.environ['MPLCONFIGDIR'] = '/tmp'
+os.environ['XDG_CONFIG_HOME'] = '/tmp'
+
 from nicegui import ui
 import json
-import os
 import re
 from utils.charts import create_candlestick_chart, get_demo_fenxing_data, get_chart_data
 from utils.simulator_logic import generate_simulation_data, analyze_action
@@ -475,4 +480,5 @@ def main_page():
 if __name__ in {"__main__", "__mp_main__"}:
     # Zeabur deployment support: Use PORT env var and bind to 0.0.0.0
     port = int(os.environ.get('PORT', 8080))
-    ui.run(title='缠论学习助手', port=port, host='0.0.0.0')
+    # reload=False is important for production to avoid file watching errors
+    ui.run(title='缠论学习助手', port=port, host='0.0.0.0', reload=False, storage_secret='chanlun-secret')
