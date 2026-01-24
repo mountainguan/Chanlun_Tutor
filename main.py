@@ -3,6 +3,7 @@ import json
 import os
 import re
 from utils.charts import create_candlestick_chart, get_demo_fenxing_data, get_chart_data
+from utils.simulator_logic import generate_simulation_data, analyze_action
 
 # --- 数据加载 ---
 def load_chapter_content(chapter_id):
@@ -39,8 +40,19 @@ def load_questions(chapter_id):
 # --- 状态管理 ---
 class AppState:
     def __init__(self):
-        self.current_chapter = 'chapter1' # 改为第0章开始
-        self.current_view = 'learn' 
+        self.current_chapter = 'chapter1' 
+        self.current_view = 'learn'
+        
+        # 模拟器状态
+        self.sim_data = []      
+        self.sim_macd = {}
+        self.sim_index = 0
+        self.sim_balance = 100000 
+        self.sim_shares = 0
+        self.sim_history = []
+        self.sim_feedback = "点击“开始新游戏”开始模拟交易。"
+        self.sim_game_active = False
+        self.sim_trade_percent = 100 # 交易仓位百分比
 
 state = AppState()
 
@@ -98,6 +110,11 @@ def main_page():
             ui.separator()
             ui.label('第四卷：实战心法').classes('q-ml-md text-grey-7 q-mt-sm text-sm')
             ui.item('第10章：同级别分解', on_click=lambda: load_chapter('chapter10')).classes('cursor-pointer hover:bg-gray-200')
+            
+            ui.separator()
+            ui.label('第五卷：实战演练').classes('q-ml-md text-grey-7 q-mt-sm text-sm')
+            ui.item('股票走势模拟器', on_click=lambda: load_chapter('simulator')).classes('cursor-pointer hover:bg-gray-200 font-bold text-blue-800')
+
     
     # 主要内容容器
     content_container = ui.column().classes('w-full content-area')
@@ -106,6 +123,10 @@ def main_page():
         content_container.clear()
         
         with content_container:
+            if state.current_chapter == 'simulator':
+                render_simulator_view()
+                return
+
             # 标题与切换
             with ui.row().classes('w-full justify-between items-center q-mb-md'):
                 ui.label(f'当前章节: {state.current_chapter}').classes('text-h5')
@@ -117,6 +138,77 @@ def main_page():
                 render_learning_view()
             else:
                 render_quiz_view()
+
+    def render_simulator_view():
+        ui.label('股票走势模拟器 (缠论实战)').classes('text-h4 text-blue-900 q-mb-md')
+        
+        # 顶部状态栏
+        with ui.card().classes('w-full flex row justify-between items-center p-4 bg-blue-50 q-mb-md'):
+            ui.label(f'当前资金: {state.sim_balance:,.2f}').classes('text-lg font-bold')
+            ui.label(f'持仓市值: {(state.sim_shares * state.sim_data[state.sim_index]["close"]) if state.sim_game_active and state.sim_index < len(state.sim_data) else 0:,.2f}').classes('text-lg')
+            ui.label(f'总资产: {(state.sim_balance + (state.sim_shares * state.sim_data[state.sim_index]["close"] if state.sim_game_active and state.sim_index < len(state.sim_data) else 0)):,.2f}').classes('text-xl font-bold text-green-700')
+            
+            ui.button('开始新游戏', on_click=start_new_game).props('color=primary icon=restart_alt')
+
+        # 游戏区域
+        if not state.sim_game_active:
+             ui.label('请点击“开始新游戏”以此开始。系统将随机生成一段走势，你需要根据缠论知识进行买卖操作。').classes('text-gray-600')
+             return
+
+        # 图表
+        # 显示范围：最近80根 + 预留一点空间
+        visible_start = max(0, state.sim_index - 80)
+        visible_end = state.sim_index + 1
+        visible_data = state.sim_data[visible_start:visible_end]
+        
+        visible_macd = {
+            'dif': state.sim_macd['dif'][visible_start:visible_end],
+            'dea': state.sim_macd['dea'][visible_start:visible_end],
+            'hist': state.sim_macd['hist'][visible_start:visible_end]
+        }
+        
+        with ui.card().classes('w-full q-my-md p-2'):
+            fig = create_candlestick_chart(visible_data, "模拟走势", macd_data=visible_macd)
+            ui.plotly(fig).classes('w-full h-96')
+        
+        # 操作与反馈整合区 (交易控制台)
+        with ui.card().classes('w-full q-mt-md p-6 bg-white'):
+             # 第一行：标题 + 仓位
+             with ui.row().classes('w-full items-center justify-between q-mb-md'):
+                 ui.label('🕹️ 交易控制台').classes('text-xl font-bold text-grey-9')
+                 
+                 # 仓位滑块
+                 with ui.row().classes('items-center gap-4 bg-gray-100 p-2 rounded'):
+                     ui.label('仓位控制:').classes('text-sm font-bold text-grey-7')
+                     slider = ui.slider(min=10, max=100, step=10, value=state.sim_trade_percent).props('label-always color=primary').classes('w-48')
+                     slider.bind_value(state, 'sim_trade_percent')
+
+             # 第二行：操作按钮（大按钮横向排列）
+             with ui.row().classes('w-full gap-4 q-mb-md justify-between'):
+                 can_buy = state.sim_balance > 0
+                 ui.button('买入 (Buy)', on_click=lambda: process_action('buy')) \
+                    .props(f'color=red-7 glossy size=lg icon=trending_up {"disabled" if not can_buy else ""}') \
+                    .classes('flex-grow h-16 text-lg')
+                 
+                 ui.button('观望 / 持币 (Hold)', on_click=lambda: process_action('hold')) \
+                    .props('color=grey-7 outline size=lg icon=visibility') \
+                    .classes('flex-grow h-16 text-lg')
+
+                 can_sell = state.sim_shares > 0
+                 ui.button('卖出 (Sell)', on_click=lambda: process_action('sell')) \
+                    .props(f'color=green-7 glossy size=lg icon=trending_down {"disabled" if not can_sell else ""}') \
+                    .classes('flex-grow h-16 text-lg')
+            
+             ui.separator().classes('q-my-md bg-gray-300')
+             
+             # 第三行：分析师实时点评（更突出的显示）
+             with ui.column().classes('w-full bg-blue-50 p-4 rounded border-l-4 border-blue-500'):
+                 with ui.row().classes('items-center gap-2 q-mb-sm'):
+                    ui.icon('psychology', size='md', color='indigo')
+                    ui.label('缠论分析师实时解读').classes('text-lg font-bold text-indigo-900')
+                 
+                 # 使用 markdown 显示富文本反馈
+                 ui.markdown(state.sim_feedback).classes('text-md leading-loose text-gray-800')
 
     def render_learning_view():
         text = load_chapter_content(state.current_chapter)
@@ -233,12 +325,92 @@ def main_page():
     # --- 交互动作 ---
     def load_chapter(chapter_id):
         state.current_chapter = chapter_id
-        state.current_view = 'learn' # 切换章节默认回学习模式
+        if chapter_id == 'simulator':
+            state.current_view = 'simulator'
+        else:
+            state.current_view = 'learn'
         render_content()
 
     def switch_view(view_mode):
         state.current_view = view_mode
         render_content()
+
+    def start_new_game():
+        data, macd = generate_simulation_data(initial_price=20, length=400)
+        state.sim_data = data
+        state.sim_macd = macd
+        state.sim_index = 50 
+        state.sim_balance = 100000
+        state.sim_shares = 0
+        state.sim_game_active = True
+        state.sim_feedback = "游戏开始！请观察当前走势，寻找买卖点。"
+        render_content()
+
+    def process_action(action):
+        if not state.sim_game_active: return
+        
+        # 1. 获取当前价格
+        current_price = state.sim_data[state.sim_index]['close']
+        percent = state.sim_trade_percent / 100.0
+        
+        # 2. 执行交易
+        trade_msg = ""
+        if action == 'buy':
+            if state.sim_balance >= current_price: 
+                # 计算可用资金的百分比用于买入
+                funds_to_use = state.sim_balance * percent
+                shares_to_buy = int(funds_to_use // current_price)
+                
+                if shares_to_buy > 0:
+                    cost = shares_to_buy * current_price
+                    state.sim_balance -= cost
+                    state.sim_shares += shares_to_buy
+                    trade_msg = f"买入 {shares_to_buy} 股 ({state.sim_trade_percent}%)"
+                else:
+                    ui.notify('资金不足以买入一手', type='warning')
+                    return
+            else:
+                ui.notify('资金不足', type='warning')
+                # 买入失败时不推进
+                return 
+                
+        elif action == 'sell':
+            if state.sim_shares > 0:
+                # 计算持仓的百分比用于卖出
+                shares_to_sell = int(state.sim_shares * percent)
+                if shares_to_sell == 0 and state.sim_shares > 0 and percent > 0:
+                     shares_to_sell = 1 # 至少卖一股
+
+                if shares_to_sell > 0:
+                    revenue = shares_to_sell * current_price
+                    state.sim_balance += revenue
+                    state.sim_shares -= shares_to_sell
+                    trade_msg = f"卖出 {shares_to_sell} 股 ({state.sim_trade_percent}%)"
+                else:
+                     ui.notify('卖出数量为0', type='warning')
+                     return
+            else:
+                 ui.notify('没有持仓', type='warning')
+                 return 
+        else:
+             trade_msg = "观望"
+        
+        # 3. 产生评价
+        feedback = analyze_action(action, state.sim_data[:state.sim_index+1], {
+            k: v[:state.sim_index+1] for k, v in state.sim_macd.items()
+        }, state.sim_index)
+        
+        state.sim_feedback = f"**操作**: {action.upper()} - {trade_msg}\n\n**分析**: {feedback}"
+
+        # 4. 推进时间
+        if state.sim_index < len(state.sim_data) - 1:
+            state.sim_index += 1
+        else:
+            state.sim_feedback += "\n\n**游戏结束！数据已走完。**"
+            state.sim_game_active = False
+            
+        render_content()
+
 
     # 初始化渲染
     render_content()
