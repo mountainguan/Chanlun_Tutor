@@ -204,16 +204,16 @@ def analyze_action(action, klines, macd_data, current_index):
             
     elif action == 'hold':
         if divergence and "底背驰" in divergence:
-            eval_msg = "miss **错失良机**：当前出现底背驰，理应尝试买入。"
+            eval_msg = "❌ **错失良机**：当前出现底背驰，理应尝试买入。"
             score = -1
         elif divergence and "顶背驰" in divergence:
-            eval_msg = "warning **风险提示**：当前出现顶背驰，建议减仓或离场。"
+            eval_msg = "⚠️ **风险提示**：当前出现顶背驰，建议减仓或离场。"
             score = -1
         elif fenxing == 'bottom' and trend == '多头':
-            eval_msg = "info **关注**：多头回调出现底分型，是潜在买点。"
+            eval_msg = "ℹ️ **关注**：多头回调出现底分型，是潜在买点。"
             score = 0
         elif fenxing == 'top' and trend == '空头':
-            eval_msg = "info **关注**：空头反弹出现顶分型，是卖出时机。"
+            eval_msg = "ℹ️ **关注**：空头反弹出现顶分型，是卖出时机。"
             score = 0
         else:
             eval_msg = "☕ **观望**：当前走势延续，持仓不动是明智的。"

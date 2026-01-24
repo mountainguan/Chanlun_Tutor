@@ -141,83 +141,114 @@ def main_page():
                 render_quiz_view()
 
     def render_simulator_view():
-        ui.label('股票走势模拟器 (缠论实战)').classes('text-h4 text-blue-900 q-mb-md')
-        
-        # 顶部状态栏
-        with ui.card().classes('w-full flex row justify-between items-center p-4 bg-blue-50 q-mb-md'):
-            ui.label(f'当前资金: {state.sim_balance:,.2f}').classes('text-lg font-bold')
-            ui.label(f'持仓市值: {(state.sim_shares * state.sim_data[state.sim_index]["close"]) if state.sim_game_active and state.sim_index < len(state.sim_data) else 0:,.2f}').classes('text-lg')
-            ui.label(f'总资产: {(state.sim_balance + (state.sim_shares * state.sim_data[state.sim_index]["close"] if state.sim_game_active and state.sim_index < len(state.sim_data) else 0)):,.2f}').classes('text-xl font-bold text-green-700')
+        # --- 1. 顶部紧凑工具栏 ---
+        with ui.row().classes('w-full items-center justify-between q-pa-sm bg-gray-100 rounded-lg shadow-sm q-mb-sm'):
+            # 左侧：标题 + 核心数据
+            with ui.row().classes('items-center gap-4'):
+                ui.icon('candlestick_chart', size='sm', color='primary')
+                ui.label('实战模拟').classes('text-lg font-bold text-gray-800')
+                
+                if state.sim_game_active:
+                    ui.separator().props('vertical')
+                    # 资金
+                    with ui.column().classes('gap-0'):
+                        ui.label('当前资金').classes('text-xs text-gray-500 line-height-none')
+                        ui.label(f'{state.sim_balance:,.0f}').classes('text-sm font-bold text-blue-700 line-height-none')
+                    
+                    # 持仓
+                    with ui.column().classes('gap-0'):
+                        ui.label('持仓市值').classes('text-xs text-gray-500 line-height-none')
+                        val = (state.sim_shares * state.sim_data[state.sim_index]["close"]) if state.sim_index < len(state.sim_data) else 0
+                        ui.label(f'{val:,.0f}').classes('text-sm font-bold text-gray-700 line-height-none')
+
+                    # 胜率
+                    with ui.column().classes('gap-0'):
+                        ui.label('合理率').classes('text-xs text-gray-500 line-height-none')
+                        rate_text = '--'
+                        total = state.sim_stats['correct'] + state.sim_stats['wrong']
+                        if total > 0:
+                            rate = (state.sim_stats['correct'] / total) * 100
+                            rate_text = f'{rate:.0f}%'
+                        
+                        color = 'text-green-600' if total > 0 and rate >= 60 else 'text-orange-600'
+                        ui.label(rate_text).classes(f'text-sm font-bold {color} line-height-none')
             
-            # 显示操作合理率
-            if state.sim_game_active and (state.sim_stats['correct'] + state.sim_stats['wrong']) > 0:
-                total_rated = state.sim_stats['correct'] + state.sim_stats['wrong']
-                rate = (state.sim_stats['correct'] / total_rated) * 100
-                ui.label(f'操作合理率: {rate:.1f}%').classes('text-lg font-bold text-orange-700')
-            else:
-                 ui.label('操作合理率: --').classes('text-lg text-gray-500')
+            # 右侧：新游戏按钮
+            ui.button('重置/新游戏', on_click=start_new_game).props('flat dense icon=restart_alt color=primary').classes('text-sm')
 
-            ui.button('开始新游戏', on_click=start_new_game).props('color=primary icon=restart_alt')
-
-        # 游戏区域
+        # --- 2. 游戏未开始状态 ---
         if not state.sim_game_active:
-             ui.label('请点击“开始新游戏”以此开始。系统将随机生成一段走势，你需要根据缠论知识进行买卖操作。').classes('text-gray-600')
+             with ui.column().classes('w-full h-96 items-center justify-center bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl'):
+                ui.icon('sports_esports', size='4xl', color='grey-4')
+                ui.label('请点击上方“新游戏”开始模拟').classes('text-xl text-gray-400 q-mt-md')
              return
 
-        # 图表
-        # 显示范围：最近80根 + 预留一点空间
-        visible_start = max(0, state.sim_index - 80)
-        visible_end = state.sim_index + 1
-        visible_data = state.sim_data[visible_start:visible_end]
-        
-        visible_macd = {
-            'dif': state.sim_macd['dif'][visible_start:visible_end],
-            'dea': state.sim_macd['dea'][visible_start:visible_end],
-            'hist': state.sim_macd['hist'][visible_start:visible_end]
-        }
-        
-        with ui.card().classes('w-full q-my-md p-2'):
-            fig = create_candlestick_chart(visible_data, "模拟走势", macd_data=visible_macd)
-            ui.plotly(fig).classes('w-full h-96')
-        
-        # 操作与反馈整合区 (交易控制台)
-        with ui.card().classes('w-full q-mt-md p-6 bg-white'):
-             # 第一行：标题 + 仓位
-             with ui.row().classes('w-full items-center justify-between q-mb-md'):
-                 ui.label('🕹️ 交易控制台').classes('text-xl font-bold text-grey-9')
-                 
-                 # 仓位滑块
-                 with ui.row().classes('items-center gap-4 bg-gray-100 p-2 rounded'):
-                     ui.label('仓位控制:').classes('text-sm font-bold text-grey-7')
-                     slider = ui.slider(min=10, max=100, step=10, value=state.sim_trade_percent).props('label-always color=primary').classes('w-48')
-                     slider.bind_value(state, 'sim_trade_percent')
-
-             # 第二行：操作按钮（大按钮横向排列）
-             with ui.row().classes('w-full gap-4 q-mb-md justify-between'):
-                 can_buy = state.sim_balance > 0
-                 ui.button('买入 (Buy)', on_click=lambda: process_action('buy')) \
-                    .props(f'color=red-7 glossy size=lg icon=trending_up {"disabled" if not can_buy else ""}') \
-                    .classes('flex-grow h-16 text-lg')
-                 
-                 ui.button('观望 / 持币 (Hold)', on_click=lambda: process_action('hold')) \
-                    .props('color=grey-7 outline size=lg icon=visibility') \
-                    .classes('flex-grow h-16 text-lg')
-
-                 can_sell = state.sim_shares > 0
-                 ui.button('卖出 (Sell)', on_click=lambda: process_action('sell')) \
-                    .props(f'color=green-7 glossy size=lg icon=trending_down {"disabled" if not can_sell else ""}') \
-                    .classes('flex-grow h-16 text-lg')
+        # --- 3. 游戏主界面 (垂直布局) ---
+        with ui.column().classes('w-full gap-4'):
             
-             ui.separator().classes('q-my-md bg-gray-300')
-             
-             # 第三行：分析师实时点评（更突出的显示）
-             with ui.column().classes('w-full bg-blue-50 p-4 rounded border-l-4 border-blue-500'):
-                 with ui.row().classes('items-center gap-2 q-mb-sm'):
-                    ui.icon('psychology', size='md', color='indigo')
-                    ui.label('缠论分析师实时解读').classes('text-lg font-bold text-indigo-900')
-                 
-                 # 使用 markdown 显示富文本反馈
-                 ui.markdown(state.sim_feedback).classes('text-md leading-loose text-gray-800')
+            # Layer 1: Chart Area
+            # 固定高度，例如 500px，确保在大多数屏幕上能看清K线
+            with ui.card().classes('w-full h-[500px] p-0 overflow-hidden relative-position border-none shadow-sm'):
+                # Data prep
+                visible_start = max(0, state.sim_index - 80)
+                visible_end = state.sim_index + 1
+                visible_data = state.sim_data[visible_start:visible_end]
+                visible_macd = {
+                   'dif': state.sim_macd['dif'][visible_start:visible_end],
+                   'dea': state.sim_macd['dea'][visible_start:visible_end],
+                   'hist': state.sim_macd['hist'][visible_start:visible_end]
+                }
+                
+                # Chart creation
+                fig = create_candlestick_chart(visible_data, "", macd_data=visible_macd)
+                fig.update_layout(
+                    margin=dict(l=40, r=20, t=10, b=20),
+                    height=None, 
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    showlegend=False
+                )
+                ui.plotly(fig).classes('w-full h-full absolute')
+
+            # Layer 2: Analysis & Control (Composed Component)
+            # 使用 Grid 或 Row 来并排显示 分析解读 和 操作控件
+            with ui.row().classes('w-full items-stretch gap-4 no-wrap h-64'):
+                
+                # Part A: Analysis (Left, Scrollable, 60% Width)
+                with ui.card().classes('col-8 h-full flex flex-col p-3 bg-indigo-50 border-l-4 border-indigo-400 no-wrap'):
+                    with ui.row().classes('items-center gap-2 q-mb-xs text-indigo-900'):
+                        ui.icon('psychology', size='sm')
+                        ui.label('分析师解读').classes('font-bold text-base')
+                    
+                    with ui.scroll_area().classes('col-grow w-full pr-2'):
+                         ui.markdown(state.sim_feedback).classes('text-sm leading-relaxed text-gray-800')
+
+                # Part B: Control Pad (Right, Fixed, 40% Width)
+                with ui.card().classes('col-4 h-full p-4 bg-white shadow-sm flex flex-col justify-between'):
+                    # Slider
+                    with ui.column().classes('w-full gap-1'):
+                        with ui.row().classes('justify-between w-full'):
+                            ui.label('仓位控制').classes('text-sm font-bold text-gray-600')
+                            ui.label().bind_text_from(state, 'sim_trade_percent', lambda v: f'{v}%').classes('text-sm font-bold text-primary')
+                        
+                        slider = ui.slider(min=10, max=100, step=10, value=state.sim_trade_percent).props('dense selection-color=primary')
+                        slider.bind_value(state, 'sim_trade_percent')
+
+                    # Buttons
+                    with ui.row().classes('w-full gap-2 no-wrap'):
+                         can_buy = state.sim_balance > 0
+                         ui.button('买入', on_click=lambda: process_action('buy')) \
+                            .props(f'color=red glossy glossy icon=trending_up size=md {"disabled" if not can_buy else ""}') \
+                            .classes('col-grow')
+                         
+                         can_sell = state.sim_shares > 0
+                         ui.button('卖出', on_click=lambda: process_action('sell')) \
+                            .props(f'color=green glossy icon=trending_down size=md {"disabled" if not can_sell else ""}') \
+                            .classes('col-grow')
+                    
+                    ui.button('观望 / 下一根K线', on_click=lambda: process_action('hold')) \
+                        .props('outline color=grey icon=visibility size=md') \
+                        .classes('w-full')
 
     def render_learning_view():
         text = load_chapter_content(state.current_chapter)
