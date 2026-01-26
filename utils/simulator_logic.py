@@ -163,7 +163,7 @@ def check_divergence(klines, macd_data, index, lookback=30):
                     'xref': 'x', 'yref': 'y',
                     'x0': min_prev_idx, 'y0': min_prev_low,
                     'x1': index, 'y1': current_k['low'],
-                    'line': {'color': 'rgb(220, 38, 38)', 'width': 1} # 鲜红
+                    'line': {'color': 'rgb(128, 128, 128)', 'width': 3} # 灰色
                 },
                 # 2. K线图：背驰区间背景 (淡红高亮)
                 {
@@ -174,7 +174,7 @@ def check_divergence(klines, macd_data, index, lookback=30):
                     'y0': min(min_prev_low, current_k['low']) * 0.99, # 稍微扩一点范围
                     'y1': max(min_prev_low, current_k['low']) * 1.01,
                     'fillcolor': 'rgba(254, 202, 202, 0.4)', # Red-200
-                    'line': {'width': 1}
+                    'line': {'width': 0}
                 },
                 # 3. MACD图：背驰连线 (虚线指示)
                 {
@@ -182,7 +182,7 @@ def check_divergence(klines, macd_data, index, lookback=30):
                     'xref': 'x', 'yref': 'y2', # 指向副图Y轴
                     'x0': min_hist_idx, 'y0': min_hist_prev,
                     'x1': index, 'y1': current_hist,
-                    'line': {'color': 'rgb(220, 38, 38)', 'width': 1, 'dash': 'dot'} 
+                    'line': {'color': 'rgb(128, 128, 128)', 'width': 2, 'dash': 'dot'} 
                 }
             ]
             return "底背驰（价格新低但绿柱未加深）", shapes
@@ -213,7 +213,7 @@ def check_divergence(klines, macd_data, index, lookback=30):
                     'xref': 'x', 'yref': 'y',
                     'x0': max_prev_idx, 'y0': max_prev_high,
                     'x1': index, 'y1': current_k['high'],
-                    'line': {'color': 'rgb(22, 163, 74)', 'width': 3} # 鲜绿
+                    'line': {'color': 'rgb(128, 128, 128)', 'width': 3} # 灰色
                 },
                 # 2. K线图：背驰区间背景 (淡绿高亮)
                 {
@@ -232,7 +232,7 @@ def check_divergence(klines, macd_data, index, lookback=30):
                     'xref': 'x', 'yref': 'y2', # 指向副图Y轴
                     'x0': max_hist_idx, 'y0': max_hist_prev,
                     'x1': index, 'y1': current_hist,
-                    'line': {'color': 'rgb(22, 163, 74)', 'width': 2, 'dash': 'dot'}
+                    'line': {'color': 'rgb(128, 128, 128)', 'width': 2, 'dash': 'dot'}
                 }
             ]
             return "顶背驰（价格新高但红柱未增长）", shapes
