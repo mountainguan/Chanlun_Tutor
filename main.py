@@ -10,7 +10,7 @@ import re
 import uuid
 from plotly.utils import PlotlyJSONEncoder
 from utils.charts import create_candlestick_chart, get_demo_fenxing_data, get_chart_data
-from utils.simulator_logic import generate_simulation_data, analyze_action, resample_klines, analyze_advanced_action
+from utils.simulator_logic import generate_simulation_data, analyze_action, resample_klines, analyze_advanced_action, get_chanlun_shapes
 import urllib.request
 
 # 获取当前文件所在的目录
@@ -346,7 +346,7 @@ def main_page():
                     with ui.row().classes('items-center gap-2'):
                          # 切换周期TAB (仅高级模式)
                         if state.sim_mode == 'advanced':
-                            with ui.button_group().props('dense outline'):
+                            with ui.button_group().props('dense outline').classes('hidden md:inline-flex'):
                                 for p, label in [('day','日线'), ('week','周线'), ('month','月线'), ('60d','60分')]:
                                     # 注意：60d这里只是示例，实际逻辑要对应
                                     ui.button(label, on_click=lambda p=p: switch_sim_period(p)).props(f'size=sm {"color=primary" if state.sim_view_period==p else "color=grey outline"}')
@@ -355,32 +355,34 @@ def main_page():
 
         # --- 2. 游戏未开始状态 ---
         if not state.sim_game_active:
-             with ui.column().classes('w-full h-[400px] md:h-[500px] items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-8 shadow-sm'):
+             # 使用 min-h 代替 h，防止内容溢出；padding 在移动端适当减小
+             with ui.column().classes('w-full min-h-[500px] items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-4 md:p-8 shadow-sm'):
                 
                 # 视觉中心图像
-                with ui.element('div').classes('relative w-32 h-32 mb-6 flex items-center justify-center bg-white rounded-full shadow-md'):
-                    ui.icon('ssid_chart', size='4rem').classes('text-blue-500')
+                with ui.element('div').classes('relative w-24 h-24 md:w-32 md:h-32 mb-4 md:mb-6 flex items-center justify-center bg-white rounded-full shadow-md'):
+                    ui.icon('ssid_chart', size='3rem').classes('md:text-6xl text-blue-500')
                     # 装饰性小图标
-                    ui.icon('currency_yen', size='1.5rem').classes('absolute -top-2 -right-2 text-yellow-500 bg-yellow-100 rounded-full p-1')
-                    ui.icon('show_chart', size='1.5rem').classes('absolute -bottom-2 -left-2 text-green-500 bg-green-100 rounded-full p-1')
+                    ui.icon('currency_yen', size='1rem').classes('absolute -top-2 -right-2 text-yellow-500 bg-yellow-100 rounded-full p-1 md:text-2xl')
+                    ui.icon('show_chart', size='1rem').classes('absolute -bottom-2 -left-2 text-green-500 bg-green-100 rounded-full p-1 md:text-2xl')
 
-                ui.label('缠论操盘手训练营').classes('text-3xl md:text-4xl font-extrabold text-gray-800 mb-3 tracking-tight')
+                ui.label('缠论操盘手训练营').classes('text-2xl md:text-4xl font-extrabold text-gray-800 mb-2 md:mb-3 tracking-tight text-center')
                 
-                with ui.column().classes('items-center mb-8 gap-1'):
-                    ui.label('随机生成历史K线走势，完全模拟真实交易环境').classes('text-base md:text-lg text-gray-600')
-                    ui.label('运用分型、笔、线段、中枢理论，通过实战检验你的缠论水平').classes('text-sm md:text-base text-gray-500 text-center max-w-lg')
+                with ui.column().classes('items-center mb-6 md:mb-8 gap-1 w-full px-2'):
+                    ui.label('随机生成历史K线走势，完全模拟真实交易环境').classes('text-sm md:text-lg text-gray-600 text-center')
+                    ui.label('运用分型、笔、线段、中枢理论，通过实战检验你的缠论水平').classes('text-xs md:text-base text-gray-500 text-center max-w-lg leading-relaxed')
                 
                 # 模式选择
-                with ui.row().classes('w-full justify-center gap-4 mb-8'):
-                    with ui.card().classes('w-48 p-4 cursor-pointer hover:shadow-lg transition-all text-center flex flex-col items-center gap-2 group hover:bg-blue-50').on('click', lambda: set_mode('basic')):
+                # 移动端 flex-col (垂直堆叠), 桌面端 flex-row (水平排列)
+                with ui.element('div').classes('w-full flex flex-col md:flex-row justify-center items-center gap-4 mb-4 md:mb-8'):
+                    with ui.card().classes('w-full md:w-48 p-4 cursor-pointer hover:shadow-lg transition-all text-center flex flex-col items-center gap-2 group hover:bg-blue-50 border border-blue-100').on('click', lambda: set_mode('basic')):
                         ui.icon('school', size='lg').classes('text-blue-500 mb-1 group-hover:scale-110 transition-transform')
-                        ui.label('初级模式').classes('font-bold text-xl text-blue-900')
+                        ui.label('初级模式').classes('font-bold text-lg md:text-xl text-blue-900')
                         ui.label('单一K线级别(日线)').classes('text-xs text-gray-500')
                         ui.label('点击直接开始').classes('text-xs text-blue-400 mt-2 font-bold')
 
-                    with ui.card().classes('w-48 p-4 cursor-pointer hover:shadow-lg transition-all text-center flex flex-col items-center gap-2 group hover:bg-purple-50').on('click', lambda: set_mode('advanced')):
+                    with ui.card().classes('w-full md:w-48 p-4 cursor-pointer hover:shadow-lg transition-all text-center flex flex-col items-center gap-2 group hover:bg-purple-50 border border-purple-100').on('click', lambda: set_mode('advanced')):
                         ui.icon('auto_graph', size='lg').classes('text-purple-500 mb-1 group-hover:scale-110 transition-transform')
-                        ui.label('高级模式').classes('font-bold text-xl text-purple-900')
+                        ui.label('高级模式').classes('font-bold text-lg md:text-xl text-purple-900')
                         ui.label('多级别联立(日/周/月)').classes('text-xs text-gray-500')
                         ui.label('点击直接开始').classes('text-xs text-purple-400 mt-2 font-bold')
 
@@ -389,6 +391,13 @@ def main_page():
         # --- 3. 游戏主界面 (响应式布局) ---
         with ui.column().classes('w-full gap-4'):
             
+            # 移动端：显示周期切换TAB (仅高级模式)
+            if state.sim_mode == 'advanced':
+                with ui.row().classes('w-full items-center justify-center md:hidden'):
+                    with ui.button_group().props('spread outline').classes('w-full shadow-sm bg-white'):
+                        for p, label in [('day','日'), ('week','周'), ('month','月'), ('60d','60分')]:
+                            ui.button(label, on_click=lambda p=p: switch_sim_period(p)).props(f'size=md {"color=primary" if state.sim_view_period==p else "color=grey outline"}')
+
             # Layer 1: Chart Area
             # 移动端高度较小，桌面端较大
             with ui.card().classes('w-full h-[250px] md:h-[500px] p-0 overflow-hidden relative-position border-none shadow-sm'):
@@ -414,6 +423,14 @@ def main_page():
                     # 转换高亮形状坐标 (全局索引 -> 视图相对索引)
                     display_shapes = []
                     for s in highlight_shapes:
+                        # 优化：只显示视野范围内的形状，防止旧数据导致的 Y 轴压缩变形
+                        # 如果形状是区间(有x1)，且结束点在视野开始之前，则跳过
+                        if 'x1' in s and s['x1'] < visible_start:
+                            continue
+                        # 如果形状是点(无x1有x0)，且点在视野开始之前，则跳过
+                        if 'x1' not in s and 'x0' in s and s['x0'] < visible_start:
+                            continue
+
                         new_s = s.copy()
                         if 'x0' in new_s: new_s['x0'] -= visible_start
                         if 'x1' in new_s: new_s['x1'] -= visible_start
@@ -457,8 +474,46 @@ def main_page():
                             'hist': target_macd['hist'][visible_start:visible_end]
                         }
                     
-                    # 高级级别暂时不画精细的笔/线段/背驰形状，因为sim_shapes是针对日线的
+                    # 高级级别：实时计算该级别的缠论形态
+                    # 需要传入所有已知数据来进行计算，然后截取显示区域
+                    known_data = target_source[:cut_idx]
+                    
+                    # 构造对应的 known_macd 数据
+                    known_macd = {}
+                    if target_macd and 'dif' in target_macd:
+                        known_macd = {
+                            'dif': target_macd['dif'][:cut_idx],
+                            'dea': target_macd['dea'][:cut_idx],
+                            'hist': target_macd['hist'][:cut_idx]
+                        }
+                        
+                    # 只有数据足够时才计算
                     display_shapes = []
+                    if len(known_data) > 3:
+                        # 计算所有形态
+                        raw_shapes = get_chanlun_shapes(known_data, known_macd, len(known_data)-1)
+                        
+                        # 转换坐标 (从全局索引 -> 视图相对索引)
+                        for s in raw_shapes:
+                            # 过滤：只显示 visible_start 之后的形状
+                            # 对于 type='line'，x0 和 x1 至少有一个在视野内
+                            # 对于 type='rect'，x0 或 x1 在视野内
+                            s_in_view = False
+                            
+                            # 获取形状的时间坐标
+                            x0 = s.get('x0', -999)
+                            x1 = s.get('x1', -999)
+                            
+                            # 简单判断：如果形状右边界在视野左侧之前，则不显示
+                            # 如果形状左边界在视野右侧之后（不可能，因为只计算到 cut_idx），则不显示
+                            if max(x0, x1) >= visible_start:
+                                s_in_view = True
+                                
+                            if s_in_view:
+                                new_s = s.copy()
+                                if 'x0' in new_s: new_s['x0'] -= visible_start
+                                if 'x1' in new_s: new_s['x1'] -= visible_start
+                                display_shapes.append(new_s)
 
                 fig = create_candlestick_chart(chart_data, "", macd_data=chart_macd, shapes=display_shapes)
                 fig.update_layout(

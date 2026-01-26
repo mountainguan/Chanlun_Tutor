@@ -35,8 +35,8 @@ def generate_simulation_data(initial_price=100, length=300):
     生成模拟的K线数据
     """
     data = []
-    # 确保初始价格在合理范围内 (1~100)
-    initial_price = max(5.0, min(95.0, float(initial_price)))
+    # 确保初始价格在合理范围内 (1~1000)
+    initial_price = max(5.0, min(950.0, float(initial_price)))
     price = initial_price
     trend = 0  # 趋势因子 (百分比)
     
@@ -46,8 +46,8 @@ def generate_simulation_data(initial_price=100, length=300):
         limit_up = round(price * 1.10, 2)
         limit_down = round(price * 0.90, 2)
         
-        # 2. 只有在价格范围内 (1~100) 才有效
-        limit_up = min(limit_up, 100.0)
+        # 2. 只有在价格范围内 (1~1000) 才有效
+        limit_up = min(limit_up, 1000.0)
         limit_down = max(limit_down, 1.0)
         
         # 偶尔改变趋势 (每30天)
@@ -424,46 +424,34 @@ def calculate_bi_and_zhongshu_shapes(klines):
 
     return shapes
 
-def analyze_action(action, klines, macd_data, current_index):
+def get_chanlun_shapes(klines, macd_data, current_index):
     """
-    评价用户的操作，结合分型、MACD和背驰
-    action: 'buy', 'sell', 'hold'
-    current_index: 当前K线在总数据中的索引
+    计算并返回K线对应的笔、中枢、分型和背驰形状
+    功能集成，用于任意级别的K线分析
     """
-    # 基础数据准备
-    recent_k = klines[max(0, current_index-2):current_index+1]
-    dif = macd_data['dif'][current_index]
-    dea = macd_data['dea'][current_index]
-    hist = macd_data['hist'][current_index]
-    hist_prev = macd_data['hist'][current_index-1] if current_index > 0 else 0
-    
-    # 形态判断
-    fenxing = identify_fenxing(recent_k)
-    divergence_desc, divergence_shapes = check_divergence(klines, macd_data, current_index)
-
-    # 收集需要高亮的区域形状
     highlight_shapes = []
     
-    # --- 新增：计算笔和中枢 ---
+    # 1. 笔和中枢
     # 为了性能，可以只计算最近的一段，但为了准确性，这里传入全部历史（klines是切片过的）
     # 在模拟器中 current_index < 400 左右，计算开销可控
     bi_zhongshu_shapes = calculate_bi_and_zhongshu_shapes(klines)
     highlight_shapes.extend(bi_zhongshu_shapes)
-    # -----------------------
-
+    
+    # 2. 背驰
+    divergence_desc, divergence_shapes = check_divergence(klines, macd_data, current_index)
     if divergence_shapes:
         highlight_shapes.extend(divergence_shapes)
-
+    
+    # 3. 分型（当前K线）
+    recent_k = klines[max(0, current_index-2):current_index+1]
+    fenxing = identify_fenxing(recent_k)
+    
     if fenxing:
-        # 高亮最近3根K线 (current_index-2 到 current_index)
         k_subset = klines[current_index-2 : current_index+1]
         if k_subset:
             max_h = max(k['high'] for k in k_subset)
             min_l = min(k['low'] for k in k_subset)
             
-            # 底分型用淡红色背景(提示买入?)或者淡绿色，顶分型用淡绿色?
-            # 通常：底分型是买点信号(红)，顶分型是卖点(绿)。
-            # 注意: fillcolor 的 alpha 设置很低以免遮挡 K 线
             if fenxing == 'bottom':
                 box_color = 'rgba(255, 0, 0, 0.1)' # 偏红
                 border_color = 'rgba(255, 0, 0, 0.5)'
@@ -481,6 +469,28 @@ def analyze_action(action, klines, macd_data, current_index):
                 'fillcolor': box_color,
                 'line': {'color': border_color, 'width': 1, 'dash': 'solid'}
             })
+            
+    return highlight_shapes
+
+def analyze_action(action, klines, macd_data, current_index):
+    """
+    评价用户的操作，结合分型、MACD和背驰
+    action: 'buy', 'sell', 'hold'
+    current_index: 当前K线在总数据中的索引
+    """
+    # 基础数据准备
+    recent_k = klines[max(0, current_index-2):current_index+1]
+    dif = macd_data['dif'][current_index]
+    dea = macd_data['dea'][current_index]
+    hist = macd_data['hist'][current_index]
+    hist_prev = macd_data['hist'][current_index-1] if current_index > 0 else 0
+    
+    # 形态判断
+    fenxing = identify_fenxing(recent_k)
+    divergence_desc, divergence_shapes = check_divergence(klines, macd_data, current_index)
+    
+    # 收集需要高亮的区域形状 (使用重构后的函数)
+    highlight_shapes = get_chanlun_shapes(klines, macd_data, current_index)
     
     # 均线辅助 (MA5, MA20)
     closes = [k['close'] for k in klines[:current_index+1]]
