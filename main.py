@@ -344,13 +344,6 @@ def main_page():
 
                     # 右侧按钮组
                     with ui.row().classes('items-center gap-2'):
-                         # 切换周期TAB (仅高级模式)
-                        if state.sim_mode == 'advanced':
-                            with ui.button_group().props('dense outline').classes('hidden md:inline-flex'):
-                                for p, label in [('day','日线'), ('week','周线'), ('month','月线'), ('60d','60分')]:
-                                    # 注意：60d这里只是示例，实际逻辑要对应
-                                    ui.button(label, on_click=lambda p=p: switch_sim_period(p)).props(f'size=sm {"color=primary" if state.sim_view_period==p else "color=grey outline"}')
-
                         ui.button(on_click=start_new_game).props('flat dense icon=restart_alt color=primary round').tooltip('重置/新游戏')
 
         # --- 2. 游戏未开始状态 ---
@@ -391,16 +384,19 @@ def main_page():
         # --- 3. 游戏主界面 (响应式布局) ---
         with ui.column().classes('w-full gap-4'):
             
-            # 移动端：显示周期切换TAB (仅高级模式)
-            if state.sim_mode == 'advanced':
-                with ui.row().classes('w-full items-center justify-center md:hidden'):
-                    with ui.button_group().props('spread outline').classes('w-full shadow-sm bg-white'):
-                        for p, label in [('day','日'), ('week','周'), ('month','月'), ('60d','60分')]:
-                            ui.button(label, on_click=lambda p=p: switch_sim_period(p)).props(f'size=md {"color=primary" if state.sim_view_period==p else "color=grey outline"}')
-
             # Layer 1: Chart Area
             # 移动端高度较小，桌面端较大
-            with ui.card().classes('w-full h-[250px] md:h-[500px] p-0 overflow-hidden relative-position border-none shadow-sm'):
+            # 改为 flex column 布局，确保 toolbar 和 chart 垂直排列且不重叠
+            with ui.card().classes('w-full h-[250px] md:h-[500px] p-0 overflow-hidden relative-position border-none shadow-sm flex flex-col'):
+                
+                # 统一的周期切换工具栏 (所有端可见)
+                if state.sim_mode == 'advanced':
+                    with ui.row().classes('w-full items-center justify-between px-2 py-1 bg-gray-50 border-b'):
+                        ui.label('K线周期').classes('text-xs text-gray-500 font-bold ml-1')
+                        # 使用 flat 无边框风格，更加融入 Toolbar
+                        with ui.button_group().props('flat'):
+                             for p, label in [('day','日线'), ('week','周线'), ('month','月线'), ('60d','60分')]:
+                                ui.button(label, on_click=lambda p=p: switch_sim_period(p)).props(f'size=sm {"color=primary" if state.sim_view_period==p else "color=grey"}')
                 
                 # Determine data source based on current view period
                 # Default is daily
@@ -532,9 +528,18 @@ def main_page():
                 fig.update_xaxes(fixedrange=True)
                 fig.update_yaxes(fixedrange=True)
                 
-                custom_plotly(fig).classes('w-full h-full absolute')
+                # 将图表渲染在一个容器中，并且不使用 absolute
+                # 如果有 toolbar，图表需要减去 toolbar 高度。但最简单的是使用 flex 布局。
+                # 由于外层 card 是 relative-position 且 overflow-hidden
+                # 我们将 card 改为 column flex，这样 Toolbar 和 Chart 自然垂直排列
+                # custom_plotly(fig).classes('w-full h-full absolute') -> Remove absolute, use flex-grow
+                
+                # 注意：外层 card 已经被设置为 p-0。
+                # 我们需要一个占位符来容纳 Plotly，并让它填满剩余空间。
+                with ui.element('div').classes('w-full flex-grow relative'):
+                     custom_plotly(fig).classes('w-full h-full absolute inset-0')
 
-            # Legend
+            # Legend (Outside the card)
             with ui.row().classes('w-full justify-start gap-2 px-2 py-1 text-[10px] text-gray-600 bg-gray-100 rounded-md border border-gray-200'):
                 ui.label('图例:').classes('font-bold mr-1')
                 with ui.row().classes('items-center gap-1.5'):
