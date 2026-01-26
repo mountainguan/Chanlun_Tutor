@@ -239,6 +239,46 @@ def check_divergence(klines, macd_data, index, lookback=30):
             
     return None, []
 
+def resample_klines(daily_data, period):
+    """
+    将日线数据重采样为更大级别的数据 (周K, 月K等)
+    period: 聚合的K线数量，例如 5 (周), 20 (月), 60 (季)
+    """
+    resampled = []
+    if not daily_data:
+        return [], calculate_macd([]) # 返回空MACD结构
+
+    # 按固定周期分块
+    for i in range(0, len(daily_data), period):
+        chunk = daily_data[i : i + period]
+        if not chunk: continue
+        
+        # 聚合
+        open_p = chunk[0]['open']
+        close_p = chunk[-1]['close']
+        high_p = max(d['high'] for d in chunk)
+        low_p = min(d['low'] for d in chunk)
+        
+        # 使用新的索引作为time
+        new_time = len(resampled)
+        
+        resampled.append({
+            'time': new_time,
+            'open': open_p,
+            'high': high_p,
+            'low': low_p,
+            'close': close_p,
+            # 保留原始的对应日线索引范围，用于UI映射
+            'start_day_idx': chunk[0]['time'],
+            'end_day_idx': chunk[-1]['time']
+        })
+        
+    # 计算新级别的MACD
+    closes = [d['close'] for d in resampled]
+    macd = calculate_macd(closes)
+    
+    return resampled, macd
+
 def calculate_bi_and_zhongshu_shapes(klines):
     """
     计算并返回笔（Bi）和中枢（Zhongshu/Box）的形状数据
@@ -525,3 +565,84 @@ def analyze_action(action, klines, macd_data, current_index):
     msg.append(eval_msg)
     
     return "\n\n".join(msg), score, highlight_shapes
+
+def analyze_advanced_action(action, current_idx, day_data, day_macd, week_data, week_macd, month_data, month_macd):
+    """
+    高级模式分析，结合日、周、月线
+    """
+    # 1. 基础日线分析
+    day_msg, day_score, day_shapes = analyze_action(action, day_data, day_macd, current_idx)
+    
+    # 2. 寻找对应的周、月线索引
+    c_time = day_data[current_idx]['time'] # current day index/time
+    
+    # 找到包含 c_time 的周K线
+    week_idx = -1
+    for i, w in enumerate(week_data):
+        if w['start_day_idx'] <= c_time <= w['end_day_idx']:
+            week_idx = i
+            break
+            
+    # 找到包含 c_time 的月K线
+    month_idx = -1
+    for i, m in enumerate(month_data):
+        if m['start_day_idx'] <= c_time <= m['end_day_idx']:
+            month_idx = i
+            break
+            
+    adv_msg = []
+    
+    # 分析大级别趋势
+    week_trend = "无"
+    week_details = []
+    if week_idx >= 0:
+        w_closes = [k['close'] for k in week_data[:week_idx+1]]
+        w_ma5 = sum(w_closes[-5:]) / len(w_closes[-5:]) if len(w_closes)>=5 else w_closes[-1]
+        w_ma20 = sum(w_closes[-20:]) / len(w_closes[-20:]) if len(w_closes)>=20 else w_closes[-1]
+        week_trend = "多头" if w_ma5 > w_ma20 else "空头"
+        
+        # 简单判断周线分型
+        w_fenxing = identify_fenxing(week_data[:week_idx+1])
+        if w_fenxing == 'top': week_details.append("周线顶分型")
+        elif w_fenxing == 'bottom': week_details.append("周线底分型")
+
+    month_trend = "无"
+    if month_idx >= 0:
+        m_closes = [k['close'] for k in month_data[:month_idx+1]]
+        m_ma5 = sum(m_closes[-5:]) / len(m_closes[-5:]) if len(m_closes)>=5 else m_closes[-1]
+        m_ma20 = sum(m_closes[-20:]) / len(m_closes[-20:]) if len(m_closes)>=20 else m_closes[-1]
+        month_trend = "多头" if m_ma5 > m_ma20 else "空头"
+
+    # 生成共振评价
+    resonance_msg = f"**大级别配合**: 周线{week_trend} ({', '.join(week_details)})，月线{month_trend}。" if week_details else f"**大级别配合**: 周线{week_trend}，月线{month_trend}。"
+    
+    bonus_score = 0
+    
+    if action == 'buy':
+        if week_trend == '多头':
+            resonance_msg += " (周线顺势，加分)"
+            bonus_score += 1
+        elif week_trend == '空头':
+            resonance_msg += " (周线逆势，注意快进快出)"
+            
+        # 检查周线底背驰
+        if week_idx > 10:
+            w_div_desc, _ = check_divergence(week_data, week_macd, week_idx, lookback=10)
+            if w_div_desc and "底背驰" in w_div_desc:
+                resonance_msg += " 🔥周线底背驰共振！"
+                bonus_score += 2
+
+    elif action == 'sell':
+        if week_trend == '空头':
+            resonance_msg += " (周线顺势下跌，加分)"
+            bonus_score += 1
+        
+        if week_idx > 10:
+            w_div_desc, _ = check_divergence(week_data, week_macd, week_idx, lookback=10)
+            if w_div_desc and "顶背驰" in w_div_desc:
+                resonance_msg += " 🔥周线顶背驰共振！"
+                bonus_score += 2
+    
+    final_msg = f"{day_msg}\n\n{resonance_msg}"
+    
+    return final_msg, day_score, day_shapes

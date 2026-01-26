@@ -10,7 +10,7 @@ import re
 import uuid
 from plotly.utils import PlotlyJSONEncoder
 from utils.charts import create_candlestick_chart, get_demo_fenxing_data, get_chart_data
-from utils.simulator_logic import generate_simulation_data, analyze_action
+from utils.simulator_logic import generate_simulation_data, analyze_action, resample_klines, analyze_advanced_action
 import urllib.request
 
 # 获取当前文件所在的目录
@@ -87,10 +87,21 @@ class AppState:
         self.current_view = 'learn'
         
         # 模拟器状态
-        self.sim_data = []      
+        self.sim_mode = 'basic' # basic / advanced
+        self.sim_view_period = 'day' # day / week / month / 60d
+
+        self.sim_data = []  
+        self.sim_data_week = []
+        self.sim_data_month = []
+        self.sim_data_60d = []
+        
         self.sim_macd = {}
+        self.sim_macd_week = {}
+        self.sim_macd_month = {}
+        self.sim_macd_60d = {}
+
         self.sim_index = 0
-        self.sim_balance = 100000 
+        self.sim_balance = 100000  
         self.sim_shares = 0
         self.sim_history = []
         self.sim_feedback = "点击“开始新游戏”开始模拟交易。"
@@ -331,8 +342,16 @@ def main_page():
                             color = 'text-green-600' if total > 0 and rate >= 60 else 'text-orange-600'
                             ui.label(rate_text).classes(f'{val_style} {color}')
 
-                    # 右侧按钮
-                    ui.button(on_click=start_new_game).props('flat dense icon=restart_alt color=primary round').classes('ml-1').tooltip('重置/新游戏')
+                    # 右侧按钮组
+                    with ui.row().classes('items-center gap-2'):
+                         # 切换周期TAB (仅高级模式)
+                        if state.sim_mode == 'advanced':
+                            with ui.button_group().props('dense outline'):
+                                for p, label in [('day','日线'), ('week','周线'), ('month','月线'), ('60d','60分')]:
+                                    # 注意：60d这里只是示例，实际逻辑要对应
+                                    ui.button(label, on_click=lambda p=p: switch_sim_period(p)).props(f'size=sm {"color=primary" if state.sim_view_period==p else "color=grey outline"}')
+
+                        ui.button(on_click=start_new_game).props('flat dense icon=restart_alt color=primary round').tooltip('重置/新游戏')
 
         # --- 2. 游戏未开始状态 ---
         if not state.sim_game_active:
@@ -350,10 +369,21 @@ def main_page():
                 with ui.column().classes('items-center mb-8 gap-1'):
                     ui.label('随机生成历史K线走势，完全模拟真实交易环境').classes('text-base md:text-lg text-gray-600')
                     ui.label('运用分型、笔、线段、中枢理论，通过实战检验你的缠论水平').classes('text-sm md:text-base text-gray-500 text-center max-w-lg')
+                
+                # 模式选择
+                with ui.row().classes('w-full justify-center gap-4 mb-8'):
+                    with ui.card().classes('w-48 p-4 cursor-pointer hover:shadow-lg transition-all text-center flex flex-col items-center gap-2 group hover:bg-blue-50').on('click', lambda: set_mode('basic')):
+                        ui.icon('school', size='lg').classes('text-blue-500 mb-1 group-hover:scale-110 transition-transform')
+                        ui.label('初级模式').classes('font-bold text-xl text-blue-900')
+                        ui.label('单一K线级别(日线)').classes('text-xs text-gray-500')
+                        ui.label('点击直接开始').classes('text-xs text-blue-400 mt-2 font-bold')
 
-                ui.button('开始挑战', on_click=start_new_game) \
-                    .props('icon=rocket_launch size=lg color=primary glossy push') \
-                    .classes('text-lg px-8 py-2 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1')
+                    with ui.card().classes('w-48 p-4 cursor-pointer hover:shadow-lg transition-all text-center flex flex-col items-center gap-2 group hover:bg-purple-50').on('click', lambda: set_mode('advanced')):
+                        ui.icon('auto_graph', size='lg').classes('text-purple-500 mb-1 group-hover:scale-110 transition-transform')
+                        ui.label('高级模式').classes('font-bold text-xl text-purple-900')
+                        ui.label('多级别联立(日/周/月)').classes('text-xs text-gray-500')
+                        ui.label('点击直接开始').classes('text-xs text-purple-400 mt-2 font-bold')
+
              return
 
         # --- 3. 游戏主界面 (响应式布局) ---
@@ -362,26 +392,75 @@ def main_page():
             # Layer 1: Chart Area
             # 移动端高度较小，桌面端较大
             with ui.card().classes('w-full h-[250px] md:h-[500px] p-0 overflow-hidden relative-position border-none shadow-sm'):
-                # Data prep
-                visible_start = max(0, state.sim_index - 80) # 移动端虽然屏幕窄，但Plotly缩放还可以，维持80根
-                visible_end = state.sim_index + 1
-                visible_data = state.sim_data[visible_start:visible_end]
-                visible_macd = {
-                   'dif': state.sim_macd['dif'][visible_start:visible_end],
-                   'dea': state.sim_macd['dea'][visible_start:visible_end],
-                   'hist': state.sim_macd['hist'][visible_start:visible_end]
-                }
                 
-                # Chart creation
-                # 转换高亮形状坐标 (全局索引 -> 视图相对索引)
-                display_shapes = []
-                for s in getattr(state, 'sim_shapes', []):
-                    new_s = s.copy()
-                    if 'x0' in new_s: new_s['x0'] -= visible_start
-                    if 'x1' in new_s: new_s['x1'] -= visible_start
-                    display_shapes.append(new_s)
+                # Determine data source based on current view period
+                # Default is daily
+                chart_data = []
+                chart_macd = {}
+                highlight_shapes = getattr(state, 'sim_shapes', [])
+                
+                if state.sim_view_period == 'day':
+                    # 日线模式下，只显示到 sim_index
+                    visible_end = state.sim_index + 1
+                    visible_start = max(0, visible_end - 80)
+                    chart_data = state.sim_data[visible_start:visible_end]
+                    
+                    chart_macd = {
+                        'dif': state.sim_macd['dif'][visible_start:visible_end],
+                        'dea': state.sim_macd['dea'][visible_start:visible_end],
+                        'hist': state.sim_macd['hist'][visible_start:visible_end]
+                    }
+                    
+                    # 转换高亮形状坐标 (全局索引 -> 视图相对索引)
+                    display_shapes = []
+                    for s in highlight_shapes:
+                        new_s = s.copy()
+                        if 'x0' in new_s: new_s['x0'] -= visible_start
+                        if 'x1' in new_s: new_s['x1'] -= visible_start
+                        display_shapes.append(new_s)
+                        
+                elif state.sim_view_period in ['week', 'month', '60d']:
+                    # 高级周期：根据当前日线时间，找到对应的大级别截止时间
+                    # 1. 找到当前日线时间
+                    current_time_idx = state.sim_data[state.sim_index]['time']
+                    
+                    # 2. 确定对应大级别数据的截止索引
+                    target_source = []
+                    target_macd = {}
+                    
+                    if state.sim_view_period == 'week':
+                        target_source = state.sim_data_week
+                        target_macd = state.sim_macd_week
+                    elif state.sim_view_period == 'month':
+                        target_source = state.sim_data_month
+                        target_macd = state.sim_macd_month
+                    elif state.sim_view_period == '60d':
+                        target_source = state.sim_data_60d
+                        target_macd = state.sim_macd_60d
+                        
+                    # 截取到包含当前日期的那一根（或者之前）
+                    cut_idx = 0
+                    for i, k in enumerate(target_source):
+                        if k['start_day_idx'] <= current_time_idx:
+                            cut_idx = i + 1
+                        else:
+                            break
+                    
+                    visible_end = cut_idx
+                    visible_start = max(0, visible_end - 80)
+                    chart_data = target_source[visible_start:visible_end]
+                    
+                    if target_macd and 'dif' in target_macd:
+                        chart_macd = {
+                            'dif': target_macd['dif'][visible_start:visible_end],
+                            'dea': target_macd['dea'][visible_start:visible_end],
+                            'hist': target_macd['hist'][visible_start:visible_end]
+                        }
+                    
+                    # 高级级别暂时不画精细的笔/线段/背驰形状，因为sim_shapes是针对日线的
+                    display_shapes = []
 
-                fig = create_candlestick_chart(visible_data, "", macd_data=visible_macd, shapes=display_shapes)
+                fig = create_candlestick_chart(chart_data, "", macd_data=chart_macd, shapes=display_shapes)
                 fig.update_layout(
                     margin=dict(l=30, r=10, t=10, b=20), # 减小边距
                     height=None, 
@@ -625,11 +704,40 @@ def main_page():
         state.current_view = view_mode
         render_content()
 
+    def set_mode(mode):
+        state.sim_mode = mode
+        start_new_game()
+
+    def switch_sim_period(period):
+        state.sim_view_period = period
+        render_content()
+
     def start_new_game():
-        data, macd = generate_simulation_data(initial_price=20, length=400)
+        # 增加数据长度以支持大级别
+        # 5年数据约为 1250 天，为了保证游戏还能继续玩，生成 2000 天
+        data_len = 2000 if state.sim_mode == 'advanced' else 400
+        data, macd = generate_simulation_data(initial_price=20, length=data_len)
+        
         state.sim_data = data
         state.sim_macd = macd
-        state.sim_index = 50 
+        
+        if state.sim_mode == 'advanced':
+            state.sim_data_week, state.sim_macd_week = resample_klines(data, 5)
+            state.sim_data_month, state.sim_macd_month = resample_klines(data, 20)
+            state.sim_data_60d, state.sim_macd_60d = resample_klines(data, 60)
+            # 高级模式下，初始让时间多走一些，以展示长期趋势（约5年）
+            state.sim_index = 1250
+        else:
+            state.sim_data_week = []
+            state.sim_macd_week = {}
+            state.sim_data_month = []
+            state.sim_macd_month = {}
+            state.sim_data_60d = []
+            state.sim_macd_60d = {}
+            # 初级模式保持较短热身期
+            state.sim_index = 80
+
+        state.sim_balance = 100000
         state.sim_balance = 100000
         state.sim_shares = 0
         state.sim_game_active = True
@@ -688,22 +796,29 @@ def main_page():
              trade_msg = "观望"
         
         # 3. 产生评价
-        feedback, score, shapes = analyze_action(action, state.sim_data[:state.sim_index+1], {
-            k: v[:state.sim_index+1] for k, v in state.sim_macd.items()
-        }, state.sim_index)
+        if state.sim_mode == 'advanced':
+             feedback, score, shapes = analyze_advanced_action(
+                 action, 
+                 state.sim_index, 
+                 state.sim_data[:state.sim_index+1], 
+                 {k: v[:state.sim_index+1] for k, v in state.sim_macd.items()},
+                 state.sim_data_week, state.sim_macd_week,
+                 state.sim_data_month, state.sim_macd_month
+             )
+        else:
+             feedback, score, shapes = analyze_action(action, state.sim_data[:state.sim_index+1], {
+                k: v[:state.sim_index+1] for k, v in state.sim_macd.items()
+             }, state.sim_index)
         
         state.sim_shapes = shapes
         
         # 更新统计
-        if score == 1:
+        if score > 0: # 1 or more (bonus)
             state.sim_stats['correct'] += 1
             state.sim_stats['total'] += 1
         elif score == -1:
             state.sim_stats['wrong'] += 1
             state.sim_stats['total'] += 1
-        # score == 0 不计入正确或错误，也不增加总数（或者增加总数但不增加分子，视定义而定）
-        # 这里定义：只统计有明确对错的操作，中性操作不拉低也不提高胜率，或者算作Pass
-        # 如果要计算“有效操作合理率”，应该是 correct / (correct + wrong)
         
         state.sim_feedback = f"**操作**: {action.upper()} - {trade_msg}\n\n**分析**: {feedback}"
 
