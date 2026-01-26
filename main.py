@@ -388,7 +388,8 @@ def main_page():
             # Layer 1: Chart Area
             # 移动端高度较小，桌面端较大
             # 改为 flex column 布局，确保 toolbar 和 chart 垂直排列且不重叠
-            with ui.card().classes('w-full h-[250px] md:h-[500px] p-0 overflow-hidden relative-position border-none shadow-sm flex flex-col'):
+            # 优化：PC端高度从 500px 减小到 380px，以便一屏显示
+            with ui.card().classes('w-full h-[250px] md:h-[380px] p-0 overflow-hidden relative-position border-none shadow-sm flex flex-col'):
                 
                 # 统一的周期切换工具栏 (所有端可见)
                 if state.sim_mode == 'advanced':
@@ -561,9 +562,9 @@ def main_page():
             with ui.row().classes('w-full items-stretch gap-4 md:flex-nowrap flex-wrap'):
                 
                 # Part A: Analysis (移动端占满, 桌面端占2/3)
-                # 移动端: h-auto min-h-[150px] 让内容自然撑开，不再截断
-                # 桌面端: 保持高度自适应
-                with ui.card().classes('w-full md:w-2/3 h-auto min-h-[150px] md:min-h-[180px] p-2 bg-indigo-50 border-l-4 border-indigo-400 gap-1 no-wrap'):
+                # 移动端: h-auto min-h-[120px] 让内容自然撑开
+                # 桌面端: 高度稍微减小以适应一屏
+                with ui.card().classes('w-full md:w-2/3 h-auto min-h-[120px] md:min-h-[140px] p-2 bg-indigo-50 border-l-4 border-indigo-400 gap-1 no-wrap'):
                     with ui.row().classes('items-center gap-1 text-indigo-900 q-px-xs'):
                         ui.icon('psychology', size='xs')
                         ui.label('分析师解读').classes('font-bold text-xs')
