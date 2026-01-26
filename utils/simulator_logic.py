@@ -39,7 +39,8 @@ def generate_simulation_data(initial_price=100, length=300):
     initial_price = max(5.0, min(950.0, float(initial_price)))
     price = initial_price
     trend = 0  # 趋势因子 (百分比)
-    
+    days_until_change = 0 # 距离下次变盘的天数
+
     for i in range(length):
         # 1. 确定今日涨跌停限制 (昨收 * 1.1 / 0.9)
         # 涨跌幅最大 10%
@@ -50,10 +51,36 @@ def generate_simulation_data(initial_price=100, length=300):
         limit_up = min(limit_up, 1000.0)
         limit_down = max(limit_down, 1.0)
         
-        # 偶尔改变趋势 (每30天)
-        if i % 30 == 0: 
+        # 随机改变趋势 (基于真实市场的变盘周期)
+        if days_until_change <= 0: 
             # 趋势偏置: 每天倾向涨/跌多少百分比 (-1% 到 1%)
-            trend = np.random.normal(0, 0.005) 
+            trend = np.random.normal(0, 0.005)
+            
+            # 根据真实市场规律选择周期类型
+            cycle_type = random.choices(
+                ['short_strong', 'short_std', 'medium_fib', 'medium_month', 'long'],
+                weights=[0.30, 0.35, 0.25, 0.08, 0.02], # 权重：短期波动最常见，中期次之
+                k=1
+            )[0]
+            
+            if cycle_type == 'short_strong':
+                # 3-5个交易日 (强势整理周期)
+                days_until_change = random.randint(3, 5)
+            elif cycle_type == 'short_std':
+                # 5-9个交易日 (常见短线波段)
+                days_until_change = random.randint(5, 9)
+            elif cycle_type == 'medium_fib':
+                # 斐波那契时间窗 (13, 21, 34, 55)，加少量随机扰动
+                base = random.choice([13, 21, 34, 55])
+                days_until_change = base + random.randint(-2, 2)
+            elif cycle_type == 'medium_month':
+                # 1-2个月 (周线级别调整)
+                days_until_change = random.randint(20, 60)
+            else:
+                # 长期 (由于模拟长度限制，适当缩小)
+                days_until_change = random.randint(60, 100)
+        
+        days_until_change -= 1 
             
         # 3. 生成开盘价 (Pre-market fluctuation)
         # 多数时候平开，偶尔小幅高开低开
