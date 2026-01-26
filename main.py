@@ -294,7 +294,8 @@ def main_page():
 
     def render_simulator_view():
         # --- 1. 顶部紧凑工具栏 ---
-        with ui.row().classes('w-full items-center justify-between q-pa-sm bg-white rounded-lg shadow-sm border border-gray-100 q-mb-sm'):
+        # 优化：减少上下内边距 (py-1) 和底部外边距 (mb-1)，节省移动端空间
+        with ui.row().classes('w-full items-center justify-between py-1 px-2 bg-white rounded-lg shadow-sm border border-gray-100 mb-1'):
             
             if not state.sim_game_active:
                 # 游戏未开始：简单标题
@@ -592,11 +593,11 @@ def main_page():
                             # 智能处理换行：保留段落结构，增加段间距
                             html_content = html_content.replace('\n', '<br/>')
                             
-                            # 使用 text-[13px] 提升可读性，relaxed 行高增加呼吸感
-                            ui.html(html_content, sanitize=False).classes('text-[13px] leading-relaxed text-gray-800 font-sans')
+                            # 优化：移动端行间距紧凑 (leading-normal/snug)，桌面端宽松 (leading-relaxed)
+                            ui.html(html_content, sanitize=False).classes('text-[13px] leading-snug md:leading-relaxed text-gray-800 font-sans')
                         else:
                              # 初始状态或纯文本
-                             ui.label(full_text).classes('text-[13px] text-gray-600 leading-relaxed')
+                             ui.label(full_text).classes('text-[13px] text-gray-600 leading-snug md:leading-relaxed')
 
                 # Part B: Control Pad (移动端占满, 桌面端占1/3)
                 with ui.card().classes('w-full md:w-1/3 p-4 bg-white shadow-sm flex flex-col justify-between gap-3'):
