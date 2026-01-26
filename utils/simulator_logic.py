@@ -150,14 +150,41 @@ def check_divergence(klines, macd_data, index, lookback=30):
     if current_k['low'] < min_prev_low:
         # 条件2：MACD绿柱没有创新低 (动能衰竭)
         min_hist_prev = min(prev_hists)
+        
+        # 找到前低MACD的索引，用于画图
+        min_hist_idx_rel = prev_hists.index(min_hist_prev)
+        min_hist_idx = start_lookback + min_hist_idx_rel
+        
         if current_hist < 0 and current_hist > min_hist_prev:
-            shapes = [{
-                'type': 'line',
-                'xref': 'x', 'yref': 'y',
-                'x0': min_prev_idx, 'y0': min_prev_low,
-                'x1': index, 'y1': current_k['low'],
-                'line': {'color': 'rgba(255, 0, 0, 0.8)', 'width': 2, 'dash': 'dot'}
-            }]
+            shapes = [
+                # 1. K线图：背驰连线 (加粗实线)
+                {
+                    'type': 'line',
+                    'xref': 'x', 'yref': 'y',
+                    'x0': min_prev_idx, 'y0': min_prev_low,
+                    'x1': index, 'y1': current_k['low'],
+                    'line': {'color': 'rgb(220, 38, 38)', 'width': 1} # 鲜红
+                },
+                # 2. K线图：背驰区间背景 (淡红高亮)
+                {
+                    'type': 'rect',
+                    'xref': 'x', 'yref': 'y',
+                    'x0': min_prev_idx,
+                    'x1': index,
+                    'y0': min(min_prev_low, current_k['low']) * 0.99, # 稍微扩一点范围
+                    'y1': max(min_prev_low, current_k['low']) * 1.01,
+                    'fillcolor': 'rgba(254, 202, 202, 0.4)', # Red-200
+                    'line': {'width': 1}
+                },
+                # 3. MACD图：背驰连线 (虚线指示)
+                {
+                    'type': 'line',
+                    'xref': 'x', 'yref': 'y2', # 指向副图Y轴
+                    'x0': min_hist_idx, 'y0': min_hist_prev,
+                    'x1': index, 'y1': current_hist,
+                    'line': {'color': 'rgb(220, 38, 38)', 'width': 1, 'dash': 'dot'} 
+                }
+            ]
             return "底背驰（价格新低但绿柱未加深）", shapes
             
     # ---顶背驰判断---
@@ -173,14 +200,41 @@ def check_divergence(klines, macd_data, index, lookback=30):
     if current_k['high'] > max_prev_high:
         # 条件2：MACD红柱没有创新高
         max_hist_prev = max(prev_hists)
+        
+        # 找到前高MACD的索引
+        max_hist_idx_rel = prev_hists.index(max_hist_prev)
+        max_hist_idx = start_lookback + max_hist_idx_rel
+        
         if current_hist > 0 and current_hist < max_hist_prev:
-            shapes = [{
-                'type': 'line',
-                'xref': 'x', 'yref': 'y',
-                'x0': max_prev_idx, 'y0': max_prev_high,
-                'x1': index, 'y1': current_k['high'],
-                'line': {'color': 'rgba(0, 128, 0, 0.8)', 'width': 2, 'dash': 'dot'}
-            }]
+            shapes = [
+                # 1. K线图：背驰连线 (加粗实线)
+                {
+                    'type': 'line',
+                    'xref': 'x', 'yref': 'y',
+                    'x0': max_prev_idx, 'y0': max_prev_high,
+                    'x1': index, 'y1': current_k['high'],
+                    'line': {'color': 'rgb(22, 163, 74)', 'width': 3} # 鲜绿
+                },
+                # 2. K线图：背驰区间背景 (淡绿高亮)
+                {
+                    'type': 'rect',
+                    'xref': 'x', 'yref': 'y',
+                    'x0': max_prev_idx,
+                    'x1': index,
+                    'y0': min(max_prev_high, current_k['high']) * 0.99,
+                    'y1': max(max_prev_high, current_k['high']) * 1.01,
+                    'fillcolor': 'rgba(187, 247, 208, 0.4)', # Green-200
+                    'line': {'width': 0}
+                },
+                # 3. MACD图：背驰连线 (虚线指示)
+                {
+                    'type': 'line',
+                    'xref': 'x', 'yref': 'y2', # 指向副图Y轴
+                    'x0': max_hist_idx, 'y0': max_hist_prev,
+                    'x1': index, 'y1': current_hist,
+                    'line': {'color': 'rgb(22, 163, 74)', 'width': 2, 'dash': 'dot'}
+                }
+            ]
             return "顶背驰（价格新高但红柱未增长）", shapes
             
     return None, []
