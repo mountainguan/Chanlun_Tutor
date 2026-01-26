@@ -344,7 +344,7 @@ def main_page():
             
             # Layer 1: Chart Area
             # 移动端高度较小，桌面端较大
-            with ui.card().classes('w-full h-[350px] md:h-[500px] p-0 overflow-hidden relative-position border-none shadow-sm'):
+            with ui.card().classes('w-full h-[250px] md:h-[500px] p-0 overflow-hidden relative-position border-none shadow-sm'):
                 # Data prep
                 visible_start = max(0, state.sim_index - 80) # 移动端虽然屏幕窄，但Plotly缩放还可以，维持80根
                 visible_end = state.sim_index + 1
@@ -383,18 +383,64 @@ def main_page():
                 
                 custom_plotly(fig).classes('w-full h-full absolute')
 
+            # Legend
+            with ui.row().classes('w-full justify-start gap-2 px-2 py-1 text-[10px] text-gray-600 bg-gray-100 rounded-md border border-gray-200'):
+                ui.label('图例:').classes('font-bold mr-1')
+                with ui.row().classes('items-center gap-1.5'):
+                    ui.element('div').classes('w-4 h-0.5 bg-gray-600')
+                    ui.label('笔(Bi)')
+                with ui.row().classes('items-center gap-1.5'):
+                    ui.element('div').classes('w-3 h-3 bg-orange-200 border border-orange-400 opacity-80')
+                    ui.label('中枢(Box)')
+                with ui.row().classes('items-center gap-1.5'):
+                     ui.element('div').classes('w-3 h-3 bg-green-100 border border-green-600')
+                     ui.label('顶分型')
+                with ui.row().classes('items-center gap-1.5'):
+                     ui.element('div').classes('w-3 h-3 bg-red-100 border border-red-600')
+                     ui.label('底分型')
+
             # Layer 2: Analysis & Control
             # 移动端: 垂直堆叠 (Wrap), 桌面端: 水平排列 (No-wrap)
             with ui.row().classes('w-full items-stretch gap-4 md:flex-nowrap flex-wrap'):
                 
                 # Part A: Analysis (移动端占满, 桌面端占2/3)
-                with ui.card().classes('w-full md:w-2/3 min-h-[150px] md:min-h-[250px] flex flex-col p-3 bg-indigo-50 border-l-4 border-indigo-400'):
-                    with ui.row().classes('items-center gap-2 q-mb-xs text-indigo-900'):
-                        ui.icon('psychology', size='sm')
-                        ui.label('分析师解读').classes('font-bold text-base')
+                # 移动端: h-auto min-h-[150px] 让内容自然撑开，不再截断
+                # 桌面端: 保持高度自适应
+                with ui.card().classes('w-full md:w-2/3 h-auto min-h-[150px] md:min-h-[180px] p-2 bg-indigo-50 border-l-4 border-indigo-400 gap-1 no-wrap'):
+                    with ui.row().classes('items-center gap-1 text-indigo-900 q-px-xs'):
+                        ui.icon('psychology', size='xs')
+                        ui.label('分析师解读').classes('font-bold text-xs')
                     
-                    with ui.scroll_area().classes('col-grow w-full pr-2 h-32 md:h-auto'): 
-                         ui.markdown(state.sim_feedback).classes('text-sm leading-relaxed text-gray-800')
+                    # 移除 scroll_area，改用普通 div 让内容自然撑开高度 (移动端体验更好)
+                    with ui.column().classes('w-full bg-white/60 rounded p-2'):
+                        # 分割内容以进行布局优化
+                        full_text = state.sim_feedback
+                        if "**分析**:" in full_text:
+                            parts = full_text.split("**分析**:")
+                            action_part = parts[0].replace("**操作**:", "").strip()
+                            analysis_part = parts[1].strip()
+                            
+                            # 1. 操作行 - 现代化小卡片样式
+                            # 根据操作类型给不同的颜色装饰
+                            op_style = 'bg-gray-100 text-gray-700 border-gray-200'
+                            if '买' in action_part: op_style = 'bg-red-50 text-red-700 border-red-200'
+                            elif '卖' in action_part: op_style = 'bg-green-50 text-green-700 border-green-200'
+                            
+                            with ui.row().classes(f'w-full items-center px-2 py-1.5 mb-2 rounded border {op_style}'):
+                                ui.icon('touch_app', size='xs').classes('opacity-70')
+                                ui.label(action_part).classes('text-xs font-bold')
+
+                            # 2. 分析行 - 优化排版与字体大小
+                            # 处理加粗样式
+                            html_content = re.sub(r'\*\*(.*?)\*\*', r'<span class="font-bold text-indigo-900">\1</span>', analysis_part)
+                            # 智能处理换行：保留段落结构，增加段间距
+                            html_content = html_content.replace('\n', '<br/>')
+                            
+                            # 使用 text-[13px] 提升可读性，relaxed 行高增加呼吸感
+                            ui.html(html_content, sanitize=False).classes('text-[13px] leading-relaxed text-gray-800 font-sans')
+                        else:
+                             # 初始状态或纯文本
+                             ui.label(full_text).classes('text-[13px] text-gray-600 leading-relaxed')
 
                 # Part B: Control Pad (移动端占满, 桌面端占1/3)
                 with ui.card().classes('w-full md:w-1/3 p-4 bg-white shadow-sm flex flex-col justify-between gap-3'):

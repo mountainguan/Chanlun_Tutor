@@ -185,6 +185,114 @@ def check_divergence(klines, macd_data, index, lookback=30):
             
     return None, []
 
+def calculate_bi_and_zhongshu_shapes(klines):
+    """
+    计算并返回笔（Bi）和中枢（Zhongshu/Box）的形状数据
+    简化版逻辑，仅用于模拟器展示辅助
+    """
+    shapes = []
+    
+    # 1. 识别所有分型点 (Fenxing Points)
+    fenxings = [] # list of {'index': i, 'type': 'top'/'bottom', 'val': price}
+    
+    # 这里需要遍历整个序列来通过交替规则确认笔
+    # 注意：klines 是截止到当前的全部数据，我们重新计算整个历史的笔
+    for i in range(2, len(klines)):
+        subset = klines[i-2 : i+1]
+        fx_type = identify_fenxing(subset)
+        if fx_type:
+            # 简化版笔识别逻辑：
+            # 1. 必须是一顶一底交替
+            # 2. 顶底之间至少间隔一定K线 (这里设为3根，即中间有K线)
+            k2 = subset[1]
+            # k2的索引在全局序列中是 i-1
+            k2_idx = i - 1
+            val = k2['high'] if fx_type == 'top' else k2['low']
+            
+            if not fenxings:
+                # 第一个分型直接接纳
+                fenxings.append({'index': k2_idx, 'type': fx_type, 'val': val})
+            else:
+                last = fenxings[-1]
+                if last['type'] != fx_type:
+                    # 类型不同，检查距离
+                    if k2_idx - last['index'] >= 3:
+                        fenxings.append({'index': k2_idx, 'type': fx_type, 'val': val})
+                    # 如果距离太近，忽略这个新分型（或者这是一个更优的分型？）
+                    # 简化处理：忽略过近的转折
+                else:
+                    # 类型相同，保留更极端的那个
+                    if fx_type == 'top':
+                        if val > last['val']:
+                            fenxings[-1] = {'index': k2_idx, 'type': fx_type, 'val': val}
+                    else:
+                        if val < last['val']:
+                            fenxings[-1] = {'index': k2_idx, 'type': fx_type, 'val': val}
+
+    # 2. 生成笔的连线 (Bi Shapes)
+    bi_segments = [] 
+    for i in range(len(fenxings) - 1):
+        p1 = fenxings[i]
+        p2 = fenxings[i+1]
+        
+        shapes.append({
+            'type': 'line',
+            'xref': 'x', 'yref': 'y',
+            'x0': p1['index'], 'y0': p1['val'],
+            'x1': p2['index'], 'y1': p2['val'],
+            'line': {'color': 'rgba(70, 70, 70, 0.6)', 'width': 2}, # 深灰色实线
+            # 'layer': 'below' # Plotly shape layer (not supported directly in dict always, simplified)
+        })
+        bi_segments.append({
+            'x0': p1['index'], 'y0': p1['val'],
+            'x1': p2['index'], 'y1': p2['val']
+        })
+
+    # 3. 生成中枢矩形 (Zhongshu Shapes)
+    # 逻辑：连续三笔重叠部分
+    if len(bi_segments) >= 3:
+        # 滑动窗口步长为1？还是步长为2？（缠论中枢延续）
+        # 这里简化：每连续三笔检查一次重叠，画一个框
+        # 为了避免重叠框太多，可以做些合并逻辑，但在模拟器中简单画出即可
+        for i in range(len(bi_segments) - 2):
+            b1 = bi_segments[i]
+            b2 = bi_segments[i+1]
+            b3 = bi_segments[i+2]
+            
+            # 计算三笔价格区间的交集
+            # 每一笔的区间
+            r1 = (min(b1['y0'], b1['y1']), max(b1['y0'], b1['y1']))
+            r2 = (min(b2['y0'], b2['y1']), max(b2['y0'], b2['y1']))
+            r3 = (min(b3['y0'], b3['y1']), max(b3['y0'], b3['y1']))
+            
+            overlap_min = max(r1[0], r2[0], r3[0])
+            overlap_max = min(r1[1], r2[1], r3[1])
+            
+            if overlap_min < overlap_max:
+                # 存在有效中枢区域
+                shapes.append({
+                    'type': 'rect',
+                    'xref': 'x', 'yref': 'y',
+                    'x0': b1['x0'], 
+                    'x1': b3['x1'],
+                    'y0': overlap_min,
+                    'y1': overlap_max,
+                    'fillcolor': 'rgba(255, 165, 0, 0.15)', # 橙色半透明
+                    'line': {'width': 0},
+                })
+                # 可选：画边框
+                shapes.append({
+                    'type': 'rect',
+                    'xref': 'x', 'yref': 'y',
+                    'x0': b1['x0'], 
+                    'x1': b3['x1'],
+                    'y0': overlap_min,
+                    'y1': overlap_max,
+                    'line': {'color': 'rgba(255, 165, 0, 0.4)', 'width': 1, 'dash': 'dot'},
+                    'fillcolor': 'rgba(0,0,0,0)' # 透明填充
+                })
+
+    return shapes
 
 def analyze_action(action, klines, macd_data, current_index):
     """
@@ -205,6 +313,14 @@ def analyze_action(action, klines, macd_data, current_index):
 
     # 收集需要高亮的区域形状
     highlight_shapes = []
+    
+    # --- 新增：计算笔和中枢 ---
+    # 为了性能，可以只计算最近的一段，但为了准确性，这里传入全部历史（klines是切片过的）
+    # 在模拟器中 current_index < 400 左右，计算开销可控
+    bi_zhongshu_shapes = calculate_bi_and_zhongshu_shapes(klines)
+    highlight_shapes.extend(bi_zhongshu_shapes)
+    # -----------------------
+
     if divergence_shapes:
         highlight_shapes.extend(divergence_shapes)
 
