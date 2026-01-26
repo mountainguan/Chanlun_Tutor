@@ -542,7 +542,7 @@ def analyze_action(action, klines, macd_data, current_index):
     if fenxing == 'top': status_desc.append("形成顶分型")
     elif fenxing == 'bottom': status_desc.append("形成底分型")
         
-    msg.append(f"**市场状态**: {', '.join(status_desc)} ({trend}排列)")
+    msg.append(f"🧭 **市场状态**: {', '.join(status_desc)} ({trend}排列)")
 
     # 2. 操作评价
     eval_msg = ""
