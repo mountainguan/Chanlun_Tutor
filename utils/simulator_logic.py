@@ -122,39 +122,68 @@ def identify_fenxing(klines):
 
 def check_divergence(klines, macd_data, index, lookback=30):
     """
-    简单的背驰判断
+    检查背驰，返回描述和需要高亮的形状数据
     """
-    if index < lookback: return None
+    if index < lookback: return None, []
     
     current_k = klines[index]
     current_hist = macd_data['hist'][index]
     
     # 以前 lookback 根K线作为参考系
-    prev_klines = klines[index-lookback:index]
-    prev_hists = macd_data['hist'][index-lookback:index]
+    start_lookback = index - lookback
+    prev_klines = klines[start_lookback:index]
+    prev_hists = macd_data['hist'][start_lookback:index]
     
-    if not prev_klines: return None
+    if not prev_klines: return None, []
 
     # ---底背驰判断---
     # 条件1：创新低
-    prev_low = min(k['low'] for k in prev_klines)
-    if current_k['low'] < prev_low:
+    min_prev_low = float('inf')
+    min_prev_idx = -1
+    
+    for i, k in enumerate(prev_klines):
+        if k['low'] < min_prev_low:
+            min_prev_low = k['low']
+            # i 是相对 prev_klines 的索引，min_prev_idx 需要是全局索引
+            min_prev_idx = start_lookback + i
+            
+    if current_k['low'] < min_prev_low:
         # 条件2：MACD绿柱没有创新低 (动能衰竭)
-        # 找到前一段的绿柱极值
         min_hist_prev = min(prev_hists)
         if current_hist < 0 and current_hist > min_hist_prev:
-            return "底背驰（价格新低但绿柱未加深）"
+            shapes = [{
+                'type': 'line',
+                'xref': 'x', 'yref': 'y',
+                'x0': min_prev_idx, 'y0': min_prev_low,
+                'x1': index, 'y1': current_k['low'],
+                'line': {'color': 'rgba(255, 0, 0, 0.8)', 'width': 2, 'dash': 'dot'}
+            }]
+            return "底背驰（价格新低但绿柱未加深）", shapes
             
     # ---顶背驰判断---
     # 条件1：创新高
-    prev_high = max(k['high'] for k in prev_klines)
-    if current_k['high'] > prev_high:
+    max_prev_high = float('-inf')
+    max_prev_idx = -1
+    
+    for i, k in enumerate(prev_klines):
+        if k['high'] > max_prev_high:
+            max_prev_high = k['high']
+            max_prev_idx = start_lookback + i
+            
+    if current_k['high'] > max_prev_high:
         # 条件2：MACD红柱没有创新高
         max_hist_prev = max(prev_hists)
         if current_hist > 0 and current_hist < max_hist_prev:
-            return "顶背驰（价格新高但红柱未增长）"
+            shapes = [{
+                'type': 'line',
+                'xref': 'x', 'yref': 'y',
+                'x0': max_prev_idx, 'y0': max_prev_high,
+                'x1': index, 'y1': current_k['high'],
+                'line': {'color': 'rgba(0, 128, 0, 0.8)', 'width': 2, 'dash': 'dot'}
+            }]
+            return "顶背驰（价格新高但红柱未增长）", shapes
             
-    return None
+    return None, []
 
 
 def analyze_action(action, klines, macd_data, current_index):
@@ -172,7 +201,40 @@ def analyze_action(action, klines, macd_data, current_index):
     
     # 形态判断
     fenxing = identify_fenxing(recent_k)
-    divergence = check_divergence(klines, macd_data, current_index)
+    divergence_desc, divergence_shapes = check_divergence(klines, macd_data, current_index)
+
+    # 收集需要高亮的区域形状
+    highlight_shapes = []
+    if divergence_shapes:
+        highlight_shapes.extend(divergence_shapes)
+
+    if fenxing:
+        # 高亮最近3根K线 (current_index-2 到 current_index)
+        k_subset = klines[current_index-2 : current_index+1]
+        if k_subset:
+            max_h = max(k['high'] for k in k_subset)
+            min_l = min(k['low'] for k in k_subset)
+            
+            # 底分型用淡红色背景(提示买入?)或者淡绿色，顶分型用淡绿色?
+            # 通常：底分型是买点信号(红)，顶分型是卖点(绿)。
+            # 注意: fillcolor 的 alpha 设置很低以免遮挡 K 线
+            if fenxing == 'bottom':
+                box_color = 'rgba(255, 0, 0, 0.1)' # 偏红
+                border_color = 'rgba(255, 0, 0, 0.5)'
+            else:
+                box_color = 'rgba(0, 128, 0, 0.1)' # 偏绿
+                border_color = 'rgba(0, 128, 0, 0.5)'
+            
+            highlight_shapes.append({
+                'type': 'rect',
+                'xref': 'x', 'yref': 'y',
+                'x0': current_index - 2 - 0.4, 
+                'x1': current_index + 0.4,
+                'y0': min_l,
+                'y1': max_h,
+                'fillcolor': box_color,
+                'line': {'color': border_color, 'width': 1, 'dash': 'solid'}
+            })
     
     # 均线辅助 (MA5, MA20)
     closes = [k['close'] for k in klines[:current_index+1]]
@@ -191,8 +253,8 @@ def analyze_action(action, klines, macd_data, current_index):
         if hist < hist_prev: status_desc.append("空头动能增强")
         else: status_desc.append("空头动能衰减")
         
-    if divergence:
-        status_desc.append(f"出现{divergence}")
+    if divergence_desc:
+        status_desc.append(f"出现{divergence_desc}")
     
     if fenxing == 'top': status_desc.append("形成顶分型")
     elif fenxing == 'bottom': status_desc.append("形成底分型")
@@ -204,7 +266,7 @@ def analyze_action(action, klines, macd_data, current_index):
     score = 0 # 1: 合理/极佳, 0: 普通/中性, -1: 不合理/失误
     
     if action == 'buy':
-        if divergence and "底背驰" in divergence:
+        if divergence_desc and "底背驰" in divergence_desc:
             eval_msg = "🔥 **极佳操作 (一买)**：捕捉到底背驰，是缠论定义的第一类买点！"
             score = 1
         elif fenxing == 'bottom' and trend == '多头':
@@ -221,7 +283,7 @@ def analyze_action(action, klines, macd_data, current_index):
             score = -1
             
     elif action == 'sell':
-        if divergence and "顶背驰" in divergence:
+        if divergence_desc and "顶背驰" in divergence_desc:
             eval_msg = "🔥 **极佳操作 (一卖)**：捕捉到顶背驰，是缠论定义的第一类卖点！"
             score = 1
         elif fenxing == 'top' and trend == '空头':
@@ -238,10 +300,10 @@ def analyze_action(action, klines, macd_data, current_index):
             score = -1
             
     elif action == 'hold':
-        if divergence and "底背驰" in divergence:
+        if divergence_desc and "底背驰" in divergence_desc:
             eval_msg = "❌ **错失良机**：当前出现底背驰一买信号，理应尝试建仓。"
             score = -1
-        elif divergence and "顶背驰" in divergence:
+        elif divergence_desc and "顶背驰" in divergence_desc:
             eval_msg = "⚠️ **风险提示**：当前出现顶背驰一卖信号，建议减仓或离场。"
             score = -1
         elif fenxing == 'bottom' and trend == '多头':
@@ -256,4 +318,4 @@ def analyze_action(action, klines, macd_data, current_index):
 
     msg.append(eval_msg)
     
-    return "\n\n".join(msg), score
+    return "\n\n".join(msg), score, highlight_shapes

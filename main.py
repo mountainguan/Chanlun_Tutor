@@ -97,6 +97,7 @@ class AppState:
         self.sim_game_active = False
         self.sim_trade_percent = 100 # 交易仓位百分比
         self.sim_stats = {'correct': 0, 'wrong': 0, 'total': 0}
+        self.sim_shapes = []
 
 # --- 界面构建 ---
 @ui.page('/')
@@ -295,8 +296,8 @@ def main_page():
                         ui.label('当前资金').classes('text-xs text-gray-500 line-height-none')
                         ui.label(f'{state.sim_balance:,.0f}').classes('text-sm font-bold text-blue-700 line-height-none')
                     
-                    # 持仓 (移动端精简显示)
-                    with ui.column().classes('gap-0 hidden md:flex'):
+                    # 持仓
+                    with ui.column().classes('gap-0'):
                         ui.label('持仓市值').classes('text-xs text-gray-500 line-height-none')
                         val = (state.sim_shares * state.sim_data[state.sim_index]["close"]) if state.sim_index < len(state.sim_data) else 0
                         ui.label(f'{val:,.0f}').classes('text-sm font-bold text-gray-700 line-height-none')
@@ -355,7 +356,15 @@ def main_page():
                 }
                 
                 # Chart creation
-                fig = create_candlestick_chart(visible_data, "", macd_data=visible_macd)
+                # 转换高亮形状坐标 (全局索引 -> 视图相对索引)
+                display_shapes = []
+                for s in getattr(state, 'sim_shapes', []):
+                    new_s = s.copy()
+                    if 'x0' in new_s: new_s['x0'] -= visible_start
+                    if 'x1' in new_s: new_s['x1'] -= visible_start
+                    display_shapes.append(new_s)
+
+                fig = create_candlestick_chart(visible_data, "", macd_data=visible_macd, shapes=display_shapes)
                 fig.update_layout(
                     margin=dict(l=30, r=10, t=10, b=20), # 减小边距
                     height=None, 
@@ -563,6 +572,7 @@ def main_page():
         state.sim_game_active = True
         state.sim_feedback = "游戏开始！请观察当前走势，寻找买卖点。"
         state.sim_stats = {'correct': 0, 'wrong': 0, 'total': 0}
+        state.sim_shapes = []
         render_content()
 
     def process_action(action):
@@ -615,9 +625,11 @@ def main_page():
              trade_msg = "观望"
         
         # 3. 产生评价
-        feedback, score = analyze_action(action, state.sim_data[:state.sim_index+1], {
+        feedback, score, shapes = analyze_action(action, state.sim_data[:state.sim_index+1], {
             k: v[:state.sim_index+1] for k, v in state.sim_macd.items()
         }, state.sim_index)
+        
+        state.sim_shapes = shapes
         
         # 更新统计
         if score == 1:
