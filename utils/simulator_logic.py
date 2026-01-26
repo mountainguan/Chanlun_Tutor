@@ -550,136 +550,207 @@ def analyze_action(action, klines, macd_data, current_index):
     
     if action == 'buy':
         if divergence_desc and "底背驰" in divergence_desc:
-            eval_msg = "🔥 **极佳操作 (一买)**：捕捉到底背驰，是缠论定义的第一类买点！"
+            eval_msg = "🔥 **极佳操作 (一买)**：背驰引发转折，精准捕捉第一类买点。次级别走势背驰确立，当下买入符合区间套定位。"
             score = 1
         elif fenxing == 'bottom' and trend == '多头':
-            eval_msg = "✅ **合理操作 (二买/三买)**：多头趋势回调出现的底分型，确认为次级别调整结束。"
+            eval_msg = "✅ **顺势操作 (二买/三买)**：在上涨中枢上方/附近出现底分型，确认为次级别回调结束，顺势介入坐享主升浪。"
             score = 1
         elif fenxing == 'bottom':
-            eval_msg = "⚠️ **激进操作**：空头趋势下的底分型，若无大级别背驰支持，极可能是下跌中继。"
+            eval_msg = "⚠️ **中继风险 (下跌中继)**：空头中枢压制下的底分型，往往是下跌中继而非反转，需警惕形成第三类卖点。" # 修正为更专业的表述
             score = 0
         elif hist > 0 and hist > hist_prev:
-            eval_msg = "⚠️ **追涨风险**：红柱加速伸长时买入，易买在笔的顶部，非缠论精确买点（应在绿柱缩短或红柱回抽时关注）。"
+            eval_msg = "⚠️ **追涨风险**：红柱加速伸长时买入，此时往往处于向上笔的末端，容易在小级别买在山顶。"
             score = 0
         else:
-            eval_msg = "❌ **无效操作**：当前无结构支持（无底分型、无背驰），属于盲目交易。"
+            eval_msg = "❌ **无效操作**：当前无底分型、无背驰结构，属于随意开仓。缠论告诫：没有买点就没有操作。"
             score = -1
             
     elif action == 'sell':
         if divergence_desc and "顶背驰" in divergence_desc:
-            eval_msg = "🔥 **极佳操作 (一卖)**：捕捉到顶背驰，是缠论定义的第一类卖点！"
+            eval_msg = "🔥 **极佳操作 (一卖)**：顶背驰信号确认，当下即是第一类卖点。动力学衰竭引发走势转折，果断离场。"
             score = 1
         elif fenxing == 'top' and trend == '空头':
-            eval_msg = "✅ **合理操作 (二卖/三卖)**：空头趋势反弹出现的顶分型，确认为下跌中继。"
+            eval_msg = "✅ **顺势减仓 (二卖/三卖)**：下跌趋势反弹受阻，出现顶分型，确认为次级别反弹结束，顺势离场防守。"
             score = 1
         elif fenxing == 'top':
-            eval_msg = "⚠️ **谨慎操作**：多头趋势中的顶分型，可能是上涨中继，仅适合短差减仓。"
+            eval_msg = "⚠️ **短差操作**：多头趋势中出现顶分型，大概率是上涨中继（构筑新的上涨中枢），仅适合短线做T。"
             score = 0
         elif hist < 0 and hist < hist_prev:
-            eval_msg = "⚠️ **杀跌风险**：绿柱加速伸长时卖出往往滞后，易卖在低位，应在红柱缩短或背驰时离场。"
+            eval_msg = "⚠️ **杀跌风险**：绿柱伸长时卖出往往滞后，容易卖在向下笔的底端。应等待反弹构成二卖/三卖再离场。"
             score = 0
         else:
-            eval_msg = "❌ **无效操作**：当前无结构支持（无顶分型、无背驰），属于恐慌性或随意抛售。"
+            eval_msg = "❌ **无序操作**：当前无顶分型、无背驰结构，属于恐慌性抛售。缠论铁律：卖点都在上涨中产生。"
             score = -1
             
     elif action == 'hold':
         if divergence_desc and "底背驰" in divergence_desc:
-            eval_msg = "❌ **错失良机**：当前出现底背驰一买信号，理应尝试建仓。"
+            eval_msg = "❌ **错失买点**：当下出现底背驰一买信号！根据“走势终完美”，此处极大概率发生转折，观望将错失良机。"
             score = -1
         elif divergence_desc and "顶背驰" in divergence_desc:
-            eval_msg = "⚠️ **风险提示**：当前出现顶背驰一卖信号，建议减仓或离场。"
+            eval_msg = "⚠️ **风险提示**：当下出现顶背驰一卖信号！动力学已衰竭，此时不走，更待何时？"
             score = -1
         elif fenxing == 'bottom' and trend == '多头':
-            eval_msg = "ℹ️ **关注机会**：多头回调出现底分型，是潜在买点，观望可能踏空。"
+            eval_msg = "ℹ️ **关注机会**：多头回调确认底分型，这是潜在的二买/三买位置，建议择机介入。"
             score = 0
         elif fenxing == 'top' and trend == '空头':
-            eval_msg = "ℹ️ **关注风险**：空头反弹出现顶分型，是潜在卖点，观望可能坐过山车。"
+            eval_msg = "ℹ️ **关注风险**：空头反弹确认顶分型，这是潜在的二卖/三卖位置，持仓风险巨大。"
             score = 0
         else:
-            eval_msg = "☕ **合理观望**：走势延续中或无明确信号，持仓/持币不动是明智的（缠论讲究“不患”）。"
+            eval_msg = "☕ **中枢震荡/顺势持有**：走势延续中（无顶底背驰破坏），符合“不患”原则，耐心持有或空仓观望是最高智慧。"
             score = 1
 
     msg.append(eval_msg)
     
     return "\n\n".join(msg), score, highlight_shapes
 
+def _analyze_level_status(klines, macd_data, idx):
+    """
+    辅助函数：分析单个级别的趋势和结构
+    返回: (trend_str, signals_list)
+    trend_str: 'UP', 'DOWN'
+    signals_list: ['顶分型', '底背驰'...]
+    """
+    if idx < 0 or idx >= len(klines):
+        return 'UNKNOWN', []
+        
+    # 1. 均线趋势
+    closes = [k['close'] for k in klines[:idx+1]]
+    ma5 = np.mean(closes[-5:]) if len(closes) >= 5 else closes[-1]
+    ma20 = np.mean(closes[-20:]) if len(closes) >= 20 else closes[-1]
+    trend = 'UP' if ma5 > ma20 else 'DOWN'
+    
+    signals = []
+    
+    # 2. 分型
+    range_k = klines[:idx+1] # 传入全部历史供切片
+    fenxing = identify_fenxing(range_k) # identify_fenxing 内部会取最后3根
+    if fenxing == 'top': signals.append('顶分型')
+    elif fenxing == 'bottom': signals.append('底分型')
+    
+    # 3. 背驰 (只看最近的)
+    div_desc, _ = check_divergence(klines, macd_data, idx)
+    if div_desc:
+        if '顶背驰' in div_desc: signals.append('顶背驰')
+        if '底背驰' in div_desc: signals.append('底背驰')
+        
+    return trend, signals
+
 def analyze_advanced_action(action, current_idx, day_data, day_macd, week_data, week_macd, month_data, month_macd):
     """
-    高级模式分析，结合日、周、月线
+    高级模式分析，结合日、周、月线进行联动分析
     """
-    # 1. 基础日线分析
-    day_msg, day_score, day_shapes = analyze_action(action, day_data, day_macd, current_idx)
+    # 1. 基础日线分析 (保持原有的日线评价逻辑)
+    # day_msg 格式通常为: "**市场状态**: ... \n\n **评价**: ..."
+    day_msg_text, day_score, day_shapes = analyze_action(action, day_data, day_macd, current_idx)
     
     # 2. 寻找对应的周、月线索引
-    c_time = day_data[current_idx]['time'] # current day index/time
+    c_time = day_data[current_idx]['time']
     
-    # 找到包含 c_time 的周K线
     week_idx = -1
     for i, w in enumerate(week_data):
         if w['start_day_idx'] <= c_time <= w['end_day_idx']:
             week_idx = i
             break
             
-    # 找到包含 c_time 的月K线
     month_idx = -1
     for i, m in enumerate(month_data):
         if m['start_day_idx'] <= c_time <= m['end_day_idx']:
             month_idx = i
             break
             
-    adv_msg = []
-    
-    # 分析大级别趋势
-    week_trend = "无"
-    week_details = []
-    if week_idx >= 0:
-        w_closes = [k['close'] for k in week_data[:week_idx+1]]
-        w_ma5 = sum(w_closes[-5:]) / len(w_closes[-5:]) if len(w_closes)>=5 else w_closes[-1]
-        w_ma20 = sum(w_closes[-20:]) / len(w_closes[-20:]) if len(w_closes)>=20 else w_closes[-1]
-        week_trend = "多头" if w_ma5 > w_ma20 else "空头"
-        
-        # 简单判断周线分型
-        w_fenxing = identify_fenxing(week_data[:week_idx+1])
-        if w_fenxing == 'top': week_details.append("周线顶分型")
-        elif w_fenxing == 'bottom': week_details.append("周线底分型")
+    if week_idx < 0:
+        return day_msg_text + "\n\n(大级别数据不足)", day_score, day_shapes
 
-    month_trend = "无"
-    if month_idx >= 0:
-        m_closes = [k['close'] for k in month_data[:month_idx+1]]
-        m_ma5 = sum(m_closes[-5:]) / len(m_closes[-5:]) if len(m_closes)>=5 else m_closes[-1]
-        m_ma20 = sum(m_closes[-20:]) / len(m_closes[-20:]) if len(m_closes)>=20 else m_closes[-1]
-        month_trend = "多头" if m_ma5 > m_ma20 else "空头"
-
-    # 生成共振评价
-    resonance_msg = f"**大级别配合**: 周线{week_trend} ({', '.join(week_details)})，月线{month_trend}。" if week_details else f"**大级别配合**: 周线{week_trend}，月线{month_trend}。"
+    # 3. 分析大级别状态
+    w_trend, w_signals = _analyze_level_status(week_data, week_macd, week_idx)
+    m_trend, m_signals = _analyze_level_status(month_data, month_macd, month_idx)
     
+    # 趋势中文映射
+    trend_map = {'UP': '多头', 'DOWN': '空头', 'UNKNOWN': '未知'}
+    w_trend_cn = trend_map.get(w_trend, '未知')
+    m_trend_cn = trend_map.get(m_trend, '未知')
+
+    # 4. 生成联动分析和共振评价
+    linkage_msg = ""
     bonus_score = 0
     
+    # 根据操作方向 + 大级别背景生成深度建议
     if action == 'buy':
-        if week_trend == '多头':
-            resonance_msg += " (周线顺势，加分)"
+        if w_trend == 'UP':
+            linkage_msg = "✅ **大级别顺势**：周线向上笔/线段延伸中，日线买点属于顺大势操作，成功率极高。"
+            if '底分型' in w_signals: linkage_msg += " (周线底分型共振，极佳)"
             bonus_score += 1
-        elif week_trend == '空头':
-            resonance_msg += " (周线逆势，注意快进快出)"
-            
-        # 检查周线底背驰
-        if week_idx > 10:
-            w_div_desc, _ = check_divergence(week_data, week_macd, week_idx, lookback=10)
-            if w_div_desc and "底背驰" in w_div_desc:
-                resonance_msg += " 🔥周线底背驰共振！"
+        elif w_trend == 'DOWN':
+            if '底背驰' in w_signals:
+                linkage_msg = "🔥 **区间套共振**：周线底背驰构筑大级别一买，日线作为次级别精确打击，这是缠论区间套的完美应用。"
                 bonus_score += 2
-
+            elif '底分型' in w_signals:
+                linkage_msg = "⚠️ **周线反弹**：周线空头结构中出现底分型，预示次级别反弹（或许是构建大级别中枢），操作需谨慎，快进快出。"
+            else:
+                linkage_msg = "🛑 **逆势接飞刀**：周线处于空头下跌西风烈中（均线空排），且无止跌信号。此时日线的所谓买点往往是“刀口舔血”。"
+                bonus_score -= 2
+                
     elif action == 'sell':
-        if week_trend == '空头':
-            resonance_msg += " (周线顺势下跌，加分)"
+        if w_trend == 'DOWN':
+            linkage_msg = "✅ **顺势离场**：周线空头向下，日线卖出顺应大势，建议保持空仓，等待周线级别的底背驰或底分型。"
             bonus_score += 1
-        
-        if week_idx > 10:
-            w_div_desc, _ = check_divergence(week_data, week_macd, week_idx, lookback=10)
-            if w_div_desc and "顶背驰" in w_div_desc:
-                resonance_msg += " 🔥周线顶背驰共振！"
+        elif w_trend == 'UP':
+            if '顶背驰' in w_signals:
+                linkage_msg = "🔥 **逃顶良机**：周线多头出现顶背驰！这是大级别的卖出信号（大级别一卖），日线卖点与之共振，务必清仓。"
                 bonus_score += 2
+            elif '顶分型' in w_signals:
+                linkage_msg = "⚠️ **周线震荡**：周线多头中出现顶分型，大概率是上涨中枢的震荡洗盘。卖出后需关注回调结束后的三买机会。"
+            else:
+                linkage_msg = "🛑 **逆势卖出**：周线多头强劲（均线多排），日线调整可能仅是构筑次级别中枢，盲目卖出容易“卖飞”主升浪。"
+                bonus_score -= 1 # 扣分，因为容易卖飞
+
+    elif action == 'hold':
+        if w_trend == 'UP':
+             if '顶背驰' in w_signals:
+                 linkage_msg = "⚠️ **警惕见顶**：虽然日线平稳，但周线已出现顶背驰，大厦将倾，持仓需高度警惕，随时准备离场。"
+             else:
+                 linkage_msg = "☕ **中枢上移**：周线多头趋势健康，次级别的震荡只是中枢上移的过程，持仓躺赢是最佳策略。"
+        elif w_trend == 'DOWN':
+             if '底背驰' in w_signals:
+                 linkage_msg = "ℹ️ **抄底准备**：周线出现底背驰，大底将近，空仓者应密切关注日线一买/二买，准备进场。"
+             else:
+                 linkage_msg = "☕ **空仓为王**：周线空头趋势延续中，覆巢之下无完卵，耐心观望等待大级别买点。"
+
+    # 5. 组合最终文案
+    # Day Analysis
+    # Multi-level Linkage
+    # Level Status Summary
     
-    final_msg = f"{day_msg}\n\n{resonance_msg}"
+    final_output = []
     
-    return final_msg, day_score, day_shapes
+    # 提取原来 Day Analysis 的第一行（市场状态）和第二行（操作评价）
+    # 这里直接拼接，结构清晰一点
+    
+    # 第一段：操作评价 (包含联动分析)
+    # 如果有联动评价，优先显示联动评价，或者结合起来
+    if linkage_msg:
+        final_output.append(linkage_msg)
+    else:
+        # 如果没有特殊的联动触发（比如Hold时），沿用日线的评价
+        pass
+        
+    final_output.append(day_msg_text)
+    
+    # 状态摘要
+    w_sig_str = ', '.join(w_signals) if w_signals else '无明显结构'
+    m_sig_str = ', '.join(m_signals) if m_signals else '无明显结构'
+    
+    status_summary = (
+        f"📊 **大级别全景**\n"
+        f"• **周线**: {w_trend_cn}趋势 | {w_sig_str}\n"
+        f"• **月线**: {m_trend_cn}趋势 | {m_sig_str}"
+    )
+    final_output.append(status_summary)
+    
+    # 调整分数
+    final_score = day_score
+    if bonus_score > 0 and day_score >= 0: final_score = 1
+    if bonus_score < 0 and day_score >= 0: final_score = 0 # 降级
+    if bonus_score <= -2: final_score = -1 # 严重扣分
+    
+    return "\n\n".join(final_output), final_score, day_shapes
