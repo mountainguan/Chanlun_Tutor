@@ -606,18 +606,17 @@ def analyze_action(action, klines, macd_data, current_index):
 def _analyze_level_status(klines, macd_data, idx):
     """
     辅助函数：分析单个级别的趋势和结构
-    返回: (trend_str, signals_list)
-    trend_str: 'UP', 'DOWN'
-    signals_list: ['顶分型', '底背驰'...]
+    返回: stats 字典 (以前是tuple)
     """
     if idx < 0 or idx >= len(klines):
-        return 'UNKNOWN', []
+        return None
         
     # 1. 均线趋势
     closes = [k['close'] for k in klines[:idx+1]]
     ma5 = np.mean(closes[-5:]) if len(closes) >= 5 else closes[-1]
     ma20 = np.mean(closes[-20:]) if len(closes) >= 20 else closes[-1]
     trend = 'UP' if ma5 > ma20 else 'DOWN'
+    ma_desc = "均线多头" if trend == 'UP' else "均线空头"
     
     signals = []
     
@@ -628,12 +627,38 @@ def _analyze_level_status(klines, macd_data, idx):
     elif fenxing == 'bottom': signals.append('底分型')
     
     # 3. 背驰 (只看最近的)
-    div_desc, _ = check_divergence(klines, macd_data, idx)
-    if div_desc:
-        if '顶背驰' in div_desc: signals.append('顶背驰')
-        if '底背驰' in div_desc: signals.append('底背驰')
+    try:
+        div_desc, _ = check_divergence(klines, macd_data, idx)
+        if div_desc:
+            if '顶背驰' in div_desc: signals.append('顶背驰')
+            if '底背驰' in div_desc: signals.append('底背驰')
+    except Exception:
+        pass
+
+    # 4. MACD 状态
+    macd_desc = "MACD数据缺失"
+    try:
+        # macd_data 结构是 {'dif': [...], 'dea': [...], 'hist': [...]}
+        # 必须通过 key 访问 list
+        if idx < len(macd_data['hist']):
+            hist = macd_data['hist'][idx]
+            
+            # 获取前一根hist用于比较
+            prev_hist = macd_data['hist'][idx-1] if idx > 0 else hist
+            
+            if hist > 0:
+                macd_desc = "红柱" + ("伸长" if hist >= prev_hist else "缩短")
+            else:
+                macd_desc = "绿柱" + ("伸长" if hist <= prev_hist else "缩短")
+    except Exception:
+        pass
         
-    return trend, signals
+    return {
+        'trend': trend,
+        'signals': signals,
+        'ma_desc': ma_desc,
+        'macd_desc': macd_desc
+    }
 
 def analyze_advanced_action(action, current_idx, day_data, day_macd, week_data, week_macd, month_data, month_macd):
     """
@@ -662,13 +687,17 @@ def analyze_advanced_action(action, current_idx, day_data, day_macd, week_data, 
         return day_msg_text + "\n\n(大级别数据不足)", day_score, day_shapes
 
     # 3. 分析大级别状态
-    w_trend, w_signals = _analyze_level_status(week_data, week_macd, week_idx)
-    m_trend, m_signals = _analyze_level_status(month_data, month_macd, month_idx)
+    w_stats = _analyze_level_status(week_data, week_macd, week_idx)
+    m_stats = _analyze_level_status(month_data, month_macd, month_idx)
     
-    # 趋势中文映射
-    trend_map = {'UP': '多头', 'DOWN': '空头', 'UNKNOWN': '未知'}
-    w_trend_cn = trend_map.get(w_trend, '未知')
-    m_trend_cn = trend_map.get(m_trend, '未知')
+    if not w_stats or not m_stats:
+        return day_msg_text + "\n\n(大级别数据不足)", day_score, day_shapes
+        
+    w_trend = w_stats['trend']
+    w_signals = w_stats['signals']
+    
+    m_trend = m_stats['trend']
+    m_signals = m_stats['signals']
 
     # 4. 生成联动分析和共振评价
     linkage_msg = ""
@@ -717,33 +746,26 @@ def analyze_advanced_action(action, current_idx, day_data, day_macd, week_data, 
                  linkage_msg = "☕ **空仓为王**：周线空头趋势延续中，覆巢之下无完卵，耐心观望等待大级别买点。"
 
     # 5. 组合最终文案
-    # Day Analysis
-    # Multi-level Linkage
-    # Level Status Summary
-    
     final_output = []
     
-    # 提取原来 Day Analysis 的第一行（市场状态）和第二行（操作评价）
-    # 这里直接拼接，结构清晰一点
-    
-    # 第一段：操作评价 (包含联动分析)
-    # 如果有联动评价，优先显示联动评价，或者结合起来
+    # 如果有联动评价，优先显示
     if linkage_msg:
         final_output.append(linkage_msg)
     else:
-        # 如果没有特殊的联动触发（比如Hold时），沿用日线的评价
+        # 否则使用日线基础评价
         pass
         
     final_output.append(day_msg_text)
     
-    # 状态摘要
-    w_sig_str = ', '.join(w_signals) if w_signals else '无明显结构'
-    m_sig_str = ', '.join(m_signals) if m_signals else '无明显结构'
-    
+    # 状态摘要 - 增强版
+    def fmt_level(name, stats):
+        sig_str = ', '.join(stats['signals']) if stats['signals'] else '无结构'
+        return f"• **{name}**: {stats['ma_desc']} | {stats['macd_desc']} | {sig_str}"
+        
     status_summary = (
         f"📊 **大级别全景**\n"
-        f"• **周线**: {w_trend_cn}趋势 | {w_sig_str}\n"
-        f"• **月线**: {m_trend_cn}趋势 | {m_sig_str}"
+        f"{fmt_level('周线', w_stats)}\n"
+        f"{fmt_level('月线', m_stats)}"
     )
     final_output.append(status_summary)
     
