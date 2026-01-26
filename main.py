@@ -284,38 +284,55 @@ def main_page():
     def render_simulator_view():
         # --- 1. 顶部紧凑工具栏 ---
         with ui.row().classes('w-full items-center justify-between q-pa-sm bg-white rounded-lg shadow-sm border border-gray-100 q-mb-sm'):
-            # 左侧：标题 + 核心数据
-            with ui.row().classes('items-center gap-2 md:gap-4'):
-                ui.icon('candlestick_chart', size='sm', color='primary')
-                ui.label('实战模拟').classes('text-lg font-bold text-gray-800 hidden md:block') # 移动端隐藏文字节省空间
-                
-                if state.sim_game_active:
-                    ui.separator().props('vertical').classes('hidden md:block')
-                    # 资金
-                    with ui.column().classes('gap-0'):
-                        ui.label('当前资金').classes('text-xs text-gray-500 line-height-none')
-                        ui.label(f'{state.sim_balance:,.0f}').classes('text-sm font-bold text-blue-700 line-height-none')
-                    
-                    # 持仓
-                    with ui.column().classes('gap-0'):
-                        ui.label('持仓市值').classes('text-xs text-gray-500 line-height-none')
-                        val = (state.sim_shares * state.sim_data[state.sim_index]["close"]) if state.sim_index < len(state.sim_data) else 0
-                        ui.label(f'{val:,.0f}').classes('text-sm font-bold text-gray-700 line-height-none')
-                    
-                    # 胜率
-                    with ui.column().classes('gap-0'):
-                        ui.label('合理率').classes('text-xs text-gray-500 line-height-none')
-                        rate_text = '--'
-                        total = state.sim_stats['correct'] + state.sim_stats['wrong']
-                        if total > 0:
-                            rate = (state.sim_stats['correct'] / total) * 100
-                            rate_text = f'{rate:.0f}%'
-                        
-                        color = 'text-green-600' if total > 0 and rate >= 60 else 'text-orange-600'
-                        ui.label(rate_text).classes(f'text-sm font-bold {color} line-height-none')
             
-            # 右侧：新游戏按钮
-            ui.button(on_click=start_new_game).props('flat dense icon=restart_alt color=primary round').tooltip('重置/新游戏')
+            if not state.sim_game_active:
+                # 游戏未开始：简单标题
+                with ui.row().classes('items-center gap-2'):
+                    ui.icon('candlestick_chart', size='sm', color='primary')
+                    ui.label('实战模拟').classes('text-lg font-bold text-gray-800')
+                # 右侧按钮
+                ui.button(on_click=start_new_game).props('flat dense icon=restart_alt color=primary round').tooltip('开始挑战')
+            else:
+                # 游戏进行中：移动端grid平铺，PC端flex
+                with ui.row().classes('w-full items-center no-wrap gap-2'):
+                    # PC 端标题 (移动端隐藏)
+                    with ui.row().classes('items-center gap-2 hidden md:flex mr-4'):
+                        ui.icon('candlestick_chart', size='sm', color='primary')
+                        ui.label('实战模拟').classes('text-lg font-bold text-gray-800')
+                        ui.separator().props('vertical')
+                    
+                    # 数据区域：移动端 grid-cols-3 平铺，PC 端 flex gap-6
+                    with ui.element('div').classes('col-grow grid grid-cols-3 gap-1 md:flex md:gap-6 items-center'):
+                        
+                        # 样式：移动端居中，PC端左对齐
+                        col_style = 'flex flex-col items-center md:items-start gap-1'
+                        lbl_style = 'text-[10px] md:text-xs text-gray-500 leading-none'
+                        val_style = 'text-xs md:text-sm font-bold leading-none'
+
+                        # 1. 资金
+                        with ui.element('div').classes(col_style):
+                            ui.label('当前资金').classes(lbl_style)
+                            ui.label(f'¥{state.sim_balance:,.0f}').classes(f'{val_style} text-blue-700')
+                        
+                        # 2. 持仓
+                        with ui.element('div').classes(col_style):
+                            ui.label('持仓市值').classes(lbl_style)
+                            val = (state.sim_shares * state.sim_data[state.sim_index]["close"]) if state.sim_index < len(state.sim_data) else 0
+                            ui.label(f'¥{val:,.0f}').classes(f'{val_style} text-gray-700')
+                        
+                        # 3. 胜率
+                        with ui.element('div').classes(col_style):
+                            ui.label('合理率').classes(lbl_style)
+                            rate_text = '--'
+                            total = state.sim_stats['correct'] + state.sim_stats['wrong']
+                            if total > 0:
+                                rate = (state.sim_stats['correct'] / total) * 100
+                                rate_text = f'{rate:.0f}%'
+                            color = 'text-green-600' if total > 0 and rate >= 60 else 'text-orange-600'
+                            ui.label(rate_text).classes(f'{val_style} {color}')
+
+                    # 右侧按钮
+                    ui.button(on_click=start_new_game).props('flat dense icon=restart_alt color=primary round').classes('ml-1').tooltip('重置/新游戏')
 
         # --- 2. 游戏未开始状态 ---
         if not state.sim_game_active:

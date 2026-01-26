@@ -249,18 +249,15 @@ def calculate_bi_and_zhongshu_shapes(klines):
         })
 
     # 3. 生成中枢矩形 (Zhongshu Shapes)
-    # 逻辑：连续三笔重叠部分
+    # 逻辑：连续三笔重叠部分 -> 升级逻辑：合并重叠/连续的中枢为大级别中枢
+    raw_zhongshus = []
     if len(bi_segments) >= 3:
-        # 滑动窗口步长为1？还是步长为2？（缠论中枢延续）
-        # 这里简化：每连续三笔检查一次重叠，画一个框
-        # 为了避免重叠框太多，可以做些合并逻辑，但在模拟器中简单画出即可
         for i in range(len(bi_segments) - 2):
             b1 = bi_segments[i]
             b2 = bi_segments[i+1]
             b3 = bi_segments[i+2]
             
-            # 计算三笔价格区间的交集
-            # 每一笔的区间
+            # 计算三笔价格区间的交集 (中枢核心区域)
             r1 = (min(b1['y0'], b1['y1']), max(b1['y0'], b1['y1']))
             r2 = (min(b2['y0'], b2['y1']), max(b2['y0'], b2['y1']))
             r3 = (min(b3['y0'], b3['y1']), max(b3['y0'], b3['y1']))
@@ -270,27 +267,66 @@ def calculate_bi_and_zhongshu_shapes(klines):
             
             if overlap_min < overlap_max:
                 # 存在有效中枢区域
-                shapes.append({
-                    'type': 'rect',
-                    'xref': 'x', 'yref': 'y',
+                raw_zhongshus.append({
                     'x0': b1['x0'], 
                     'x1': b3['x1'],
                     'y0': overlap_min,
-                    'y1': overlap_max,
-                    'fillcolor': 'rgba(255, 165, 0, 0.15)', # 橙色半透明
-                    'line': {'width': 0},
+                    'y1': overlap_max
                 })
-                # 可选：画边框
-                shapes.append({
-                    'type': 'rect',
-                    'xref': 'x', 'yref': 'y',
-                    'x0': b1['x0'], 
-                    'x1': b3['x1'],
-                    'y0': overlap_min,
-                    'y1': overlap_max,
-                    'line': {'color': 'rgba(255, 165, 0, 0.4)', 'width': 1, 'dash': 'dot'},
-                    'fillcolor': 'rgba(0,0,0,0)' # 透明填充
-                })
+
+    # 合并重叠的中枢 (Expansion/Extension)
+    merged_zhongshus = []
+    if raw_zhongshus:
+        # 按开始时间排序 (通常已经是顺序的)
+        current_z = raw_zhongshus[0]
+        
+        for i in range(1, len(raw_zhongshus)):
+            next_z = raw_zhongshus[i]
+            
+            # 判断是否重叠 (Overlap)
+            # 1. 时间上：raw_zhongshus 是基于滑动窗口生成的，天生时间重叠/连续
+            # 2. 空间上：判断价格区间是否有交集
+            mn = max(current_z['y0'], next_z['y0'])
+            mx = min(current_z['y1'], next_z['y1'])
+            
+            if mn < mx:
+                # 存在价格交集，视为同一中枢的延伸/扩张 -> 合并
+                # 新的范围：时间并集，价格并集 (体现大级别/扩张范围)
+                # 注：缠论严格定义中枢级别升级需要9段，或者两个独立中枢波动区间重叠。
+                # 这里做视觉简化：凡是连在一起且价格重叠的，都画成一个大框。
+                current_z['x1'] = max(current_z['x1'], next_z['x1'])
+                current_z['y0'] = min(current_z['y0'], next_z['y0'])
+                current_z['y1'] = max(current_z['y1'], next_z['y1'])
+            else:
+                # 不重叠，结束当前中枢，开始下一个
+                merged_zhongshus.append(current_z)
+                current_z = next_z
+        
+        merged_zhongshus.append(current_z)
+
+    # 生成最终形状
+    for z in merged_zhongshus:
+        shapes.append({
+            'type': 'rect',
+            'xref': 'x', 'yref': 'y',
+            'x0': z['x0'], 
+            'x1': z['x1'],
+            'y0': z['y0'],
+            'y1': z['y1'],
+            'fillcolor': 'rgba(255, 165, 0, 0.15)', # 橙色半透明
+            'line': {'width': 0},
+        })
+        # 画边框
+        shapes.append({
+             'type': 'rect',
+             'xref': 'x', 'yref': 'y',
+             'x0': z['x0'], 
+             'x1': z['x1'],
+             'y0': z['y0'],
+             'y1': z['y1'],
+             'line': {'color': 'rgba(255, 165, 0, 0.6)', 'width': 1.5, 'dash': 'dot'}, # 加粗一点边框
+             'fillcolor': 'rgba(0,0,0,0)'
+        })
 
     return shapes
 
