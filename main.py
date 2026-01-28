@@ -11,7 +11,9 @@ import uuid
 from plotly.utils import PlotlyJSONEncoder
 from utils.charts import create_candlestick_chart, get_demo_fenxing_data, get_chart_data
 from utils.simulator_logic import generate_simulation_data, analyze_action, resample_klines, analyze_advanced_action, get_chanlun_shapes
+from pages.market_sentiment_page import init_sentiment_page
 import urllib.request
+
 
 # 获取当前文件所在的目录
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -45,6 +47,9 @@ ensure_static_assets()
 # 挂载静态文件目录，用于本地服务 Plotly.js 等资源
 # 请确保下载 plotly.min.js 到 static 目录中
 app.add_static_files('/static', os.path.join(BASE_DIR, 'static'))
+
+# 初始化新页面
+init_sentiment_page()
 
 # --- 数据加载 ---
 def load_chapter_content(chapter_id):
@@ -245,6 +250,9 @@ def main_page():
             ]},
             {'title': '第五卷：实战演练', 'items': [
                 {'id': 'simulator', 'label': '股票走势模拟器', 'special': True},
+            ]},
+            {'title': '市场工具', 'items': [
+                {'id': 'mood', 'label': '大盘情绪温度 🌡️', 'special': True, 'link': '/mood'},
             ]}
         ]
 
@@ -268,9 +276,11 @@ def main_page():
                          if not is_active:
                              style_classes += ' font-bold text-blue-800'
                     
-                    ui.label(item['label']) \
-                        .classes(style_classes) \
-                        .on('click', lambda _, i=item['id']: load_chapter(i))
+                    lbl = ui.label(item['label']).classes(style_classes)
+                    if item.get('link'):
+                        lbl.on('click', lambda _, l=item['link']: ui.run_javascript(f'window.location.href="{l}"'))
+                    else:
+                        lbl.on('click', lambda _, i=item['id']: load_chapter(i))
 
     def render_content():
         content_container.clear()
