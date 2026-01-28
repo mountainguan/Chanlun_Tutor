@@ -491,8 +491,8 @@ class SectorSentiment:
                     # Historical Spread MA 60
                     company_df['margin_spread_ma60'] = company_df['margin_spread'].rolling(window=60).mean()
                     
-                    # Margin Score = (Spread - MA60) * 100
-                    company_df['score_margin'] = (company_df['margin_spread'] - company_df['margin_spread_ma60']) * 100
+                    # Margin Score = (Spread - MA60) * 2000
+                    company_df['score_margin'] = (company_df['margin_spread'] - company_df['margin_spread_ma60']) * 2000
                     
                     # Latest value
                     latest = company_df.iloc[-1]
@@ -548,8 +548,15 @@ class SectorSentiment:
 
 if __name__ == "__main__":
     import urllib3
+    import sys
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     
+    print(f"Running data update... Python: {sys.executable}")
     ss = SectorSentiment()
+    # Explicitly connect first (like debug script) to ensure connectivity before heavy lifting
+    print("Testing connection...")
+    if not ss._connect_tdx():
+        print("Initial connection check failed, but will let update_data retry.")
+    
     data = ss.update_data()
     print("Done")

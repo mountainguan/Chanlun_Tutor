@@ -255,14 +255,16 @@ def init_sentiment_page():
                             
                             def run_script():
                                 # Capture output to display errors if needed
+                                # Use -u for unbuffered output to ensure we capture prints
                                 result = subprocess.run(
-                                    [sys.executable, script_path], 
+                                    [sys.executable, '-u', script_path], 
                                     capture_output=True, 
                                     text=True, 
                                     cwd=os.path.dirname(os.path.dirname(__file__))
                                 )
                                 if result.returncode != 0:
-                                    raise Exception(f"Script failed: {result.stderr}")
+                                    # Combine stdout and stderr for better debugging
+                                    raise Exception(f"Script failed.\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}")
                                 return result.stdout
 
                             # Run subprocess in executor to not block UI loop
