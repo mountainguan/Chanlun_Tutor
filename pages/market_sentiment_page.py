@@ -3,6 +3,9 @@ from utils.market_sentiment import MarketSentiment
 import plotly.graph_objects as go
 import pandas as pd
 import asyncio
+import json
+import uuid
+from plotly.utils import PlotlyJSONEncoder
 from concurrent.futures import ThreadPoolExecutor
 
 # Create a thread pool for IO operations
@@ -11,6 +14,49 @@ executor = ThreadPoolExecutor(max_workers=2)
 def init_sentiment_page():
     @ui.page('/mood')
     def sentiment_page():
+        # 注入 Plotly 优化脚本
+        ui.add_head_html('''
+            <script src="/static/plotly.min.js"></script>
+            <script>
+                if (typeof Plotly === 'undefined') {
+                    document.write('<script src="https://cdn.bootcdn.net/ajax/libs/plotly.js/3.1.1/plotly.min.js"><\/script>');
+                }            
+                window.renderPlotly = function(id, data, layout, config) {
+                    var attempt = 0;
+                    function tryRender() {
+                        var el = document.getElementById(id);
+                        if (el && typeof Plotly !== 'undefined') {
+                            Plotly.newPlot(id, data, layout, config);
+                        } else {
+                            if (attempt < 10) {
+                                attempt++;
+                                setTimeout(tryRender, 50);
+                            } else {
+                                console.error('Plotly render failed: element or library not found', id);
+                            }
+                        }
+                    }
+                    tryRender();
+                }
+            </script>
+        ''')
+
+        # 自定义 Plotly 渲染函数
+        def custom_plotly(fig):
+            chart_id = f"chart_{uuid.uuid4().hex}"
+            c = ui.element('div').props(f'id="{chart_id}"')
+            if hasattr(fig, 'to_dict'):
+                fig = fig.to_dict()
+            data = fig.get('data', [])
+            layout = fig.get('layout', {})
+            config = fig.get('config', {'responsive': True, 'displayModeBar': False})
+            config['responsive'] = True
+            j_data = json.dumps(data, cls=PlotlyJSONEncoder)
+            j_layout = json.dumps(layout, cls=PlotlyJSONEncoder)
+            j_config = json.dumps(config, cls=PlotlyJSONEncoder)
+            ui.run_javascript(f'window.renderPlotly("{chart_id}", {j_data}, {j_layout}, {j_config})')
+            return c
+
         # 设置页面标题
         ui.page_title('大盘情绪温度 - 缠论小应用')
         
@@ -114,7 +160,7 @@ def init_sentiment_page():
                     with gauge_container:
                         ui.label(f"昨日情绪温度").classes('text-base font-bold mt-2')
                         ui.label(f"({last_date_str})").classes('text-xs text-gray-500 mb-0')
-                        ui.plotly(fig_gauge).classes('w-full h-full')
+                        custom_plotly(fig_gauge).classes('w-full h-full')
 
                 # --- 绘图 (趋势图) ---
                 fig = go.Figure()
@@ -175,7 +221,7 @@ def init_sentiment_page():
                 # 清空容器并添加图表
                 chart_container.clear()
                 with chart_container:
-                    ui.plotly(fig).classes('w-full h-full')
+                    custom_plotly(fig).classes('w-full h-full')
                 
                 # --- 数据表格 ---
                 data_container.classes(remove='hidden')
