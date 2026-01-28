@@ -111,25 +111,42 @@ class SectorSentiment:
         try:
             from pytdx.hq import TdxHq_API
             self.api = TdxHq_API()
+            # Prioritize known good IPs
             ips = [
+                ('60.191.117.167', 7709), # Stable
+                ('124.71.187.100', 7709),
                 ('218.75.126.9', 7709),
-                ('115.238.56.198', 7709),
-                ('60.191.117.167', 7709),
                 ('119.147.212.81', 7709),
-                ('119.147.212.80', 7709),
-                ('124.71.187.100', 7709)
+                ('115.238.56.198', 7709)
             ]
+            
+            # Disable shuffle to try the best ones first
+            # random.shuffle(ips) 
+            
             for ip, port in ips:
+                # Re-instantiate API for each attempt to ensure clean state
+                if self.api:
+                    try: self.api.disconnect()
+                    except: pass
+                self.api = TdxHq_API()
+
                 try:
-                    if self.api.connect(ip, port, time_out=8):
+                    print(f"Connecting to {ip}:{port}...")
+                    if self.api.connect(ip, port, time_out=20):
                         print(f"Connected to TDX server: {ip}:{port}")
                         return True
-                except:
+                    else:
+                        print(f"Connection failed for {ip}:{port}")
+                except Exception as ex:
+                    print(f"Connection error for {ip}:{port}: {ex}")
                     pass
+            
             print("Failed to connect to any TDX server")
             return False
         except Exception as e:
             print(f"TDX init error: {e}")
+            if "No module named 'pytdx'" in str(e):
+                print("Missing dependency: Please run 'pip install pytdx'")
             return False
 
     def _disconnect_tdx(self):
@@ -266,6 +283,80 @@ class SectorSentiment:
     # Removed _generate_mock_history as it is no longer used/desired
 
 
+    def _fetch_market_history(self):
+        """
+        Fetch Market (SH+SZ) data for Volume and Margin
+        Returns DataFrame aligned by date columns: 'market_vol', 'market_margin_buy'
+        """
+        # 1. Volume: SH (999999) + SZ (399001) from TDX
+        if not self.api: return None
+        
+        try:
+             # SH Index
+            df_sh = self._fetch_sector_from_tdx('999999')
+            # SZ Index
+            df_sz = self._fetch_sector_from_tdx('399001')
+            
+            if df_sh is None or df_sz is None:
+                print("Failed to fetch SH/SZ index for market volume")
+                return None
+                
+            df_vol = pd.merge(df_sh[['amount']], df_sz[['amount']], on='date', suffixes=('_sh', '_sz'), how='inner')
+            df_vol['market_vol'] = df_vol['amount_sh'] + df_vol['amount_sz']
+            df_vol = df_vol[['market_vol']]
+            
+            # 2. Margin: Jin10
+            urls = {
+                "SH": "https://cdn.jin10.com/data_center/reports/fs_1.json",
+                "SZ": "https://cdn.jin10.com/data_center/reports/fs_2.json"
+            }
+            dfs_m = []
+            for market, url in urls.items():
+                try:
+                    r = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
+                    if r.status_code == 200:
+                        data = r.json()
+                        cols = [item['name'] for item in data['keys']]
+                        records = []
+                        for date_str, values in data['values'].items():
+                            record = {'date': date_str}
+                            for i, val in enumerate(values):
+                                if i < len(cols):
+                                    record[cols[i]] = val
+                            records.append(record)
+                        df = pd.DataFrame(records)
+                        df['date'] = pd.to_datetime(df['date'])
+                        df = df.set_index('date').sort_index()
+                        # Find '融资买入额'
+                        buy_col = next((c for c in df.columns if '融资买入额' in c), None)
+                        if buy_col:
+                            df = df[[buy_col]].rename(columns={buy_col: 'margin_buy'})
+                            # Convert to float
+                            df['margin_buy'] = pd.to_numeric(df['margin_buy'], errors='coerce')
+                            dfs_m.append(df)
+                except Exception as e:
+                    print(f"Jin10 fetch error {market}: {e}")
+            
+            df_margin = None
+            if len(dfs_m) == 2:
+                df_margin = pd.merge(dfs_m[0], dfs_m[1], on='date', suffixes=('_sh', '_sz'), how='inner')
+                df_margin['market_margin_buy'] = df_margin['margin_buy_sh'] + df_margin['margin_buy_sz']
+                df_margin = df_margin[['market_margin_buy']]
+            
+            # 3. Merge
+            if df_margin is not None:
+                # Use inner join to ensure we only use dates where both Volume and Margin are available
+                # (Typically T-1, as Margin data is delayed by 1 day)
+                df_market = pd.merge(df_vol, df_margin, on='date', how='inner')
+                return df_market
+            else:
+                print("Warning: Market Margin data missing")
+                return None
+
+        except Exception as e:
+            print(f"Error fetching market history: {e}")
+            return None
+
     def update_data(self):
         """
         更新板块情绪数据
@@ -279,9 +370,17 @@ class SectorSentiment:
             print("No sector list available.")
             return {}
 
-        # Connect to TDX once
-        if not self._connect_tdx():
-            print("Warning: Could not connect to TDX, fetching might fail.")
+        # Connect to TDX (Retry logic)
+        for attempt in range(3):
+            if self._connect_tdx():
+                break
+            print(f"Retrying connection ({attempt+1}/3)...")
+            time.sleep(2)
+        
+        if not self.api or not self.api.client: # Check if connected
+             error_msg = "无法连接到通达信服务器，请检查网络 (All retries failed)"
+             print(error_msg)
+             raise Exception(error_msg)
 
         try:
             # Load existing cache
@@ -296,6 +395,16 @@ class SectorSentiment:
             today_str = datetime.datetime.now().strftime('%Y-%m-%d')
             results = cache_data.copy()
             
+            # 0. Get Market Data (Global)
+            print("Fetching Market Data (Volume & Margin)...")
+            df_market = self._fetch_market_history()
+            if df_market is None or df_market.empty:
+                error_msg = "获取大盘基准数据失败 (TDX或Jin10数据缺失)"
+                print(error_msg)
+                raise Exception(error_msg)
+
+            print(f"Market Data loaded: {len(df_market)} records.")
+
             print(f"Updating data for {len(sectors)} sectors...")
             
             updated_count = 0
@@ -305,9 +414,16 @@ class SectorSentiment:
                 name = sector['name']
                 code = sector['code']
                 
-                # Skip if already updated today
-                if name in cache_data and cache_data[name].get('date') == today_str:
-                    continue
+                # Note: We need to RE-CALCULATE even if 'date' is today because the formula changed?
+                # Or just skip if already done today?
+                # Ideally, if user asks to "correct logic", we should force update.
+                # But 'update_data' might be called automatically.
+                # Let's assume we force update for now or skip. The user just asked for logic fix.
+                # If I want to reflect changes immediately, I should remove the skip check.
+                # But 'cache_data' checks name and date. If I change logic, I should invalidate cache.
+                # I'll Comment out the skip logic for now to force refresh.
+                # if name in cache_data and cache_data[name].get('date') == today_str:
+                #    continue
                 
                 print(f"[{i+1}/{len(sectors)}] Fetching {name} ({code})...")
                 
@@ -322,59 +438,86 @@ class SectorSentiment:
                     
                 try:
                     # Process data
-                    if len(df) < 20: # 至少需要一定的数据量
+                    if len(df) < 60: # 至少需要一定的数据量 (60 for MA)
                         continue
                         
-                    turnover_values = df['amount'].dropna().values
-                    if len(turnover_values) == 0: continue
+                    # Align with Market Data
+                    company_df = pd.merge(df, df_market, left_index=True, right_index=True, how='inner')
+                    if len(company_df) < 20: continue
                     
-                    current_turnover = turnover_values[-1]
-                    last_date = df.index[-1].strftime('%Y-%m-%d')
-                    
-                    # 如果是 Mock 数据，稍微调整下日期到今天
-                    if is_mock:
-                        last_date = today_str
-
-                    margin_values = turnover_values 
-                    current_margin = current_turnover
-
-                    # Try to get real margin data
+                    # Get Margin Data for Sector
+                    df_sector_margin = None
                     try:
                         em_code = self._find_em_code(name)
                         if em_code:
-                            df_margin = self._fetch_em_margin_history(em_code)
-                            if df_margin is not None and not df_margin.empty:
-                                # Align dates? Or just use recent window
-                                # Assuming daily data is roughly aligned
-                                m_vals = df_margin['FIN_BUY_AMT'].dropna().values
-                                if len(m_vals) > 10:
-                                    margin_values = m_vals
-                                    current_margin = m_vals[-1]
-                                    # print(f"  Used EM margin data for {name} ({len(m_vals)} pts)")
-                    except Exception as e:
-                        print(f"  Margin fetch failed for {name}: {e}")
+                            df_sector_margin = self._fetch_em_margin_history(em_code)
+                    except: pass
                     
-                    # Quantiles
-                    q_percents = np.linspace(0, 100, 201)
-                    turnover_quantiles = np.percentile(turnover_values, q_percents).tolist()
+                    if df_sector_margin is not None and not df_sector_margin.empty:
+                         df_sector_margin = df_sector_margin.rename(columns={'FIN_BUY_AMT': 'sector_margin_buy'})
+                         # Use left merge to keep latest date from price/volume df
+                         company_df = pd.merge(company_df, df_sector_margin[['sector_margin_buy']], left_index=True, right_index=True, how='left')
+                         # Forward fill sector margin (as it's usually T-1)
+                         company_df['sector_margin_buy'] = company_df['sector_margin_buy'].ffill()
+                    else:
+                        company_df['sector_margin_buy'] = 0.0
+
+                    # --- New Formula Calculation ---
                     
-                    # Rank
-                    from scipy.stats import percentileofscore
-                    rank_turnover = percentileofscore(turnover_values, current_turnover)
-                    rank_margin = percentileofscore(margin_values, current_margin)
+                    # 1. Volume Part
+                    company_df['sector_vol_ma20'] = company_df['amount'].rolling(window=20).mean()
+                    company_df['sector_vol_ratio'] = company_df['amount'] / company_df['sector_vol_ma20']
                     
-                    # Formula
-                    score = (rank_margin * 0.2) + (rank_turnover * 1.0)
-                    final_temp = (score / 120) * 100
+                    company_df['market_vol_ma20'] = company_df['market_vol'].rolling(window=20).mean()
+                    company_df['market_vol_ratio'] = company_df['market_vol'] / company_df['market_vol_ma20']
+                    
+                    # Relative Vol Ratio
+                    # Use a small epsilon for division safety? Or usually volumes are large.
+                    company_df['rel_vol_ratio'] = company_df['sector_vol_ratio'] / company_df['market_vol_ratio']
+                    
+                    # Volume Score = (Relative Vol Ratio - 1) * 100
+                    company_df['score_vol'] = (company_df['rel_vol_ratio'] - 1) * 100
+                    
+                    # 2. Margin Part
+                    # Sector Margin % = sector_margin_buy / amount (Vol)
+                    company_df['sector_margin_pct'] = company_df['sector_margin_buy'] / company_df['amount']
+                    
+                    # Market Margin %
+                    company_df['market_margin_pct'] = company_df['market_margin_buy'] / company_df['market_vol']
+                    
+                    # Spread
+                    company_df['margin_spread'] = company_df['sector_margin_pct'] - company_df['market_margin_pct']
+                    
+                    # Historical Spread MA 60
+                    company_df['margin_spread_ma60'] = company_df['margin_spread'].rolling(window=60).mean()
+                    
+                    # Margin Score = (Spread - MA60) * 100
+                    company_df['score_margin'] = (company_df['margin_spread'] - company_df['margin_spread_ma60']) * 100
+                    
+                    # Latest value
+                    latest = company_df.iloc[-1]
+                    last_date = latest.name.strftime('%Y-%m-%d')
+                    
+                    s_vol = latest['score_vol']
+                    if pd.isna(s_vol): s_vol = 0
+                    
+                    s_margin = latest['score_margin']
+                    if pd.isna(s_margin): s_margin = 0 
+                    
+                    # If sector has very little margin trading (sum close to 0), ignore margin part
+                    has_margin = company_df['sector_margin_buy'].sum() > 1000 # minimal threshold
+                    if not has_margin:
+                        s_margin = 0
+                    
+                    final_temp = s_vol + s_margin
                     
                     results[name] = {
                         'date': last_date,
                         'temperature': round(final_temp, 2),
-                        'turnover': float(current_turnover),
-                        'rank_turnover': float(rank_turnover),
-                        'rank_margin': float(rank_margin),
-                        'turnover_quantiles': [float(x) for x in turnover_quantiles],
-                        'is_mock': is_mock # 标记该条数据是否为模拟
+                        'turnover': float(latest['amount']),
+                        'score_vol': round(float(s_vol), 2),
+                        'score_margin': round(float(s_margin), 2),
+                        'is_mock': is_mock 
                     }
                     updated_count += 1
                     

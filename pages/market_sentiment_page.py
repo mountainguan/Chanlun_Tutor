@@ -7,6 +7,8 @@ import asyncio
 import json
 import uuid
 import os
+import sys
+import subprocess
 from plotly.utils import PlotlyJSONEncoder
 from concurrent.futures import ThreadPoolExecutor
 
@@ -222,7 +224,7 @@ def init_sentiment_page():
             with ui.tab_panel(sector_tab).classes('p-2'):
                 with ui.column().classes('w-full items-center p-2'):
                     ui.label('板块情绪热度图').classes('text-2xl font-bold mb-2')
-                    ui.label('基于过去3年历史分位：温度 = 融资买入占比分位(20%) + 成交额分位(80%)').classes('text-sm text-gray-500 mb-4')
+                    ui.label('温度 = 量能项(相对放量幅度) + 融资项(相对杠杆意愿)。 0为中性(同步大盘)，>100为领涨，<0为滞涨').classes('text-sm text-gray-500 mb-4')
 
                     # Control Row
                     with ui.row().classes('w-full max-w-6xl justify-between items-center mb-4'):
@@ -243,18 +245,38 @@ def init_sentiment_page():
                         loop = asyncio.get_running_loop()
                         update_sector_btn.disable()
                         load_cache_btn.disable()
-                        sector_status_label.text = '正在从东方财富获取所有板块数据，这可能需要几分钟...'
-                        ui.notify('开始更新，请勿关闭页面...', type='info', timeout=5000)
+                        sector_status_label.text = '正在调用独立进程获取数据（更稳定），请稍候...'
+                        ui.notify('开启独立进程更新，这需要几分钟...', type='info', timeout=5000)
                         
-                        ss = SectorSentiment()
                         try:
-                            # Run heavy I/O in executor
-                            data = await loop.run_in_executor(executor, ss.update_data)
-                            render_sector_view(data)
-                            sector_status_label.text = f'更新完成。包含 {len(data) if data else 0} 个板块。'
-                            ui.notify('板块数据已更新', type='positive')
+                            # Use subprocess to run the update script independently
+                            # This avoids threading/GIL/Network issues within the main app process
+                            script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'utils', 'sector_sentiment.py')
+                            
+                            def run_script():
+                                # Capture output to display errors if needed
+                                result = subprocess.run(
+                                    [sys.executable, script_path], 
+                                    capture_output=True, 
+                                    text=True, 
+                                    cwd=os.path.dirname(os.path.dirname(__file__))
+                                )
+                                if result.returncode != 0:
+                                    raise Exception(f"Script failed: {result.stderr}")
+                                return result.stdout
+
+                            # Run subprocess in executor to not block UI loop
+                            stdout = await loop.run_in_executor(None, run_script)
+                            print("Update Script Output:", stdout)
+                            
+                            # Reload data
+                            load_sector_view() 
+                            
+                            sector_status_label.text = '更新完成。'
+                            ui.notify('板块数据更新成功', type='positive')
                         except Exception as e:
-                            sector_status_label.text = f'错误: {e}'
+                            sector_status_label.text = f'更新错误: {str(e)[:50]}...'
+                            print(f"Update failed details: {e}")
                             ui.notify(f'更新失败: {e}', type='negative')
                         
                         update_sector_btn.enable()
@@ -294,9 +316,10 @@ def init_sentiment_page():
                             text = df_s['temperature'].apply(lambda x: f"{x:.0f}°C"),
                             marker = dict(
                                 colors = df_s['temperature'],
-                                colorscale = 'RdBu_r', # Red is high temp, Blue is Low
-                                cmin = 0,
-                                cmax = 100,
+                                colorscale = 'RdBu_r', 
+                                cmin = -50, # Cold (Blue)
+                                cmax = 100, # Hot (Red)
+                                cmid = 0,   # Neutral
                                 showscale = True,
                                 colorbar = dict(title='温度')
                             ),
@@ -316,8 +339,14 @@ def init_sentiment_page():
                                 import io
                                 try:
                                     output = io.BytesIO()
-                                    export_df = df_s[['name', 'date', 'temperature', 'turnover', 'rank_turnover', 'rank_margin']].copy()
-                                    export_df.columns = ['板块', '日期', '温度', '成交额', '成交分位', '融资分位']
+                                    # Ensure columns exist (backward compatibility)
+                                    cols_map = {
+                                        'name': '板块', 'date': '日期', 'temperature': '温度', 'turnover': '成交额',
+                                        'score_vol': '量能得分', 'score_margin': '融资得分'
+                                    }
+                                    cols = [c for c in cols_map.keys() if c in df_s.columns]
+                                    export_df = df_s[cols].copy()
+                                    export_df.rename(columns=cols_map, inplace=True)
                                     export_df.to_excel(output, index=False)
                                     ui.download(output.getvalue(), 'sector_sentiment.xlsx')
                                 except Exception as e: ui.notify(f'导出失败: {e}', type='negative')
@@ -326,15 +355,20 @@ def init_sentiment_page():
                                 ui.label('板块数据明细').classes('text-lg font-bold')
                                 ui.button('导出Excel', icon='file_download', on_click=export_sector_excel).props('small outline color=green')
                             
+                            # Determine columns dynamically based on available keys
+                            grid_cols = [
+                                {'headerName': '板块名称', 'field': 'name', 'sortable': True, 'filter': True, 'pinned': 'left'},
+                                {'headerName': '温度', 'field': 'temperature', 'sortable': True, 'cellStyle': {'fontWeight': 'bold'}},
+                                {'headerName': '成交额', 'field': 'turnover', 'sortable': True},
+                                {'headerName': '日期', 'field': 'date', 'sortable': True},
+                            ]
+                            if 'score_vol' in df_s.columns:
+                                grid_cols.insert(3, {'headerName': '量能得分', 'field': 'score_vol', 'sortable': True})
+                            if 'score_margin' in df_s.columns:
+                                grid_cols.insert(4, {'headerName': '融资得分', 'field': 'score_margin', 'sortable': True})
+                            
                             ui.aggrid({
-                                'columnDefs': [
-                                    {'headerName': '板块名称', 'field': 'name', 'sortable': True, 'filter': True, 'pinned': 'left'},
-                                    {'headerName': '温度', 'field': 'temperature', 'sortable': True, 'cellStyle': {'fontWeight': 'bold'}},
-                                    {'headerName': '成交额', 'field': 'turnover', 'sortable': True},
-                                    {'headerName': '成交分位(%)', 'field': 'rank_turnover', 'sortable': True},
-                                    {'headerName': '融资分位(%)', 'field': 'rank_margin', 'sortable': True},
-                                    {'headerName': '日期', 'field': 'date', 'sortable': True},
-                                ],
+                                'columnDefs': grid_cols,
                                 'rowData': records,
                                 'pagination': True,
                                 'paginationPageSize': 20
