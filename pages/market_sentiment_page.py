@@ -20,19 +20,25 @@ def init_sentiment_page():
             ui.button(icon='arrow_back', on_click=lambda: ui.run_javascript('window.location.href="/"')).props('flat round color=white')
             ui.label('大盘情绪温度监控').classes('text-lg font-bold ml-2')
 
-        with ui.column().classes('w-full items-center p-4'):
+        with ui.column().classes('w-full items-center p-2'):
             # 顶部布局：左侧科普，右侧仪表盘
-            with ui.row().classes('w-full max-w-6xl gap-4 mb-4 items-stretch'):
+            with ui.row().classes('w-full max-w-6xl gap-2 mb-2 items-stretch h-[220px]'):
                 # 左侧：科普介绍 (50%)
-                with ui.card().classes('flex-1 min-w-[300px] bg-gray-50 p-4'):
-                    ui.markdown('### 🌡️ 什么是情绪温度？')
-                    ui.markdown('**核心逻辑**：市场情绪由**杠杆力度**与**成交活跃度**共同驱动。')
-                    ui.markdown('**计算公式**：\n 温度 = [(融资占比% - 2.0) * 2] + [(成交额万亿 - 0.8) * 33]')
-                    ui.markdown('**区间解读**：\n\n- **>100 (高温)**：情绪亢奋，注意风险\n- **0~100 (平衡)**：正常波动区间\n- **<0 (冰点)**：恐慌区域，可能存在机会')
-                    ui.markdown('> 数据来源：两市成交额(网易财经/东财)，融资买入额(金十数据)')
+                with ui.card().classes('flex-1 min-w-[300px] bg-gray-50 p-2 text-sm'):
+                    ui.label('🌡️ 什么是情绪温度？').classes('text-base font-bold mb-1')
+                    ui.html('<b>核心逻辑</b>：情绪由<b>杠杆力度</b>与<b>成交活跃度</b>驱动。<br>'
+                            '<span style="font-size:0.9em;color:#666">公式：$Temp = (Margin\\% - 2.0)*2 + (Turnover - 0.8)*33$</span>').classes('mb-1 leading-tight')
+                    
+                    ui.markdown(
+                        '- **>100 (高温)**：情绪亢奋，注意风险\n'
+                        '- **0~100 (平衡)**：正常波动区间\n'
+                        '- **<0 (冰点)**：恐慌区域，可能存在机会'
+                    ).classes('text-xs leading-snug mb-1')
+                    
+                    ui.label('数据来源：两市成交额(网易/东财)，融资买入(金十)').classes('text-xs text-gray-400 mt-auto')
 
                 # 右侧：仪表盘容器 (50%)
-                gauge_container = ui.card().classes('flex-1 min-w-[300px] items-center justify-center p-2')
+                gauge_container = ui.card().classes('flex-1 min-w-[300px] items-center justify-center p-0')
                 with gauge_container:
                      ui.label('计算中...').classes('text-gray-400 text-lg')
 
@@ -98,8 +104,8 @@ def init_sentiment_page():
                         }
                     ))
                     fig_gauge.update_layout(
-                        margin=dict(l=30, r=30, t=50, b=10),
-                        height=250,
+                        margin=dict(l=20, r=20, t=30, b=10),
+                        height=180,
                         paper_bgcolor = "rgba(0,0,0,0)",
                         font = {'family': "Arial"}
                     )
@@ -160,8 +166,8 @@ def init_sentiment_page():
                     ),
                     yaxis=dict(title='情绪温度', range=[-30, 130]),
                     hovermode='x unified',
-                    margin=dict(l=60, r=60, t=80, b=50),
-                    height=580
+                    margin=dict(l=40, r=40, t=50, b=40),
+                    height=430
                 )
                 
                 # 清空容器并添加图表
