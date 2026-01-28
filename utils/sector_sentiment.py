@@ -1,3 +1,4 @@
+import requests
 import pandas as pd
 import numpy as np
 import os
@@ -25,6 +26,86 @@ class SectorSentiment:
         self.cache_file = os.path.join(self.data_dir, 'sector_sentiment_cache.json')
         self.if_sector_list_cache = os.path.join(self.data_dir, 'sector_list.json')
         self.api = None
+        self.em_sector_map = None # Cache for EM mapping
+
+    def _get_em_sector_map(self):
+        """
+        Fetch EastMoney sector list and build a mapping name->code
+        """
+        if self.em_sector_map is not None:
+            return self.em_sector_map
+            
+        url = "https://datacenter-web.eastmoney.com/api/data/v1/get"
+        params = {
+            "reportName": "RPTA_WEB_BKJYMXN",
+            "columns": "BOARD_CODE,BOARD_NAME",
+            "source": "WEB",
+            "client": "WEB",
+            "pageNumber": 1,
+            "pageSize": 1000,
+            "filter": "" 
+        }
+        try:
+            resp = requests.get(url, params=params, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get('result') and data['result'].get('data'):
+                    mapping = {}
+                    for item in data['result']['data']:
+                        mapping[item['BOARD_NAME']] = item['BOARD_CODE']
+                    self.em_sector_map = mapping
+                    print(f"Loaded {len(mapping)} sectors from EastMoney")
+                    return mapping
+        except Exception as e:
+            print(f"Failed to load EM sector map: {e}")
+        return {}
+    
+    def _find_em_code(self, tdx_name):
+        mapping = self._get_em_sector_map()
+        if not mapping:
+            return None
+            
+        # 1. Exact match
+        if tdx_name in mapping:
+            return mapping[tdx_name]
+        
+        # 2. Suffix match (EM often has "行业" or "概念")
+        # e.g. TDX "有色" -> EM "有色金属"
+        for em_name, code in mapping.items():
+            if tdx_name in em_name:
+                # print(f"Mapped {tdx_name} -> {em_name}")
+                return code
+                
+        return None
+
+    def _fetch_em_margin_history(self, em_code):
+        if not em_code:
+            return None
+        url = "https://datacenter-web.eastmoney.com/api/data/v1/get"
+        params = {
+            "reportName": "RPTA_WEB_BKJYMX",
+            "columns": "TRADE_DATE,FIN_BUY_AMT",
+            "pageSize": 500,
+            "pageNumber": 1,
+            "sortColumns": "TRADE_DATE",
+            "sortTypes": "-1", # Descending
+            "source": "WEB",
+            "client": "WEB",
+            "filter": f'(BOARD_CODE="{em_code}")'
+        }
+        try:
+            resp = requests.get(url, params=params, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get('result') and data['result'].get('data'):
+                    df = pd.DataFrame(data['result']['data'])
+                    df['TRADE_DATE'] = pd.to_datetime(df['TRADE_DATE'])
+                    df['FIN_BUY_AMT'] = pd.to_numeric(df['FIN_BUY_AMT'], errors='coerce')
+                    df = df.set_index('TRADE_DATE').sort_index()
+                    return df
+        except Exception as e:
+            print(f"Failed to fetch EM history for {em_code}: {e}")
+        return None
 
     def _connect_tdx(self):
         try:
@@ -256,6 +337,22 @@ class SectorSentiment:
 
                     margin_values = turnover_values 
                     current_margin = current_turnover
+
+                    # Try to get real margin data
+                    try:
+                        em_code = self._find_em_code(name)
+                        if em_code:
+                            df_margin = self._fetch_em_margin_history(em_code)
+                            if df_margin is not None and not df_margin.empty:
+                                # Align dates? Or just use recent window
+                                # Assuming daily data is roughly aligned
+                                m_vals = df_margin['FIN_BUY_AMT'].dropna().values
+                                if len(m_vals) > 10:
+                                    margin_values = m_vals
+                                    current_margin = m_vals[-1]
+                                    # print(f"  Used EM margin data for {name} ({len(m_vals)} pts)")
+                    except Exception as e:
+                        print(f"  Margin fetch failed for {name}: {e}")
                     
                     # Quantiles
                     q_percents = np.linspace(0, 100, 201)

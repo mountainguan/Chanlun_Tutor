@@ -2,17 +2,17 @@ import requests
 import pandas as pd
 import json
 
-def test_em_api(report_name):
+def fetch_list():
     url = "https://datacenter-web.eastmoney.com/api/data/v1/get"
     params = {
-        "reportName": report_name,
+        "reportName": "RPTA_WEB_BKJYMXN",
         "columns": "ALL",
         "source": "WEB",
         "client": "WEB",
-        "sortColumns": "DATE",
+        "sortColumns": "FIN_BALANCE",
         "sortTypes": "-1",
         "pageNumber": 1,
-        "pageSize": 50,
+        "pageSize": 1000,
         "filter": "" 
     }
     try:
@@ -20,25 +20,38 @@ def test_em_api(report_name):
         if resp.status_code == 200:
             data = resp.json()
             if data.get('result') and data['result'].get('data'):
-                print(f"[{report_name}] Success: Got {len(data['result']['data'])} rows")
-                print(data['result']['data'][0])
-                return True
-            else:
-                print(f"[{report_name}] Empty result or error: {data.get('message')}")
-        else:
-            print(f"[{report_name}] HTTP {resp.status_code}")
+                print(f"Success: Got {len(data['result']['data'])} rows")
+                # Find '有色'
+                found_code = None
+                for row in data['result']['data']:
+                    if '有色' in row['BOARD_NAME']:
+                        print("Found:", row['BOARD_NAME'], row['BOARD_CODE'])
+                        found_code = row['BOARD_CODE']
+                
+                return found_code if found_code else data['result']['data'][0]['BOARD_CODE']
     except Exception as e:
-        print(f"[{report_name}] Exception: {e}")
-    return False
+        print(f"List Exception: {e}")
+    return None
 
-# Try probable report names for Industry Margin
-candidates = [
-    "RPTA_WEB_RZRQ_HY", # 行业融资融券
-    "RPTA_RZRQ_HY",
-    "RPT_RZRQ_HY",
-    "RPT_WEB_RZRQ_BK",
-    "RPTA_WEB_RZRQ_BK"
-]
+def fetch_history(board_code):
+    pass
+    try:
+        resp = requests.get(url, params=params, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get('result') and data['result'].get('data'):
+                print(f"History Success: Got {len(data['result']['data'])} rows")
+                print(data['result']['data'][0])
+                print(data['result']['data'][-1])
+                return
+            else:
+                print("History: Empty result (maybe this report doesn't support history)")
+                
+    except Exception as e:
+        print(f"History Exception: {e}")
 
-for c in candidates:
-    test_em_api(c)
+df = fetch_list()
+if df:
+    # Pick first code
+    code = df
+    fetch_history(code)
