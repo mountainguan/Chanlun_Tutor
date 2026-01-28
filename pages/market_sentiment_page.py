@@ -22,12 +22,12 @@ def init_sentiment_page():
 
         with ui.column().classes('w-full items-center p-2'):
             # 顶部布局：左侧科普，右侧仪表盘
-            with ui.row().classes('w-full max-w-6xl gap-2 mb-2 items-stretch h-[220px]'):
+            with ui.row().classes('w-full max-w-6xl gap-2 mb-2 items-stretch'):
                 # 左侧：科普介绍 (50%)
                 with ui.card().classes('flex-1 min-w-[300px] bg-gray-50 p-2 text-sm'):
                     ui.label('🌡️ 什么是情绪温度？').classes('text-base font-bold mb-1')
                     ui.html('<b>核心逻辑</b>：情绪由<b>杠杆力度</b>与<b>成交活跃度</b>驱动。<br>'
-                            '<span style="font-size:0.9em;color:#666">公式：$Temp = (Margin\\% - 2.0)*2 + (Turnover - 0.8)*33$</span>').classes('mb-1 leading-tight')
+                            '<span style="font-size:0.9em;color:#666">公式：温度 = (融资占比% - 2.0)×2 + (成交额万亿 - 0.8)×33</span>', sanitize=False).classes('mb-1 leading-tight')
                     
                     ui.markdown(
                         '- **>100 (高温)**：情绪亢奋，注意风险\n'
@@ -38,7 +38,7 @@ def init_sentiment_page():
                     ui.label('数据来源：两市成交额(网易/东财)，融资买入(金十)').classes('text-xs text-gray-400 mt-auto')
 
                 # 右侧：仪表盘容器 (50%)
-                gauge_container = ui.card().classes('flex-1 min-w-[300px] items-center justify-center p-0')
+                gauge_container = ui.card().classes('flex-1 min-w-[300px] items-center justify-center p-0 gap-0')
                 with gauge_container:
                      ui.label('计算中...').classes('text-gray-400 text-lg')
 
@@ -86,7 +86,7 @@ def init_sentiment_page():
                     fig_gauge = go.Figure(go.Indicator(
                         mode = "gauge+number",
                         value = current_temp,
-                        title = {'text': f"昨日情绪温度<br><span style='font-size:0.8em;color:gray'>({last_date_str})</span>"},
+                        # title = {'text': f"昨日情绪温度<br><span style='font-size:0.8em;color:gray'>({last_date_str})</span>"},
                         gauge = {
                             # 调整范围以适应新算法
                             'axis': {'range': [-30, 130]},
@@ -104,14 +104,16 @@ def init_sentiment_page():
                         }
                     ))
                     fig_gauge.update_layout(
-                        margin=dict(l=20, r=20, t=30, b=10),
-                        height=180,
+                        margin=dict(l=25, r=25, t=10, b=20),
+                        height=160,
                         paper_bgcolor = "rgba(0,0,0,0)",
                         font = {'family': "Arial"}
                     )
                     
                     gauge_container.clear()
                     with gauge_container:
+                        ui.label(f"昨日情绪温度").classes('text-base font-bold mt-2')
+                        ui.label(f"({last_date_str})").classes('text-xs text-gray-500 mb-0')
                         ui.plotly(fig_gauge).classes('w-full h-full')
 
                 # --- 绘图 (趋势图) ---
