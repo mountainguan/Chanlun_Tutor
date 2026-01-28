@@ -40,7 +40,7 @@ def init_sentiment_page():
             status_label = ui.label('正在连接数据接口，请稍候...').classes('text-lg text-blue-600 animate-pulse')
             
             # 图表容器
-            chart_container = ui.column().classes('w-full max-w-6xl h-[600px] border rounded shadow-sm bg-white p-2')
+            chart_container = ui.column().classes('w-full max-w-6xl h-[450px] border rounded shadow-sm bg-white p-1')
             
             # 数据表格容器
             data_container = ui.column().classes('w-full max-w-6xl mt-6 hidden')
