@@ -105,26 +105,32 @@ def init_sentiment_page():
                 try:
                     df = await loop.run_in_executor(executor, ms.get_temperature_data)
                 except Exception as e:
-                    status_label.text = f'系统错误: {str(e)}'
-                    status_label.classes(replace='text-red-500')
+                    if not status_label.is_deleted:
+                        status_label.text = f'系统错误: {str(e)}'
+                        status_label.classes(replace='text-red-500')
+                    return
+
+                # 在更新 UI 之前检查元素是否仍然存在
+                if status_label.is_deleted:
                     return
 
                 status_label.delete()
                 
                 if df is None or df.empty:
-                    ui.label('无法获取足够的数据进行计算。请检查网络连接或稍后再试。').classes('text-red-500 font-bold text-xl')
-                    # 提供一个刷新按钮
-                    ui.button('重试', on_click=lambda: ui.run_javascript('window.location.reload()')).props('color=primary')
+                    if hasattr(ui.context.client, 'layout'): # 简单检查上下文是否有效
+                        ui.label('无法获取足够的数据进行计算。请检查网络连接或稍后再试。').classes('text-red-500 font-bold text-xl')
+                        # 提供一个刷新按钮
+                        ui.button('重试', on_click=lambda: ui.run_javascript('window.location.reload()')).props('color=primary')
                     return
                 
                 # 检查是否是模拟数据并发出警告
-                if getattr(ms, 'is_simulated', False):
+                if getattr(ms, 'is_simulated', False) and not gauge_container.is_deleted:
                     with ui.row().classes('w-full justify-center bg-yellow-100 p-2 rounded mb-2 border border-yellow-300 items-center'):
                         ui.icon('warning', color='orange').classes('text-2xl mr-2')
                         ui.label('注意：由于外部API访问受限，当前展示的数据包含模拟/估算成分，仅供展示页面功能。').classes('text-orange-800')
 
                 # --- 仪表盘 (最新一天的温度) ---
-                if not df.empty:
+                if not df.empty and not gauge_container.is_deleted:
                     last_record = df.iloc[-1]
                     current_temp = last_record['temperature']
                     last_date_str = last_record.name.strftime('%Y-%m-%d')
@@ -287,5 +293,11 @@ def init_sentiment_page():
                             'defaultColDef': {'flex': 1, 'resizable': True}
                         }).classes('w-full h-[600px]') # 设定固定高度，确保边框能正确包裹内容，若超出则内部滚动
 
-            # 启动加载
-            ui.timer(0.1, fetch_and_draw, once=True)
+            # 启动加载 (使用 asyncio 替代 ui.timer 以避免父组件销毁时的 context 错误)
+            async def delayed_fetch():
+                await asyncio.sleep(0.1)
+                # 再次检查容器是否存在
+                if not status_label.is_deleted:
+                    await fetch_and_draw()
+
+            asyncio.create_task(delayed_fetch())
