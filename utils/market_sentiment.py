@@ -318,13 +318,9 @@ class MarketSentiment:
 
         # 3. Use Cache for Calculation
         if cache is None or cache.empty:
-            print("No data available. Using simulation.")
-            self.is_simulated = True
-            dates = pd.date_range(end=datetime.datetime.now(), periods=250, freq='B')
-            import numpy as np
-            turnover_val = np.random.uniform(0.6, 1.2, size=len(dates)) 
-            cache = pd.DataFrame({'turnover_trillion': turnover_val}, index=dates)
-            cache['margin_buy'] = cache['turnover_trillion'] * 1e12 * 0.085
+            print("No data available. Simulation is disabled.")
+            self.is_simulated = False
+            return None
         
         df = cache.copy()
         
