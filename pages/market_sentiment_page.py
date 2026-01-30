@@ -230,7 +230,11 @@ def init_sentiment_page():
                                     export_df = df.copy()
                                     export_df.to_excel(output)
                                     ui.download(output.getvalue(), 'market_sentiment.xlsx')
-                                except Exception as e: ui.notify(f'导出失败: {e}', type='negative')
+                                except Exception as e: 
+                                    try:
+                                        ui.notify(f'导出失败: {e}', type='negative')
+                                    except RuntimeError:
+                                        pass  # Context might be deleted
 
                             with ui.expansion('查看大盘详细列表', icon='list_alt').classes('w-full bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm'):
                                 with ui.column().classes('w-full p-2'):
@@ -346,10 +350,16 @@ def init_sentiment_page():
                             
                             load_sector_view() 
                             
-                            ui.notify('板块数据更新成功', type='positive')
+                            try:
+                                ui.notify('板块数据更新成功', type='positive')
+                            except RuntimeError:
+                                pass  # Context might be deleted
                         except Exception as e:
                             print(f"Update failed details: {e}")
-                            ui.notify(f'更新失败: {e}', type='negative')
+                            try:
+                                ui.notify(f'更新失败: {e}', type='negative')
+                            except RuntimeError:
+                                pass  # Context might be deleted
                             # Restore initial state on error
                             sector_chart_container.clear()
                             with sector_chart_container:
@@ -367,7 +377,10 @@ def init_sentiment_page():
                         if data:
                             render_sector_view(data)
                         else:
-                            ui.notify('无缓存数据，请点击更新', type='warning')
+                            try:
+                                ui.notify('无缓存数据，请点击更新', type='warning')
+                            except RuntimeError:
+                                pass  # Context might be deleted
 
                     def render_sector_view(data):
                         try:
@@ -384,7 +397,10 @@ def init_sentiment_page():
                             df_s = pd.DataFrame(records)
                             
                             if df_s.empty:
-                                ui.notify("数据为空", type='warning')
+                                try:
+                                    ui.notify("数据为空", type='warning')
+                                except RuntimeError:
+                                    pass  # Context might be deleted
                                 return
                             
                             # Add turnover in 100 Millions for table display
@@ -420,7 +436,7 @@ def init_sentiment_page():
 
                                 fig = go.Figure(go.Treemap(
                                     labels = df_s['name'],
-                                    parents = ["全部板块"] * len(df_s),
+                                    parents = [""] * len(df_s),
                                     values = df_s['turnover'], 
                                     text = df_s['temperature'].apply(lambda x: f"{x:.0f}°"),
                                     marker = dict(
@@ -456,7 +472,7 @@ def init_sentiment_page():
                             # Table
                             sector_table_container.clear()
                             with sector_table_container:
-                                with ui.expansion('查看板块详细列表', icon='list').classes('w-full bg-white border rounded shadow-sm'):
+                                with ui.expansion('查看板块详细列表', icon='list').classes('w-full bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm'):
                                     with ui.column().classes('w-full p-2'):
                                         def export_sector_excel():
                                             import io
@@ -472,7 +488,11 @@ def init_sentiment_page():
                                                 export_df.rename(columns=cols_map, inplace=True)
                                                 export_df.to_excel(output, index=False)
                                                 ui.download(output.getvalue(), 'sector_sentiment.xlsx')
-                                            except Exception as e: ui.notify(f'导出失败: {e}', type='negative')
+                                            except Exception as e: 
+                                                try:
+                                                    ui.notify(f'导出失败: {e}', type='negative')
+                                                except RuntimeError:
+                                                    pass  # Context might be deleted
 
                                         with ui.row().classes('w-full justify-between items-center mb-2'):
                                             ui.label('板块数据明细').classes('text-lg font-bold')
@@ -498,7 +518,10 @@ def init_sentiment_page():
                                         }).classes('w-full h-[600px]')
                         except Exception as e:
                             print(f"Render sector view failed: {e}")
-                            ui.notify(f"渲染板块视图失败: {e}", type='negative')
+                            try:
+                                ui.notify(f"渲染板块视图失败: {e}", type='negative')
+                            except RuntimeError:
+                                pass  # Context might be deleted
                             # Restore Placeholder if failed
                             sector_chart_container.clear()
                             with sector_chart_container:

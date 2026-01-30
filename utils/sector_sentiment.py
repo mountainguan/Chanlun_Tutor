@@ -457,8 +457,8 @@ class SectorSentiment:
                          df_sector_margin = df_sector_margin.rename(columns={'FIN_BUY_AMT': 'sector_margin_buy'})
                          # Use left merge to keep latest date from price/volume df
                          company_df = pd.merge(company_df, df_sector_margin[['sector_margin_buy']], left_index=True, right_index=True, how='left')
-                         # Forward fill sector margin (as it's usually T-1)
-                         company_df['sector_margin_buy'] = company_df['sector_margin_buy'].ffill()
+                         # Fill NaN with 0.0 to ensure only same-date data is used
+                         company_df['sector_margin_buy'] = company_df['sector_margin_buy'].fillna(0.0)
                     else:
                         company_df['sector_margin_buy'] = 0.0
 
