@@ -546,6 +546,54 @@ class SectorSentiment:
         with open(self.cache_file, 'r', encoding='utf-8') as f:
             return json.load(f)
 
+    def get_daily_stats(self):
+        """
+        从缓存中读取当天的板块数据，按照温度分组返回统计信息。
+        返回结构示例：
+        {
+            'date': '2026-01-29',
+            'counts': {'overheat': 3, 'cold': 5, 'overcold': 1},
+            'overheat': ['板块A','板块B'],
+            'cold': ['板块C', ...],
+            'overcold': ['板块X', ...]
+        }
+        """
+        data = self.get_display_data()
+        if not data:
+            return None
+
+        # determine date (use first entry's date if available)
+        sample = next(iter(data.values()), {})
+        date = sample.get('date', '')
+
+        overheat = []
+        overcold = []
+        cold = []
+
+        for name, rec in data.items():
+            try:
+                temp = float(rec.get('temperature', 0))
+            except Exception:
+                temp = 0
+            if temp > 100:
+                overheat.append(name)
+            elif temp < -50:
+                overcold.append(name)
+            elif temp <= -20 and temp >= -50:
+                cold.append(name)
+
+        return {
+            'date': date,
+            'counts': {
+                'overheat': len(overheat),
+                'cold': len(cold),
+                'overcold': len(overcold)
+            },
+            'overheat': sorted(overheat),
+            'cold': sorted(cold),
+            'overcold': sorted(overcold)
+        }
+
 if __name__ == "__main__":
     import urllib3
     import sys

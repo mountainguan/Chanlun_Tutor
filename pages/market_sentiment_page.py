@@ -267,30 +267,62 @@ def init_sentiment_page():
                 # --- SECTOR TAB ---
                 with ui.tab_panel(sector_tab).classes('p-0 flex flex-col items-center gap-4'):
                     
-                    # Info Card with Callout Style
-                    with ui.card().classes('w-full  bg-white p-6 rounded-xl shadow-md border-l-4 border-l-indigo-500 border-t-0 border-r-0 border-b-0'):
-                        with ui.row().classes('items-center gap-2 mb-4'):
-                            ui.icon('info', color='indigo').classes('text-2xl')
-                            ui.label('板块情绪温度说明').classes('text-lg font-bold text-gray-800')
-                        
-                        ui.html('''
-                        <div class="bg-indigo-50 p-4 rounded-lg mb-4 text-sm text-indigo-900">
-                            <b>📐 计算公式：</b>板块温度 = <span class="font-bold text-red-600">量能项(资金活跃度)</span> + <span class="font-bold text-blue-600">融资项(杠杆意愿)</span>
-                        </div>
-                        ''', sanitize=False).classes('w-full')
-                        
-                        with ui.grid(columns=2).classes('w-full gap-6'):
-                            with ui.column().classes('p-3 bg-gray-50 rounded-lg'):
-                                ui.label('量能项 (Volume)').classes('font-bold text-gray-700 text-sm mb-1')
-                                ui.label('反映资金相对大盘的活跃度。').classes('text-xs text-gray-500 mb-1')
-                                ui.code('公式：(板块成交/均量) ÷ (大盘成交/均量)').classes('text-xs w-full')
-                            
-                            with ui.column().classes('p-3 bg-gray-50 rounded-lg'):
-                                ui.label('融资项 (Margin)').classes('font-bold text-gray-700 text-sm mb-1')
-                                ui.label('反映杠杆资金相对大盘的激进程度。').classes('text-xs text-gray-500 mb-1')
-                                ui.code('公式：(板块融资占比) - (大盘融资占比)').classes('text-xs w-full')
-                        
-                        ui.label('解读：温度 >0 表示强于大盘（领涨），<0 表示弱于大盘。>100 为过热，<-50 为过冷。').classes('text-xs font-bold text-indigo-800 mt-4 bg-indigo-50 inline-block px-2 py-1 rounded')
+                    # Redesigned: Left main column for explanations + right stats sidebar
+                    # Make both top blocks equal width and height by using two flex-1 columns and stretch alignment
+                    with ui.row().classes('w-full max-w-6xl gap-6 items-stretch min-h-[220px]'):
+                        # Left column (main content) - flex and full height
+                        with ui.column().classes('flex-1 h-full'):
+                            with ui.card().classes('w-full h-full bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-indigo-300'):
+                                with ui.row().classes('items-center gap-2 mb-4'):
+                                    ui.icon('info', color='indigo').classes('text-2xl')
+                                    ui.label('板块情绪温度说明').classes('text-lg font-bold text-gray-800')
+
+                                ui.html('''
+                                <div class="bg-indigo-50 p-4 rounded-lg mb-4 text-sm text-indigo-900">
+                                    <b>📐 计算公式：</b>板块温度 = <span class="font-bold text-red-600">量能项(资金活跃度)</span> + <span class="font-bold text-blue-600">融资项(杠杆意愿)</span>
+                                </div>
+                                ''', sanitize=False).classes('w-full')
+
+                                # Metric explanation box — split into two side-by-side sub-cards (Volume | Margin)
+                                with ui.card().classes('w-full p-4 bg-gray-50 rounded-lg'):
+                                    # Ensure the two metric cards stay side-by-side (no wrapping); allow horizontal scrolling on narrow screens
+                                    with ui.row().classes('w-full gap-4 items-stretch flex-nowrap overflow-x-auto'):
+                                        with ui.card().classes('flex-1 min-w-[320px] p-4 bg-white rounded-lg shadow-none border-0'):
+                                            ui.label('量能项 (Volume)').classes('font-bold text-gray-700 text-sm mb-1')
+                                            ui.label('反映资金相对大盘的活跃度。').classes('text-xs text-gray-500 mb-2')
+                                            ui.code('公式：(板块成交/均量) ÷ (大盘成交/均量)').classes('text-xs w-full break-words')
+
+                                        with ui.card().classes('flex-1 min-w-[320px] p-4 bg-white rounded-lg shadow-none border-0'):
+                                            ui.label('融资项 (Margin)').classes('font-bold text-gray-700 text-sm mb-1')
+                                            ui.label('反映杠杆资金相对大盘的激进程度。').classes('text-xs text-gray-500 mb-2')
+                                            ui.code('公式：(板块融资占比) - (大盘融资占比)').classes('text-xs w-full break-words')
+
+                                    # Status badges below the two boxes (full width) - use softer pill-like colors matching the small pills
+                                    with ui.row().classes('w-full gap-2 mt-3 text-xs'):
+                                        with ui.column().classes('flex-1 bg-red-100 p-2 rounded-lg border border-red-100 items-center justify-center'):
+                                            ui.label('温度 > 90：过热').classes('font-bold text-red-600')
+                                            ui.label('风险聚集').classes('text-red-400')
+                                        with ui.column().classes('flex-1 bg-indigo-50 p-2 rounded-lg border border-indigo-100 items-center justify-center'):
+                                            ui.label('温度 在 -20 ~ -50：较冷').classes('font-bold text-indigo-700')
+                                            ui.label('留意资金动向').classes('text-indigo-400')
+                                        with ui.column().classes('flex-1 bg-purple-50 p-2 rounded-lg border border-purple-100 items-center justify-center'):
+                                            ui.label('温度 < -50：过冷').classes('font-bold text-purple-700')
+                                            ui.label('注意板块反弹').classes('text-purple-400')
+
+                                # 解释信息已内嵌于三个状态卡，可视化展示，移除原始文字说明以减少重复
+
+                            # Keep the chart container below the explanation in the left column
+                            # sector_chart_container is defined later and will be rendered into; we just ensure layout flow
+
+                        # Right column (stats sidebar) - make equal width/height to left
+                        with ui.column().classes('flex-1 h-full'):
+                            # Right stats: white background and full-height to match the explanation module
+                            with ui.card().classes('w-full h-full p-4 bg-white rounded-lg shadow-sm border-0') as right_stats_card:
+                                ui.label('今日板块统计').classes('font-bold text-gray-700 mb-1')
+                                ui.label('显示当前缓存中按温度分组的板块数量与示例名称。').classes('text-xs text-gray-500 mb-2')
+                                right_stats_container = ui.column().classes('w-full text-sm text-gray-700')
+                                with right_stats_container:
+                                    ui.label('尚未加载统计数据，请加载或更新板块数据。').classes('text-xs text-gray-400')
 
                     # Control Row & Chart Area merged
                     sector_status_label = ui.label('准备就绪').classes('hidden') # Hidden state label, controlled by logic
@@ -409,6 +441,58 @@ def init_sentiment_page():
 
                             # Header inside container
                             data_date = list(data.values())[0].get("date", "未知日期")
+                            # Update the stats panel (过热/较冷/过冷)
+                            try:
+                                # compute categories from raw data dict
+                                # Overheat: temp > 90 (display top by temp desc)
+                                overheat_all = [(k, float(v.get('temperature', 0))) for k, v in data.items() if float(v.get('temperature', 0)) > 90]
+                                overheat_sorted = sorted(overheat_all, key=lambda x: x[1], reverse=True)
+                                overheat_display = [k for k, t in overheat_sorted][:5]
+
+                                # Cold (较冷): temp between -50 and -20 inclusive (display by temp asc)
+                                cold_all = [(k, float(v.get('temperature', 0))) for k, v in data.items() if -50 <= float(v.get('temperature', 0)) <= -20]
+                                cold_sorted = sorted(cold_all, key=lambda x: x[1])
+                                cold_display = [k for k, t in cold_sorted][:5]
+
+                                # Overcold (过冷): temp < -50 (display by temp asc)
+                                overcold_all = [(k, float(v.get('temperature', 0))) for k, v in data.items() if float(v.get('temperature', 0)) < -50]
+                                overcold_sorted = sorted(overcold_all, key=lambda x: x[1])
+                                overcold_display = [k for k, t in overcold_sorted][:5]
+
+                                # refresh UI container (right_stats_container defined in the info card)
+                                try:
+                                    right_stats_container.clear()
+                                except Exception:
+                                    pass
+
+                                with right_stats_container:
+                                    ui.label(f"数据日期：{data_date}").classes('text-xs text-gray-500 mb-2')
+                                    with ui.row().classes('w-full gap-2 mb-2'):
+                                        with ui.column().classes('flex-1 bg-red-50 p-2 rounded-lg items-center'):
+                                            ui.label(f'过热: {len(overheat_all)}').classes('font-bold text-red-700')
+                                        with ui.column().classes('flex-1 bg-blue-50 p-2 rounded-lg items-center'):
+                                            ui.label(f'较冷: {len(cold_all)}').classes('font-bold text-blue-700')
+                                        with ui.column().classes('flex-1 bg-indigo-50 p-2 rounded-lg items-center'):
+                                            ui.label(f'过冷: {len(overcold_all)}').classes('font-bold text-indigo-700')
+
+                                    # For each category show up to 5 top names inline (no expansion)
+                                    def render_category(title, icon_name, items_display, total_count):
+                                        with ui.column().classes('w-full mb-2'):
+                                            with ui.row().classes('items-center gap-2'):
+                                                ui.icon(icon_name).classes('text-lg')
+                                                ui.label(f"{title} ({total_count})").classes('font-bold')
+                                            if items_display:
+                                                with ui.row().classes('flex-wrap gap-2 mt-1'):
+                                                    for name in items_display:
+                                                        ui.label(name).classes('text-sm px-2 py-0.5 bg-gray-100 rounded')
+                                            else:
+                                                ui.label('无').classes('text-xs text-gray-400')
+
+                                    render_category('过热板块', 'whatshot', overheat_display, len(overheat_all))
+                                    render_category('较冷板块', 'ac_unit', cold_display, len(cold_all))
+                                    render_category('过冷板块', 'snowflake', overcold_display, len(overcold_all))
+                            except Exception as e:
+                                print('Update sector stats failed:', e)
                             
                             with sector_chart_container:
                                 with ui.row().classes('w-full justify-between items-center mb-4 pb-2 border-b border-gray-100'):
