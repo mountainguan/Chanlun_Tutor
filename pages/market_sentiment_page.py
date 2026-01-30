@@ -224,32 +224,33 @@ def init_sentiment_page():
                                     ui.download(output.getvalue(), 'market_sentiment.xlsx')
                                 except Exception as e: ui.notify(f'导出失败: {e}', type='negative')
 
-                            with ui.row().classes('w-full justify-between items-center mb-2'):
-                                ui.label('历史明细').classes('text-lg font-bold')
-                                ui.button('导出Excel', icon='file_download', on_click=export_excel_market).props('small outline color=green')
+                            with ui.expansion('查看大盘详细列表', icon='list_alt').classes('w-full bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm'):
+                                with ui.column().classes('w-full p-2'):
+                                    with ui.row().classes('w-full justify-between items-center mb-2'):
+                                        ui.label('大盘数据明细').classes('text-lg font-bold')
+                                        ui.button('导出Excel', icon='file_download', on_click=export_excel_market).props('small outline color=green')
 
-                            with ui.expansion('查看详细数据', icon='list_alt').classes('w-full bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm'):
-                                rows = []
-                                for idx, row in df.sort_index(ascending=False).iterrows():
-                                    rows.append({
-                                        'date': idx.strftime('%Y-%m-%d'),
-                                        'temp': round(row['temperature'], 2),
-                                        'turnover': round(row['turnover_trillion'], 3),
-                                        'margin_buy': round(row['margin_buy'] / 1e8, 2) if 'margin_buy' in row else 0,
-                                        'margin_pct': round(row['margin_ratio_pct'], 2) if 'margin_ratio_pct' in row else 0
-                                    })
-                                ui.aggrid({
-                                    'columnDefs': [
-                                        {'headerName': '日期', 'field': 'date'},
-                                        {'headerName': '温度', 'field': 'temp', 'cellStyle': {'fontWeight': 'bold', 'color': '#5C6BC0'}},
-                                        {'headerName': '成交(万亿)', 'field': 'turnover'},
-                                        {'headerName': '融资买入(亿)', 'field': 'margin_buy'},
-                                        {'headerName': '融资占比(%)', 'field': 'margin_pct'},
-                                    ],
-                                    'rowData': rows,
-                                    'pagination': True,
-                                    'defaultColDef': {'sortable': True, 'filter': True}
-                                }).classes('w-full h-[500px]')
+                                    rows = []
+                                    for idx, row in df.sort_index(ascending=False).iterrows():
+                                        rows.append({
+                                            'date': idx.strftime('%Y-%m-%d'),
+                                            'temp': round(row['temperature'], 2),
+                                            'turnover': round(row['turnover_trillion'], 3),
+                                            'margin_buy': round(row['margin_buy'] / 1e8, 2) if 'margin_buy' in row else 0,
+                                            'margin_pct': round(row['margin_ratio_pct'], 2) if 'margin_ratio_pct' in row else 0
+                                        })
+                                    ui.aggrid({
+                                        'columnDefs': [
+                                            {'headerName': '日期', 'field': 'date'},
+                                            {'headerName': '温度', 'field': 'temp', 'cellStyle': {'fontWeight': 'bold', 'color': '#5C6BC0'}},
+                                            {'headerName': '成交(万亿)', 'field': 'turnover'},
+                                            {'headerName': '融资买入(亿)', 'field': 'margin_buy'},
+                                            {'headerName': '融资占比(%)', 'field': 'margin_pct'},
+                                        ],
+                                        'rowData': rows,
+                                        'pagination': True,
+                                        'defaultColDef': {'sortable': True, 'filter': True}
+                                    }).classes('w-full h-[500px]')
 
                 # --- SECTOR TAB ---
                 with ui.tab_panel(sector_tab).classes('p-0 flex flex-col items-center gap-4'):
@@ -377,6 +378,10 @@ def init_sentiment_page():
                             if df_s.empty:
                                 ui.notify("数据为空", type='warning')
                                 return
+                            
+                            # Add turnover in 100 Millions for table display
+                            if 'turnover' in df_s.columns:
+                                df_s['turnover_yi'] = (df_s['turnover'] / 100000000).round(2)
 
                             # Header inside container
                             data_date = list(data.values())[0].get("date", "未知日期")
@@ -387,6 +392,7 @@ def init_sentiment_page():
                                         ui.icon('grid_view', color='indigo').classes('text-xl')
                                         ui.label(f'全市场板块情绪热度').classes('text-xl font-bold text-gray-800')
                                         ui.label(f'{data_date}').classes('text-sm px-2 py-0.5 bg-gray-100 rounded text-gray-500')
+                                        ui.label('（注：面积大小对应成交额）').classes('text-xs text-gray-400')
                                     
                                     with ui.row().classes('items-center gap-2'):
                                         # Recapture buttons for scope
@@ -450,7 +456,7 @@ def init_sentiment_page():
                                                 output = io.BytesIO()
                                                 # Ensure columns exist (backward compatibility)
                                                 cols_map = {
-                                                    'name': '板块', 'date': '日期', 'temperature': '温度', 'turnover': '成交额',
+                                                    'name': '板块', 'date': '日期', 'temperature': '温度', 'turnover_yi': '成交额(亿)',
                                                     'score_vol': '量能得分', 'score_margin': '融资得分'
                                                 }
                                                 cols = [c for c in cols_map.keys() if c in df_s.columns]
@@ -468,7 +474,7 @@ def init_sentiment_page():
                                         grid_cols = [
                                             {'headerName': '板块名称', 'field': 'name', 'sortable': True, 'filter': True, 'pinned': 'left'},
                                             {'headerName': '温度', 'field': 'temperature', 'sortable': True, 'cellStyle': {'fontWeight': 'bold'}},
-                                            {'headerName': '成交额', 'field': 'turnover', 'sortable': True},
+                                            {'headerName': '成交额(亿)', 'field': 'turnover_yi', 'sortable': True},
                                             {'headerName': '日期', 'field': 'date', 'sortable': True},
                                         ]
                                         if 'score_vol' in df_s.columns:
@@ -478,7 +484,7 @@ def init_sentiment_page():
                                         
                                         ui.aggrid({
                                             'columnDefs': grid_cols,
-                                            'rowData': records,
+                                            'rowData': df_s.to_dict('records'),
                                             'pagination': True,
                                             'paginationPageSize': 20
                                         }).classes('w-full h-[600px]')
