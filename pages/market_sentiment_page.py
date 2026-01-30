@@ -18,6 +18,8 @@ executor = ThreadPoolExecutor(max_workers=2)
 def init_sentiment_page():
     @ui.page('/mood')
     def sentiment_page():
+        import re
+        is_mobile = re.search(r'(mobile|android|iphone|ipad)', ui.context.client.request.headers.get('User-Agent', ''), re.I) is not None
         # Inject Plotly optimization script
         ui.add_head_html('''
             <script src="/static/plotly.min.js"></script>
@@ -83,6 +85,22 @@ def init_sentiment_page():
                     tryRender();
                 }
             </script>
+        ''')
+
+        # Inject additional CSS to support flat card styling for specific sections
+        ui.add_head_html('''
+            <style>
+                /* no-inner-shadow helper: keep outer element shadows but remove shadows from inner elements */
+                .no-inner-shadow .shadow-sm, .no-inner-shadow .shadow-md, .no-inner-shadow .shadow-lg,
+                .no-inner-shadow .rounded-lg, .no-inner-shadow .rounded-xl { box-shadow: none !important; }
+                /* Ensure inner card elements don't show elevated borders */
+                .no-inner-shadow .px-3 { padding-left: 0.6rem; padding-right: 0.6rem; }
+                /* hide-on-mobile: show by default, hide when viewport is narrow */
+                .hide-on-mobile { display: block !important; }
+                @media (max-width: 767px) {
+                    .hide-on-mobile { display: none !important; }
+                }
+            </style>
         ''')
 
         # Custom Plotly render function
@@ -197,6 +215,10 @@ def init_sentiment_page():
                                 ui.label('无法获取大盘数据。').classes('text-red-500 font-bold')
                             return
                         
+                        # Limit data for mobile
+                        if is_mobile:
+                            df = df.tail(30)
+                        
                         # Warning if simulated
                         if getattr(ms, 'is_simulated', False) and not gauge_container.is_deleted:
                             with ui.row().classes('w-full justify-center bg-yellow-100 p-2 rounded mb-2 border border-yellow-300 items-center'):
@@ -256,14 +278,15 @@ def init_sentiment_page():
                         if not low_df.empty: fig.add_trace(go.Scatter(x=low_df.index, y=low_df['temperature'], mode='markers', name='冰点', marker=dict(color='#26A69A', size=8, line=dict(color='white', width=1))))
                         
                         fig.update_layout(
-                            title=dict(text='<b>情绪温度趋势 (近三年)</b>', font=dict(size=18, color='#374151')),
+                            title=dict(text='<b>情绪温度趋势 (近30天)</b>' if is_mobile else '<b>情绪温度趋势 (近三年)</b>', font=dict(size=18, color='#374151')),
                             xaxis=dict(title='日期', dtick="M2", tickformat="%Y-%m", tickangle=-45, showgrid=True, gridcolor='#F3F4F6'), 
                             yaxis=dict(title='温度', showgrid=True, gridcolor='#F3F4F6', zeroline=True, zerolinecolor='#E5E7EB'),
                             margin=dict(l=50, r=40, t=60, b=50), 
                             height=460, 
                             paper_bgcolor='rgba(0,0,0,0)',
                             plot_bgcolor='rgba(0,0,0,0)',
-                            font=dict(family="Roboto, 'Microsoft YaHei', sans-serif")
+                            font=dict(family="Roboto, 'Microsoft YaHei', sans-serif"),
+                            showlegend=not is_mobile
                         )
                         chart_container.clear()
                         with chart_container:
@@ -318,10 +341,12 @@ def init_sentiment_page():
                     
                     # Redesigned: Left main column for explanations + right stats sidebar
                     # Make both top blocks equal width and height by using two flex-1 columns and stretch alignment
-                    with ui.row().classes('w-full max-w-6xl gap-6 items-stretch min-h-[220px]'):
+                    # Make responsive: stack on small screens and row on md+, hide left module on mobile
+                    with ui.row().classes('w-full max-w-6xl gap-6 items-stretch min-h-[220px] flex-col md:flex-row'):
                         # Left column (main content) - flex and full height
-                        with ui.column().classes('flex-1 h-full'):
-                            with ui.card().classes('w-full h-full bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-indigo-300'):
+                        # left column: hide on narrow screens via CSS .hide-on-mobile
+                        with ui.column().classes('flex-1 h-full hide-on-mobile'):
+                            with ui.card().classes('w-full h-full flex flex-col bg-white p-4 rounded-lg shadow-md border-l-2 border-l-indigo-100 no-inner-shadow min-h-0 min-h-[450px]'):
                                 with ui.row().classes('items-center gap-2 mb-4'):
                                     ui.icon('info', color='indigo').classes('text-2xl')
                                     ui.label('板块情绪温度说明').classes('text-lg font-bold text-gray-800')
@@ -333,9 +358,11 @@ def init_sentiment_page():
                                 ''', sanitize=False).classes('w-full')
 
                                 # Metric explanation box — split into two side-by-side sub-cards (Volume | Margin)
-                                with ui.card().classes('w-full p-4 bg-gray-50 rounded-lg'):
+                                # make this inner card flexible so left column fills same height as right column
+                                with ui.card().classes('w-full p-4 bg-gray-50 rounded-lg flex-1 flex flex-col min-h-0'):
                                     # Ensure the two metric cards stay side-by-side (no wrapping); allow horizontal scrolling on narrow screens
-                                    with ui.row().classes('w-full gap-4 items-stretch flex-nowrap overflow-x-auto'):
+                                    # make the row flexible so it expands and pushes the status badges to the bottom
+                                    with ui.row().classes('w-full gap-4 items-stretch flex-nowrap overflow-x-auto flex-1 min-h-0'):
                                         with ui.card().classes('flex-1 min-w-[320px] p-4 bg-white rounded-lg shadow-none border-0'):
                                             ui.label('量能项 (Volume)').classes('font-bold text-gray-700 text-sm mb-1')
                                             ui.label('反映资金相对大盘的活跃度。').classes('text-xs text-gray-500 mb-2')
@@ -366,10 +393,10 @@ def init_sentiment_page():
                         # Right column (stats sidebar) - make equal width/height to left
                         with ui.column().classes('flex-1 h-full'):
                             # Right stats: white background and full-height to match the explanation module
-                            with ui.card().classes('w-full h-full p-4 bg-white rounded-lg shadow-sm border-0') as right_stats_card:
-                                ui.label('今日板块统计').classes('font-bold text-gray-700 mb-1')
-                                ui.label('显示当前缓存中按温度分组的板块数量与示例名称。').classes('text-xs text-gray-500 mb-2')
-                                right_stats_container = ui.column().classes('w-full text-sm text-gray-700')
+                            with ui.card().classes('w-full h-full p-4 bg-white rounded-lg shadow-md border-0 flex flex-col no-inner-shadow min-h-0 min-h-[450px]') as right_stats_card:
+                                ui.label('今日板块统计').classes('font-bold text-gray-700 mb-0')
+                                ui.label('显示当前缓存中按温度分组的板块数量与示例名称。').classes('text-xs text-gray-500 mb-1')
+                                right_stats_container = ui.column().classes('w-full text-sm text-gray-700 flex-1 min-h-0')
                                 with right_stats_container:
                                     ui.label('尚未加载统计数据，请加载或更新板块数据。').classes('text-xs text-gray-400')
 
@@ -516,31 +543,35 @@ def init_sentiment_page():
                                     pass
 
                                 with right_stats_container:
-                                    ui.label(f"数据日期：{data_date}").classes('text-xs text-gray-500 mb-2')
-                                    with ui.row().classes('w-full gap-2 mb-2'):
-                                        with ui.column().classes('flex-1 bg-red-50 p-2 rounded-lg items-center'):
+                                    ui.label(f"数据日期：{data_date}").classes('text-xs text-gray-500 mb-1')
+                                    with ui.row().classes('w-full gap-2 mb-1'):
+                                        with ui.column().classes('flex-1 bg-red-50 py-1 px-2 rounded-lg items-center justify-center'):
                                             ui.label(f'过热: {len(overheat_all)}').classes('font-bold text-red-700')
-                                        with ui.column().classes('flex-1 bg-blue-50 p-2 rounded-lg items-center'):
+                                        with ui.column().classes('flex-1 bg-blue-50 py-1 px-2 rounded-lg items-center justify-center'):
                                             ui.label(f'较冷: {len(cold_all)}').classes('font-bold text-blue-700')
-                                        with ui.column().classes('flex-1 bg-indigo-50 p-2 rounded-lg items-center'):
-                                            ui.label(f'过冷: {len(overcold_all)}').classes('font-bold text-indigo-700')
+                                        with ui.column().classes('flex-1 bg-purple-50 py-1 px-2 rounded-lg items-center justify-center'):
+                                            ui.label(f'过冷: {len(overcold_all)}').classes('font-bold text-purple-700')
 
                                     # For each category show up to 5 top names inline (no expansion)
-                                    def render_category(title, icon_name, items_display, total_count):
-                                        with ui.column().classes('w-full mb-2'):
+                                    def render_category(title, icon_name, icon_color, items_display, total_count):
+                                        with ui.column().classes('w-full mb-1'):
                                             with ui.row().classes('items-center gap-2'):
-                                                ui.icon(icon_name).classes('text-lg')
+                                                try:
+                                                    ui.icon(icon_name, color=icon_color).classes('text-lg')
+                                                except Exception:
+                                                    ui.icon(icon_name).classes('text-lg')
                                                 ui.label(f"{title} ({total_count})").classes('font-bold')
                                             if items_display:
                                                 with ui.row().classes('flex-wrap gap-2 mt-1'):
                                                     for name in items_display:
-                                                        ui.label(name).classes('text-sm px-2 py-0.5 bg-gray-100 rounded')
+                                                        ui.label(name).classes('text-sm px-3 py-1 bg-gray-100 rounded-md')
                                             else:
                                                 ui.label('无').classes('text-xs text-gray-400')
 
-                                    render_category('过热板块', 'whatshot', overheat_display, len(overheat_all))
-                                    render_category('较冷板块', 'ac_unit', cold_display, len(cold_all))
-                                    render_category('过冷板块', 'snowflake', overcold_display, len(overcold_all))
+                                    render_category('过热板块', 'whatshot', 'red', overheat_display, len(overheat_all))
+                                    render_category('较冷板块', 'ac_unit', 'blue', cold_display, len(cold_all))
+                                    # Use a known material icon for snowflake and purple color for overcold
+                                    render_category('过冷板块', 'ac_unit', 'purple', overcold_display, len(overcold_all))
                             except Exception as e:
                                 print('Update sector stats failed:', e)
                             
@@ -577,7 +608,7 @@ def init_sentiment_page():
                                         colors = df_s['temperature'],
                                         colorscale = custom_colorscale, 
                                         cmin = -60, cmax = 120, cmid = 0,
-                                        showscale = True,
+                                        showscale = not is_mobile,
                                         colorbar = dict(
                                             title='温度', 
                                             thickness=15, 
