@@ -22,21 +22,61 @@ def init_sentiment_page():
         ui.add_head_html('''
             <script src="/static/plotly.min.js"></script>
             <script>
-                if (typeof Plotly === 'undefined') {
-                    document.write('<script src="https://cdn.bootcdn.net/ajax/libs/plotly.js/3.1.1/plotly.min.js"><\/script>');
-                }            
+                // Load Plotly robustly: try local static first, then CDN fallback
+                if (typeof window._plotly_ready === 'undefined') {
+                    window._plotly_ready = false;
+                    (function(){
+                        function markReady(){ window._plotly_ready = true; }
+                        var s = document.createElement('script');
+                        s.src = '/static/plotly.min.js';
+                        s.async = true;
+                        s.onload = function(){ markReady(); };
+                        s.onerror = function(){
+                            var c = document.createElement('script');
+                            c.src = 'https://cdn.bootcdn.net/ajax/libs/plotly.js/3.1.1/plotly.min.js';
+                            c.async = true;
+                            c.onload = function(){ markReady(); };
+                            document.head.appendChild(c);
+                        };
+                        document.head.appendChild(s);
+                    })();
+                }
+
+                // Robust render: wait until element exists AND has non-zero size before plotting
+                window._plotly_cache = window._plotly_cache || {};
                 window.renderPlotly = function(id, data, layout, config) {
                     var attempt = 0;
                     function tryRender() {
                         var el = document.getElementById(id);
-                        if (el && typeof Plotly !== 'undefined') {
-                            Plotly.newPlot(id, data, layout, config);
-                        } else {
-                            if (attempt < 10) {
-                                attempt++;
-                                setTimeout(tryRender, 50);
+                        var hasPlotly = (typeof window.Plotly !== 'undefined') || window._plotly_ready;
+                        if (el && hasPlotly) {
+                            var width = el.offsetWidth || el.clientWidth || (el.getBoundingClientRect && el.getBoundingClientRect().width) || 0;
+                            var height = el.offsetHeight || el.clientHeight || (el.getBoundingClientRect && el.getBoundingClientRect().height) || 0;
+                            if (width > 0 && height > 0) {
+                                try {
+                                    // If Plotly is not yet attached to window but _plotly_ready is true,
+                                    // give browser a brief moment to expose the global.
+                                    if (typeof window.Plotly === 'undefined' && window._plotly_ready) {
+                                        setTimeout(function(){ try{ window.Plotly && Plotly.newPlot(id, data, layout, config).then(function(){ window._plotly_cache[id] = {data:data, layout:layout, config:config}; }); }catch(e){} }, 50);
+                                    } else {
+                                        Plotly.newPlot(id, data, layout, config).then(function(){ window._plotly_cache[id] = {data:data, layout:layout, config:config}; });
+                                    }
+                                    // attempt a safe resize after render
+                                    setTimeout(function(){ try{ window.Plotly && Plotly.Plots.resize(document.getElementById(id)); }catch(e){} }, 120);
+                                } catch (err) {
+                                    // swallow error to avoid noisy console spam
+                                }
                             } else {
-                                console.error('Plotly render failed: element or library not found', id);
+                                if (attempt < 20) {
+                                    attempt++;
+                                    setTimeout(tryRender, 100);
+                                }
+                                return;
+                            }
+                        } else {
+                            if (attempt < 20) {
+                                attempt++;
+                                setTimeout(tryRender, 100);
                             }
                         }
                     }
@@ -48,7 +88,16 @@ def init_sentiment_page():
         # Custom Plotly render function
         def custom_plotly(fig):
             chart_id = f"chart_{uuid.uuid4().hex}"
-            c = ui.element('div').props(f'id="{chart_id}"')
+            # determine desired height from figure layout (fallback None)
+            layout = fig.get('layout', {}) if isinstance(fig, dict) else {}
+            height_px = layout.get('height') if isinstance(layout, dict) else None
+            style_attr = ''
+            if height_px:
+                try:
+                    style_attr = f'style="height:{int(height_px)}px;min-height:{int(height_px)}px; width:100%;"'
+                except Exception:
+                    style_attr = ''
+            c = ui.element('div').props(f'id="{chart_id}" {style_attr}')
             if hasattr(fig, 'to_dict'):
                 fig = fig.to_dict()
             data = fig.get('data', [])
@@ -328,7 +377,8 @@ def init_sentiment_page():
                     sector_status_label = ui.label('准备就绪').classes('hidden') # Hidden state label, controlled by logic
 
                     # Chart Area
-                    sector_chart_container = ui.card().classes('w-full h-[750px] p-4 bg-white rounded-xl shadow-md border-0 flex flex-col')
+                    # give container a stable id so client-side JS can watch visibility
+                    sector_chart_container = ui.card().props('id="sector_panel_root"').classes('w-full h-[750px] p-4 bg-white rounded-xl shadow-md border-0 flex flex-col')
                     
                     # Update Button reference for logic
                     update_sector_btn = None 
@@ -552,6 +602,12 @@ def init_sentiment_page():
                                 )
                                 
                                 custom_plotly(fig).classes('w-full flex-1 min-h-0')
+                                # Trigger a window resize event shortly after rendering so Plotly redraws correctly
+                                try:
+                                    ui.run_javascript('setTimeout(()=>{try{window.dispatchEvent(new Event("resize"));}catch(e){console.error(e);}},50)')
+                                    ui.run_javascript('setTimeout(()=>{try{window.dispatchEvent(new Event("resize"));}catch(e){console.error(e);}},300)')
+                                except Exception:
+                                    pass
 
                             # Table
                             sector_table_container.clear()
@@ -619,11 +675,96 @@ def init_sentiment_page():
             # Start Market Fetch automatically
             async def auto_fetch_market():
                 await asyncio.sleep(0.5)
-                # Auto-load Sector Cache if exists
-                ss = SectorSentiment()
-                if os.path.exists(ss.cache_file):
-                    load_sector_view()
-                
+                # Remove auto-load sector cache here - will load on tab switch instead
                 await fetch_and_draw_market()
             
+            # Add tab change handler to load sector data only when tab is activated
+            def on_tab_change():
+                # Compare with tab label/name instead of object
+                if tabs.value == '板块温度' or str(tabs.value) == '板块温度':
+                    ss = SectorSentiment()
+                    if os.path.exists(ss.cache_file):
+                        load_sector_view()
+                    else:
+                        # If no cache, show initial state with update prompt
+                        sector_chart_container.clear()
+                        with sector_chart_container:
+                            with ui.column().classes('w-full h-full items-center justify-center gap-4'):
+                                ui.icon('analytics', color='indigo-200').classes('text-6xl')
+                                ui.label('全市场板块情绪热度').classes('text-2xl font-bold text-gray-700')
+                                ui.label('暂无缓存数据，请点击下方按钮更新').classes('text-gray-400')
+                                with ui.row().classes('gap-4 mt-2'):
+                                    load_cache_btn = ui.button('加载缓存', on_click=lambda: load_sector_view()).props('unelevated color=indigo-6 icon=history')
+                                    update_sector_btn = ui.button('在线更新', on_click=lambda: update_sector_data()).props('outline color=indigo-6 icon=cloud_download')
+                        try:
+                            ui.notify('无缓存数据，请点击更新获取板块数据', type='info', timeout=3000)
+                        except RuntimeError:
+                            pass
+            
+            tabs.on_value_change(on_tab_change)
+            
+            # Remove the immediate sector loading during page init
+            # try:
+            #     ss_init = SectorSentiment()
+            #     if os.path.exists(ss_init.cache_file):
+            #         # schedule load after UI mounts to avoid NiceGUI internal update racing
+            #         try:
+            #             ui.timer(0.15, lambda: load_sector_view(), once=True)
+            #         except Exception as _e:
+            #             # fallback to asyncio scheduling
+            #             try:
+            #                 import asyncio as _asyncio
+            #                 _asyncio.get_event_loop().call_later(0.2, load_sector_view)
+            #             except Exception:
+            #                 print('Initial load scheduling failed:', _e)
+            # except Exception:
+            #     pass
+
             asyncio.create_task(auto_fetch_market())
+            # Inject visibility observer to trigger resize/redisplay when sector panel becomes visible
+            try:
+                ui.run_javascript('''(function(){
+                    var root = document.getElementById('sector_panel_root');
+                    function doChecks(){
+                        try{
+                            // If we have cached figures, re-render them using Plotly.react for correct layout
+                            if(window._plotly_cache && window.Plotly){
+                                Object.keys(window._plotly_cache).forEach(function(id){
+                                    try{
+                                        var el = document.getElementById(id);
+                                        if(el && (el.offsetWidth>0 || el.clientWidth>0)){
+                                            var c = window._plotly_cache[id];
+                                            Plotly.react(el, c.data, c.layout, c.config);
+                                        }
+                                    }catch(e){}
+                                });
+                            }
+                        }catch(e){}
+                        // attempt to resize ag-Grid instances safely (best-effort)
+                        try{
+                            document.querySelectorAll('.ag-root').forEach(function(el){
+                                try{
+                                    if(el.__agGridInstance && el.__agGridInstance.api){ el.__agGridInstance.api.sizeColumnsToFit(); }
+                                    if(el._gridOptions && el._gridOptions.api){ el._gridOptions.api.sizeColumnsToFit(); }
+                                }catch(e){}
+                            });
+                        }catch(e){}
+                    }
+                    if(!root){ return; }
+                    try{
+                        var io = new IntersectionObserver(function(entries){
+                            entries.forEach(function(entry){ if(entry.isIntersecting){ setTimeout(doChecks,150); setTimeout(doChecks,600); } });
+                        }, {threshold: 0.01});
+                        io.observe(root);
+                    }catch(e){
+                        // fallback: poll visibility
+                        var lastVisible = false;
+                        setInterval(function(){
+                            var visible = root && root.offsetWidth>0 && root.offsetHeight>0;
+                            if(visible && !lastVisible){ setTimeout(doChecks,150); setTimeout(doChecks,600); }
+                            lastVisible = visible;
+                        }, 500);
+                    }
+                })();''')
+            except Exception:
+                pass
