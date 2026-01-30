@@ -97,6 +97,9 @@ def init_sentiment_page():
                             
                             ui.html('<div class="text-gray-600 text-sm mb-3"><b>核心逻辑：</b>情绪由<span class="text-indigo-600 font-bold">杠杆力度</span>与<span class="text-blue-600 font-bold">成交活跃度</span>共同驱动。</div>', sanitize=False)
                             
+                            # 公式说明
+                            ui.code('模型公式：[(融资占比 - 2) × 2] + [(成交额(万亿) - 0.8) × 33]').classes('text-xs w-full mb-3 text-gray-600 bg-gray-50 p-2 rounded border border-gray-200 font-mono')
+                            
                             with ui.row().classes('w-full gap-2 text-xs'):
                                 with ui.column().classes('flex-1 bg-red-50 p-2 rounded-lg border border-red-100 items-center justify-center'):
                                     ui.label('>100 (高温)').classes('font-bold text-red-700')
@@ -171,11 +174,16 @@ def init_sentiment_page():
                                     'threshold': {'line': {'color': "#D32F2F", 'width': 4}, 'thickness': 0.75, 'value': current_temp}
                                 }
                             ))
-                            fig_gauge.update_layout(margin=dict(l=25, r=25, t=10, b=20), height=140, paper_bgcolor = "rgba(0,0,0,0)")
+                            fig_gauge.update_layout(
+                                margin=dict(l=50, r=50, t=35, b=10),
+                                autosize=True,
+                                paper_bgcolor = "rgba(0,0,0,0)",
+                                font = dict(family="Roboto, sans-serif")
+                            )
                             
                             gauge_container.clear()
                             with gauge_container:
-                                ui.label(f"情绪温度 ({last_date_str})").classes('text-sm font-bold mt-2 text-gray-700')
+                                ui.label(f"情绪温度 ({last_date_str})").classes('text-sm font-bold absolute top-2 text-gray-700 z-10')
                                 custom_plotly(fig_gauge).classes('w-full h-full')
 
                         # Line Chart
