@@ -125,7 +125,56 @@ def init_sentiment_page():
             j_data = json.dumps(data, cls=PlotlyJSONEncoder)
             j_layout = json.dumps(layout, cls=PlotlyJSONEncoder)
             j_config = json.dumps(config, cls=PlotlyJSONEncoder)
-            ui.run_javascript(f'window.renderPlotly("{chart_id}", {j_data}, {j_layout}, {j_config})')
+            js = f'''
+(function(){{
+    var id = "{chart_id}";
+    var data = {j_data};
+    var layout = {j_layout};
+    var config = {j_config};
+    var attempts = 0;
+    function tryRender(){{
+        try{{
+            var el = document.getElementById(id);
+            var hasPlotly = (typeof window.Plotly !== 'undefined') || window._plotly_ready;
+            if (el && hasPlotly){{
+                var width = el.offsetWidth || el.clientWidth || (el.getBoundingClientRect && el.getBoundingClientRect().width) || 0;
+                var height = el.offsetHeight || el.clientHeight || (el.getBoundingClientRect && el.getBoundingClientRect().height) || 0;
+                // if height is zero, try to find a parent width/height or set a sensible minHeight
+                if (height === 0){{
+                    try{{ el.style.minHeight = el.style.minHeight || '260px'; }}catch(e){{}}
+                    height = el.offsetHeight || el.clientHeight || (el.getBoundingClientRect && el.getBoundingClientRect().height) || 0;
+                }}
+                if (width > 0 && height > 0){{
+                    try{{
+                        // prefer the shared helper if available
+                        if (window.renderPlotly){{
+                            window.renderPlotly(id, data, layout, config);
+                        }} else if (window.Plotly){{
+                            Plotly.newPlot(id, data, layout, config).then(function(){{ try{{ Plotly.Plots.resize(document.getElementById(id)); }}catch(e){{}} }});
+                        }}
+                        // attempt a resize after render
+                        setTimeout(function(){{ try{{ window.Plotly && Plotly.Plots.resize(document.getElementById(id)); }}catch(e){{}} }}, 120);
+                    }}catch(err){{}}
+                    return;
+                }}
+            }}
+        }}catch(e){{}}
+        attempts += 1;
+        if (attempts < 40){{
+            setTimeout(tryRender, 100);
+        }}
+    }}
+    tryRender();
+}})();
+'''
+            # schedule JS render shortly after the element is attached to DOM
+            try:
+                ui.timer(0.05, lambda: ui.run_javascript(js), once=True)
+                # extra fallback run to handle longer race windows
+                ui.timer(0.25, lambda: ui.run_javascript(js), once=True)
+            except Exception:
+                # final fallback: run immediately
+                ui.run_javascript(js)
             return c
 
         ui.page_title('情绪温度监控 - 缠论小应用')
@@ -774,10 +823,35 @@ def init_sentiment_page():
                         // attempt to resize ag-Grid instances safely (best-effort)
                         try{
                             document.querySelectorAll('.ag-root').forEach(function(el){
-                                try{
-                                    if(el.__agGridInstance && el.__agGridInstance.api){ el.__agGridInstance.api.sizeColumnsToFit(); }
-                                    if(el._gridOptions && el._gridOptions.api){ el._gridOptions.api.sizeColumnsToFit(); }
-                                }catch(e){}
+                                (function attempt(el, tries){
+                                    tries = tries || 0;
+                                    try{
+                                        // find the most relevant parent width (in case inner ag-root is 0 but wrapper has width)
+                                        var node = el;
+                                        var foundWidth = 0;
+                                        while(node && node !== document.body){
+                                            try{
+                                                var r = node.getBoundingClientRect && node.getBoundingClientRect();
+                                                if(r && r.width){ foundWidth = r.width; break; }
+                                            }catch(e){}
+                                            node = node.parentNode;
+                                        }
+                                        // fallback to element width
+                                        if(!foundWidth){
+                                            foundWidth = el.offsetWidth || el.clientWidth || (el.getBoundingClientRect && el.getBoundingClientRect().width) || 0;
+                                        }
+                                        var api = (el.__agGridInstance && el.__agGridInstance.api) ? el.__agGridInstance.api : (el._gridOptions && el._gridOptions.api ? el._gridOptions.api : null);
+                                        // debug: log once per few tries to help trace zeros
+                                        if(tries % 5 === 0){ try{ console.debug('ag-grid diagnostics', {tries:tries, foundWidth: foundWidth, hasApi: !!api, el: el}); }catch(e){} }
+                                        if(api && foundWidth > 24){
+                                            try{ api.sizeColumnsToFit(); }catch(e){}
+                                            return;
+                                        }
+                                    }catch(e){}
+                                    if(tries < 40){
+                                        setTimeout(function(){ attempt(el, tries+1); }, 200);
+                                    }
+                                })(el, 0);
                             });
                         }catch(e){}
                     }
