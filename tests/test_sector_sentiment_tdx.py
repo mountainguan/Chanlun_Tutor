@@ -47,4 +47,3 @@ try:
 finally:
     ss._disconnect_tdx()
     print("Disconnected.")
-
