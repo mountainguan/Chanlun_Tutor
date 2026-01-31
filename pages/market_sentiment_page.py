@@ -216,7 +216,7 @@ def init_sentiment_page():
                             ui.html('<div class="text-gray-600 text-sm mb-3"><b>核心逻辑：</b>情绪由<span class="text-indigo-600 font-bold">杠杆力度</span>与<span class="text-blue-600 font-bold">成交活跃度</span>共同驱动。</div>', sanitize=False).classes('hide-on-mobile')
                         
                             # 公式说明（隐藏于移动端）
-                            ui.code('模型公式：[(融资占比 - 2) × 2] + [(成交额(万亿) - 0.8) × 33]').classes('text-xs w-full mb-3 text-gray-600 bg-gray-50 p-2 rounded border border-gray-200 font-mono hide-on-mobile')
+                            ui.html('<div class="text-xs w-full mb-3 text-gray-600 bg-gray-50 p-2 rounded border border-gray-200 font-mono hide-on-mobile">模型公式：[(融资占比% - 4.5) &times; 7.5] + [(成交额(万亿) - 0.65) &times; 17]</div>', sanitize=False)
                             
                             with ui.row().classes('w-full gap-2 text-xs'):
                                 with ui.column().classes('flex-1 bg-red-50 p-2 rounded-lg border border-red-100 items-center justify-center'):
@@ -477,12 +477,12 @@ def init_sentiment_page():
                                         with ui.card().classes('flex-1 min-w-[320px] p-4 bg-white rounded-lg shadow-none border-0'):
                                             ui.label('量能项 (Volume)').classes('font-bold text-gray-700 text-sm mb-1')
                                             ui.label('反映资金相对大盘的活跃度。').classes('text-xs text-gray-500 mb-2')
-                                            ui.code('公式：(板块成交/均量) ÷ (大盘成交/均量)').classes('text-xs w-full break-words')
+                                            ui.html('<div class="text-xs w-full break-words">公式： (板块成交 / 均量) ÷ (大盘成交 / 均量)</div>', sanitize=False)
 
                                         with ui.card().classes('flex-1 min-w-[320px] p-4 bg-white rounded-lg shadow-none border-0'):
                                             ui.label('融资项 (Margin)').classes('font-bold text-gray-700 text-sm mb-1')
                                             ui.label('反映杠杆资金相对大盘的激进程度。').classes('text-xs text-gray-500 mb-2')
-                                            ui.code('公式：(板块融资占比) - (大盘融资占比)').classes('text-xs w-full break-words')
+                                            ui.html('<div class="text-xs w-full break-words">公式： (板块融资占比%) - (大盘融资占比%)</div>', sanitize=False)
 
                                     # Status badges below the two boxes (full width) - use softer pill-like colors matching the small pills
                                     with ui.row().classes('w-full gap-2 mt-3 text-xs'):
