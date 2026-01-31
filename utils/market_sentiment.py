@@ -330,10 +330,10 @@ class MarketSentiment:
             df['margin_ratio_pct'] = (df['margin_buy'] / turnover_yuan) * 100
             
             # --- 恢复原公式 ---
-            # 温度 = [(融资占比% - 8.5) × 14] + [(成交额万亿 - 0.8) × 22]
+            # 温度 = [(融资占比% - 4.5) × 7.5] + [(成交额万亿 - 0.65) × 17]
             
-            base_score = (df['margin_ratio_pct'] - 2) * 2
-            correction_score = (df['turnover_trillion'] - 0.8) * 33
+            base_score = (df['margin_ratio_pct'] - 4.5) * 7.5
+            correction_score = (df['turnover_trillion'] - 0.65) * 17
             
             df['temperature'] = base_score + correction_score
             df = df.dropna(subset=['temperature'])
