@@ -11,6 +11,7 @@ import sys
 import subprocess
 from plotly.utils import PlotlyJSONEncoder
 from concurrent.futures import ThreadPoolExecutor
+import math
 
 # Create a thread pool for IO operations
 executor = ThreadPoolExecutor(max_workers=2)
@@ -211,10 +212,11 @@ def init_sentiment_page():
                                 ui.icon('psychology', color='indigo').classes('text-2xl')
                                 ui.label('情绪温度模型').classes('text-lg font-bold text-gray-800')
                             
-                            ui.html('<div class="text-gray-600 text-sm mb-3"><b>核心逻辑：</b>情绪由<span class="text-indigo-600 font-bold">杠杆力度</span>与<span class="text-blue-600 font-bold">成交活跃度</span>共同驱动。</div>', sanitize=False)
-                            
-                            # 公式说明
-                            ui.code('模型公式：[(融资占比 - 2) × 2] + [(成交额(万亿) - 0.8) × 33]').classes('text-xs w-full mb-3 text-gray-600 bg-gray-50 p-2 rounded border border-gray-200 font-mono')
+                            # 核心逻辑与公式：在移动端隐藏以节省空间
+                            ui.html('<div class="text-gray-600 text-sm mb-3"><b>核心逻辑：</b>情绪由<span class="text-indigo-600 font-bold">杠杆力度</span>与<span class="text-blue-600 font-bold">成交活跃度</span>共同驱动。</div>', sanitize=False).classes('hide-on-mobile')
+                        
+                            # 公式说明（隐藏于移动端）
+                            ui.code('模型公式：[(融资占比 - 2) × 2] + [(成交额(万亿) - 0.8) × 33]').classes('text-xs w-full mb-3 text-gray-600 bg-gray-50 p-2 rounded border border-gray-200 font-mono hide-on-mobile')
                             
                             with ui.row().classes('w-full gap-2 text-xs'):
                                 with ui.column().classes('flex-1 bg-red-50 p-2 rounded-lg border border-red-100 items-center justify-center'):
@@ -238,8 +240,9 @@ def init_sentiment_page():
                     # Status Label
                     status_label = ui.label('正在连接数据接口...').classes('text-lg text-indigo-600 animate-pulse font-bold')
                     
-                    # Chart Container
-                    chart_container = ui.card().classes('w-full max-w-6xl h-[480px] border-0 rounded-xl shadow-md bg-white p-1')
+                    # Chart Container - 使用响应式高度（移动端更紧凑）
+                    chart_height_class = 'h-[360px]' if is_mobile else 'h-[480px]'
+                    chart_container = ui.card().classes(f'w-full max-w-6xl {chart_height_class} border-0 rounded-xl shadow-md bg-white p-1')
                     
                     # Data Table Container
                     data_container = ui.column().classes('w-full max-w-6xl mt-4 hidden')
@@ -326,17 +329,74 @@ def init_sentiment_page():
                         low_df = df[df['temperature'] < 0]
                         if not low_df.empty: fig.add_trace(go.Scatter(x=low_df.index, y=low_df['temperature'], mode='markers', name='冰点', marker=dict(color='#26A69A', size=8, line=dict(color='white', width=1))))
                         
+                        # 为移动端和桌面分别设置更合适的 x/y 轴格式与布局，丰富移动端刻度信息
+                        title_text = '<b>情绪温度趋势 (近30天)</b>' if is_mobile else '<b>情绪温度趋势 (近三年)</b>'
+                        # X 轴：移动端显示月-日并每隔5天一个刻度（30天约7个刻度），桌面显示月-年格式
+                        # 计算移动端tick起点（使用数据首日）和5天的毫秒间隔
+                        try:
+                            first_dt = pd.to_datetime(df.index[0])
+                            tick0_ms = int(first_dt.timestamp() * 1000)
+                        except Exception:
+                            tick0_ms = None
+                        five_days_ms = 86400000 * 5
+                        xaxis_mobile = dict(
+                            title='日期',
+                            tickformat="%m-%d",
+                            tickangle=-45,
+                            tick0=tick0_ms,
+                            dtick=five_days_ms,
+                            tickfont=dict(size=11),
+                            showgrid=False,
+                            ticks='outside'
+                        )
+                        xaxis_desktop = dict(
+                            title='日期',
+                            dtick="M2",
+                            tickformat="%Y-%m",
+                            tickangle=-45,
+                            showgrid=True,
+                            gridcolor='#F3F4F6',
+                            ticks='outside'
+                        )
+
+                        # Y 轴：以 20 度为步长，边界向外扩展以覆盖背景区间
+                        temp_min = float(df['temperature'].min())
+                        temp_max = float(df['temperature'].max())
+                        # 向下/向上取整到20的倍数，确保刻度整齐
+                        y_min = int(math.floor(temp_min / 20.0) * 20)
+                        y_max = int(math.ceil(temp_max / 20.0) * 20)
+                        # 保证至少覆盖默认背景区间
+                        y_min = min(y_min, -40)
+                        y_max = max(y_max, 120)
+                        y_dtick = 20
+
+                        height_val = 340 if is_mobile else 460
+                        margin_val = dict(l=36, r=18, t=48, b=36) if is_mobile else dict(l=50, r=40, t=60, b=50)
+
                         fig.update_layout(
-                            title=dict(text='<b>情绪温度趋势 (近30天)</b>' if is_mobile else '<b>情绪温度趋势 (近三年)</b>', font=dict(size=18, color='#374151')),
-                            xaxis=dict(title='日期', dtick="M2", tickformat="%Y-%m", tickangle=-45, showgrid=True, gridcolor='#F3F4F6'), 
-                            yaxis=dict(title='温度', showgrid=True, gridcolor='#F3F4F6', zeroline=True, zerolinecolor='#E5E7EB'),
-                            margin=dict(l=50, r=40, t=60, b=50), 
-                            height=460, 
+                            title=dict(text=title_text, font=dict(size=16 if is_mobile else 18, color='#374151')),
+                            xaxis=xaxis_mobile if is_mobile else xaxis_desktop,
+                            yaxis=dict(
+                                title='温度',
+                                range=[y_min, y_max],
+                                dtick=y_dtick,
+                                showgrid=True,
+                                gridcolor='#F3F4F6',
+                                zeroline=True,
+                                zerolinecolor='#E5E7EB',
+                                tickformat=',d'
+                            ),
+                            margin=margin_val,
+                            height=height_val,
+                            hovermode='x unified',
                             paper_bgcolor='rgba(0,0,0,0)',
                             plot_bgcolor='rgba(0,0,0,0)',
                             font=dict(family="Roboto, 'Microsoft YaHei', sans-serif"),
                             showlegend=not is_mobile
                         )
+
+                        # Improve hover label formatting for unified hover
+                        fig.update_traces(hovertemplate='%{y:.2f}°', selector=dict(type='scatter'))
                         chart_container.clear()
                         with chart_container:
                             custom_plotly(fig).classes('w-full h-full')
