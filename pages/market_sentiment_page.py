@@ -247,12 +247,15 @@ def init_sentiment_page():
                     # Data Table Container
                     data_container = ui.column().classes('w-full max-w-6xl mt-4 hidden')
 
-                    async def fetch_and_draw_market():
+                    async def fetch_and_draw_market(force=False):
                         loop = asyncio.get_running_loop()
                         ms = MarketSentiment()
                         
+                        if force:
+                            ui.notify('正在刷新最新数据...', type='info')
+                        
                         try:
-                            df = await loop.run_in_executor(executor, ms.get_temperature_data)
+                            df = await loop.run_in_executor(executor, ms.get_temperature_data, force)
                         except Exception as e:
                             if not status_label.is_deleted:
                                 status_label.text = f'系统错误: {str(e)}'
@@ -401,10 +404,16 @@ def init_sentiment_page():
                         fig.update_traces(hovertemplate='%{y:.2f}°', selector=dict(type='scatter'))
                         chart_container.clear()
                         with chart_container:
+                            # Refresh Button
+                            with ui.row().classes('absolute right-4 top-4 z-10'):
+                                ui.button('重新加载', icon='refresh', on_click=lambda: fetch_and_draw_market(force=True)) \
+                                    .props('flat color=grey-6').tooltip('强制从服务器获取最新数据')
+                                    
                             custom_plotly(fig).classes('w-full h-full')
                         
                         # Market Table
                         data_container.classes(remove='hidden')
+                        data_container.clear()
                         with data_container:
                             def export_excel_market():
                                 import io

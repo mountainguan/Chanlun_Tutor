@@ -243,10 +243,18 @@ class MarketSentiment:
 
         if len(dfs) > 0:
             # 合并沪深两市数据 (sum)
-            # 使用 add(fill_value=0) 处理日期不完全一致的情况 (虽然通常应该一致)
-            total = dfs[0][[target_col]]
+            # 必须严格确保两个市场都有数据，否则会导致总额只有一半，进而导致温度骤降
             if len(dfs) > 1:
-                total = total.add(dfs[1][[target_col]], fill_value=0)
+                # 使用 inner join，只有两个市场都有数据的日期才会被保留
+                # 这样如果某天只有一个市场更新了，这天会被丢弃，然后在 get_temperature_data 中触发“缺失数据估算”逻辑
+                aligned = dfs[0][[target_col]].join(dfs[1][[target_col]], lsuffix='_sh', rsuffix='_sz', how='inner')
+                total = pd.DataFrame(index=aligned.index)
+                total[target_col] = aligned[f'{target_col}_sh'] + aligned[f'{target_col}_sz']
+            else:
+                # 只有一种情况会进入这里：由于网络或者接口原因只获取到了一个市场的数据列表dfs长度为1
+                # 这种情况下为了安全起见，我们只能假设这就是总额(虽然可能不准)，或者也可以选择返回空
+                # 但根据现有逻辑，如果 endpoints 循环里一个失败了被 try-catch 捕获，dfs 长度就是1
+                total = dfs[0][[target_col]]
             
             # 过滤只保留最近三年的数据
             cutoff_date = pd.Timestamp.now() - pd.Timedelta(days=365*3)
@@ -256,7 +264,7 @@ class MarketSentiment:
         
         return None
 
-    def get_temperature_data(self):
+    def get_temperature_data(self, force_refresh=False):
         # 1. Loading Cache
         cache = self.load_cache()
         today = datetime.datetime.now().date()
@@ -268,8 +276,22 @@ class MarketSentiment:
             latest_date = cache.index[-1].date()
             # If we have data for today (or future), skip fetch
             if latest_date >= today:
-                print(f"Cache up to date ({latest_date}), skipping API fetch.")
-                need_fetch = False
+                if force_refresh:
+                    print(f"Force refresh requested. Deleting today's data from cache.")
+                    # 显式从缓存中删除今天及以后的数据，确保重新获取时能够覆盖
+                    cache = cache[cache.index.date < today]
+                    # 立即保存清理后的缓存到文件，确保文件状态同步
+                    self.save_cache(cache)
+                    
+                    if not cache.empty:
+                        latest_date = cache.index[-1].date()
+                    else:
+                        latest_date = None
+                    # 强制需要fetch
+                    need_fetch = True
+                else:
+                    print(f"Cache up to date ({latest_date}), skipping API fetch.")
+                    need_fetch = False
         
         # 2. Fetch New Data if needed
         if need_fetch:
@@ -292,11 +314,47 @@ class MarketSentiment:
             if turnover is not None and margin_buy is not None:
                 try:
                     df_new = pd.DataFrame({'turnover_trillion': turnover, 'margin_buy': margin_buy})
-                    df_new = df_new.dropna()
                     
                     # Filter only new data
                     if latest_date:
                         df_new = df_new[df_new.index.date > latest_date]
+                    
+                    # 尝试修复当天的融资数据缺失（如果成交额存在但融资数据缺失）
+                    if not df_new.empty:
+                        last_idx = df_new.index[-1]
+                        # 检查最后一行是否只有成交额而没有融资买入数据
+                        # 增加时间判断：只有下午3点收盘后才允许估算
+                        # 这样盘中刷新时，如果真实数据未出，则不显示当天数据；盘后刷新则显示估算数据
+                        is_after_close = datetime.datetime.now().hour >= 15
+                        
+                        if pd.notna(df_new.at[last_idx, 'turnover_trillion']) and pd.isna(df_new.at[last_idx, 'margin_buy']) and is_after_close:
+                            print(f"Detected missing margin data for {last_idx.date()}, attempting estimation (After close)...")
+                            prev_ratio = 8.5 # 默认兜底值
+                            
+                            # 获取前一天的融资占比
+                            prev_valid_row = None
+                            if len(df_new) > 1:
+                                prev_valid_row = df_new.iloc[-2]
+                            elif cache is not None and not cache.empty:
+                                prev_valid_row = cache.iloc[-1]
+                                
+                            if prev_valid_row is not None:
+                                try:
+                                    p_to = prev_valid_row['turnover_trillion']
+                                    p_mb = prev_valid_row['margin_buy']
+                                    if p_to > 0:
+                                        prev_ratio = (p_mb / (p_to * 1e12)) * 100
+                                except Exception:
+                                    pass
+                            
+                            # 使用前一天的比例估算今天的融资买入额
+                            est_margin_buy = (prev_ratio / 100) * (df_new.at[last_idx, 'turnover_trillion'] * 1e12)
+                            df_new.at[last_idx, 'margin_buy'] = est_margin_buy
+                            # 标记为估算数据，以便前端展示警告
+                            self.is_simulated = True 
+                            print(f"Estimated margin buy for {last_idx.date()} using ratio {prev_ratio:.2f}%: {est_margin_buy/1e8:.2f} 亿")
+
+                    df_new = df_new.dropna()
                     
                     if not df_new.empty:
                         print(f"Got {len(df_new)} new records.")
