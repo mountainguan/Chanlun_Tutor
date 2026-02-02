@@ -423,11 +423,9 @@ def init_sentiment_page():
                                 pre_close = df_index['close'].shift(1)
                                 amplitude_abs = (df_index['high'] - df_index['low']) / pre_close * 100
                                 
-                                # Add direction: Positive if Close >= PreClose, Negative if Close < PreClose
-                                direction = (df_index['close'] >= pre_close).astype(int) * 2 - 1
-                                amplitude = amplitude_abs * direction
-                                
-                                trace_y_data = amplitude
+                                # Strict adherence to the formula: Amplitude = (High - Low) / PreClose * 100%
+                                # No direction needed.
+                                trace_y_data = amplitude_abs
                                 trace_name = f"{selected_index_name} 振幅(%)"
                                 y_axis_title = trace_name
                             
