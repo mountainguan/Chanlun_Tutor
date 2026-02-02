@@ -250,6 +250,7 @@ def init_sentiment_page():
                     
                     # Define controls ahead of time to capture reference, but place them inside card
                     index_select = None
+                    data_type_select = None
                     
                     with chart_container:
                         # Header Row
@@ -265,6 +266,13 @@ def init_sentiment_page():
                                       options=["上证指数", "深证成指", "创业板指", "上证50", "沪深300", "中证500"],
                                       value="上证指数",
                                       label="对比指数",
+                                      on_change=lambda e: fetch_and_draw_market()
+                                 ).props('dense outlined options-dense bg-white behavior=menu').classes('w-32')
+
+                                 data_type_select = ui.select(
+                                      options=["收盘价", "指数振幅"],
+                                      value="收盘价",
+                                      label="数据类型",
                                       on_change=lambda e: fetch_and_draw_market()
                                  ).props('dense outlined options-dense bg-white behavior=menu').classes('w-32')
                                  
@@ -336,7 +344,7 @@ def init_sentiment_page():
                                 df_index['date'] = pd.to_datetime(df_index['date'])
                             
                             # Filter
-                            df_index = df_index[(df_index['date'] >= start_dt) & (df_index['date'] <= end_dt)]
+                            df_index = df_index[(df_index['date'] >= start_dt) & (df_index['date'] <= end_dt)].copy()
                         
                         # Warning if simulated (Removed)
                         # if getattr(ms, 'is_simulated', False) and not chart_plot_area.is_deleted:
@@ -399,13 +407,36 @@ def init_sentiment_page():
                         fig.add_hrect(y0=-30, y1=0, fillcolor="#E0F7FA", opacity=0.5, layer="below", line_width=0)
                         
                         # --- Index Price Trace (Secondary Axis) ---
+                        y_axis_title = selected_index_name
                         if df_index is not None and not df_index.empty:
+                            # Prepare data based on selection
+                            trace_y_data = df_index['close']
+                            trace_name = selected_index_name
+                            
+                            if data_type_select and data_type_select.value == "指数振幅":
+                                # Calculate Amplitude: (High - Low) / PreClose
+                                # Ensure appropriate types
+                                for col in ['high', 'low', 'close']:
+                                    if col in df_index.columns:
+                                        df_index[col] = pd.to_numeric(df_index[col], errors='coerce')
+                                
+                                pre_close = df_index['close'].shift(1)
+                                amplitude_abs = (df_index['high'] - df_index['low']) / pre_close * 100
+                                
+                                # Add direction: Positive if Close >= PreClose, Negative if Close < PreClose
+                                direction = (df_index['close'] >= pre_close).astype(int) * 2 - 1
+                                amplitude = amplitude_abs * direction
+                                
+                                trace_y_data = amplitude
+                                trace_name = f"{selected_index_name} 振幅(%)"
+                                y_axis_title = trace_name
+                            
                             # Align time range roughly
                             fig.add_trace(go.Scatter(
                                 x=df_index['date'], 
-                                y=df_index['close'],
+                                y=trace_y_data,
                                 mode='lines',
-                                name=selected_index_name,
+                                name=trace_name,
                                 line=dict(color='#CFD8DC', width=1.5), # Grey line for index
                                 yaxis='y2',
                                 hovertemplate='%{y:.2f}<extra></extra>' 
@@ -491,7 +522,7 @@ def init_sentiment_page():
                                 tickformat=',d'
                             ),
                             yaxis2=dict(
-                                title=selected_index_name,
+                                title=y_axis_title,
                                 overlaying='y',
                                 side='right',
                                 showgrid=False,
