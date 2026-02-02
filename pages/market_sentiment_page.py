@@ -102,6 +102,9 @@ def init_sentiment_page():
                 @media (max-width: 767px) {
                     .hide-on-mobile { display: none !important; }
                 }
+                /* AgGrid estimated row style */
+                .ag-row-estimated { background-color: #FFF9C4 !important; }
+                .ag-row-estimated .ag-cell { color: #827717 !important; }
             </style>
         ''')
 
@@ -335,11 +338,11 @@ def init_sentiment_page():
                             # Filter
                             df_index = df_index[(df_index['date'] >= start_dt) & (df_index['date'] <= end_dt)]
                         
-                        # Warning if simulated
-                        if getattr(ms, 'is_simulated', False) and not chart_plot_area.is_deleted:
-                            with ui.row().classes('w-full justify-center bg-yellow-100 p-2 rounded mb-2 border border-yellow-300 items-center'):
-                                ui.icon('warning', color='orange').classes('text-2xl mr-2')
-                                ui.label('注意：当前展示的数据为模拟/估算数据。').classes('text-orange-800')
+                        # Warning if simulated (Removed)
+                        # if getattr(ms, 'is_simulated', False) and not chart_plot_area.is_deleted:
+                        #     with ui.row().classes('w-full justify-center bg-yellow-100 p-2 rounded mb-2 border border-yellow-300 items-center'):
+                        #         ui.icon('warning', color='orange').classes('text-2xl mr-2')
+                        #         ui.label('注意：当前展示的数据为模拟/估算数据。').classes('text-orange-800')
 
                         # Gauge - Move gauge to separate area or keep here? 
                         # Since chart_container is now card, we can't put gauge freely.
@@ -354,6 +357,7 @@ def init_sentiment_page():
                             last_record = df.iloc[-1]
                             current_temp = last_record['temperature']
                             last_date_str = last_record.name.strftime('%Y-%m-%d')
+                            is_simulated = getattr(ms, 'is_simulated', False)
                             
                             fig_gauge = go.Figure(go.Indicator(
                                 mode = "gauge+number",
@@ -378,7 +382,13 @@ def init_sentiment_page():
                             
                             gauge_container.clear()
                             with gauge_container:
-                                ui.label(f"情绪温度 ({last_date_str})").classes('text-sm font-bold absolute top-2 text-gray-700 z-10')
+                                title_text = f"情绪温度 ({last_date_str})"
+                                title_class = 'text-sm font-bold absolute top-2 text-gray-700 z-10'
+                                if is_simulated:
+                                    title_text += " (预估)"
+                                    title_class = 'text-sm font-bold absolute top-2 text-yellow-800 bg-yellow-100 px-2 rounded z-10'
+                                    
+                                ui.label(title_text).classes(title_class)
                                 custom_plotly(fig_gauge).classes('w-full h-full')
 
                         # Line Chart
@@ -527,13 +537,22 @@ def init_sentiment_page():
                                         ui.button('导出Excel', icon='file_download', on_click=export_excel_market).props('small outline color=green')
 
                                     rows = []
+                                    latest_idx = df.index.max()
+                                    is_simulated = getattr(ms, 'is_simulated', False)
+
                                     for idx, row in df.sort_index(ascending=False).iterrows():
+                                        is_est = (idx == latest_idx) and is_simulated
+                                        date_str = idx.strftime('%Y-%m-%d')
+                                        if is_est:
+                                            date_str += " (预估)"
+
                                         rows.append({
-                                            'date': idx.strftime('%Y-%m-%d'),
+                                            'date': date_str,
                                             'temp': round(row['temperature'], 2),
                                             'turnover': round(row['turnover_trillion'], 3),
                                             'margin_buy': round(row['margin_buy'] / 1e8, 2) if 'margin_buy' in row else 0,
-                                            'margin_pct': round(row['margin_ratio_pct'], 2) if 'margin_ratio_pct' in row else 0
+                                            'margin_pct': round(row['margin_ratio_pct'], 2) if 'margin_ratio_pct' in row else 0,
+                                            'is_estimated': is_est
                                         })
                                     ui.aggrid({
                                         'columnDefs': [
@@ -544,6 +563,9 @@ def init_sentiment_page():
                                             {'headerName': '融资占比(%)', 'field': 'margin_pct'},
                                         ],
                                         'rowData': rows,
+                                        'rowClassRules': {
+                                            'ag-row-estimated': 'data.is_estimated === true'
+                                        },
                                         'pagination': True,
                                         'defaultColDef': {'sortable': True, 'filter': True}
                                     }).classes('w-full h-[500px]')
