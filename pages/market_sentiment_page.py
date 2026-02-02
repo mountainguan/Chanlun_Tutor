@@ -541,9 +541,20 @@ def init_sentiment_page():
                                     is_simulated = getattr(ms, 'is_simulated', False)
 
                                     for idx, row in df.sort_index(ascending=False).iterrows():
-                                        is_est = (idx == latest_idx) and is_simulated
+                                        # Prefer row-level flag if available
+                                        row_is_est = False
+                                        if 'is_simulated' in row:
+                                            # Check for various True forms (bool, str, int)
+                                            val = row['is_simulated']
+                                            if isinstance(val, bool): row_is_est = val
+                                            elif isinstance(val, (int, float)): row_is_est = (val != 0)
+                                            elif isinstance(val, str): row_is_est = (val.lower() == 'true')
+                                        else:
+                                            # Fallback to global flag for the latest date
+                                            row_is_est = (idx == latest_idx) and is_simulated
+                                            
                                         date_str = idx.strftime('%Y-%m-%d')
-                                        if is_est:
+                                        if row_is_est:
                                             date_str += " (预估)"
 
                                         rows.append({
@@ -552,7 +563,7 @@ def init_sentiment_page():
                                             'turnover': round(row['turnover_trillion'], 3),
                                             'margin_buy': round(row['margin_buy'] / 1e8, 2) if 'margin_buy' in row else 0,
                                             'margin_pct': round(row['margin_ratio_pct'], 2) if 'margin_ratio_pct' in row else 0,
-                                            'is_estimated': is_est
+                                            'is_estimated': row_is_est
                                         })
                                     ui.aggrid({
                                         'columnDefs': [

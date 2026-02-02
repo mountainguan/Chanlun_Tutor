@@ -314,7 +314,8 @@ class MarketSentiment:
             if turnover is not None and margin_buy is not None:
                 try:
                     df_new = pd.DataFrame({'turnover_trillion': turnover, 'margin_buy': margin_buy})
-                    
+                    df_new['is_simulated'] = False # Default Flag
+
                     # Filter only new data
                     if latest_date:
                         df_new = df_new[df_new.index.date > latest_date]
@@ -325,10 +326,13 @@ class MarketSentiment:
                         # 检查最后一行是否只有成交额而没有融资买入数据
                         # 增加时间判断：只有下午3点收盘后才允许估算
                         # 这样盘中刷新时，如果真实数据未出，则不显示当天数据；盘后刷新则显示估算数据
-                        is_after_close = datetime.datetime.now().hour >= 15
+                        # 使用 UTC+8 (北京时间) 进行判断
+                        utc_now = datetime.datetime.now(datetime.timezone.utc)
+                        cst_now = utc_now + datetime.timedelta(hours=8)
+                        is_after_close = cst_now.hour >= 15
                         
                         if pd.notna(df_new.at[last_idx, 'turnover_trillion']) and pd.isna(df_new.at[last_idx, 'margin_buy']) and is_after_close:
-                            print(f"Detected missing margin data for {last_idx.date()}, attempting estimation (After close)...")
+                            print(f"Detected missing margin data for {last_idx.date()}, attempting estimation (After close CST {cst_now.strftime('%H:%M')})...")
                             prev_ratio = 8.5 # 默认兜底值
                             
                             # 获取前一天的融资占比
@@ -351,10 +355,12 @@ class MarketSentiment:
                             est_margin_buy = (prev_ratio / 100) * (df_new.at[last_idx, 'turnover_trillion'] * 1e12)
                             df_new.at[last_idx, 'margin_buy'] = est_margin_buy
                             # 标记为估算数据，以便前端展示警告
+                            df_new.at[last_idx, 'is_simulated'] = True
                             self.is_simulated = True 
                             print(f"Estimated margin buy for {last_idx.date()} using ratio {prev_ratio:.2f}%: {est_margin_buy/1e8:.2f} 亿")
 
-                    df_new = df_new.dropna()
+                    # Drop NaN if margin buy is still missing for non-estimated rows
+                    df_new = df_new.dropna(subset=['turnover_trillion', 'margin_buy'])
                     
                     if not df_new.empty:
                         print(f"Got {len(df_new)} new records.")
@@ -395,6 +401,17 @@ class MarketSentiment:
             
             df['temperature'] = base_score + correction_score
             df = df.dropna(subset=['temperature'])
+
+            # Restore simulation flag from cache if available
+            if 'is_simulated' in df.columns and not df.empty:
+                last_row_simulated = df.iloc[-1]['is_simulated']
+                # Check for boolean True or string 'True' or 1
+                if str(last_row_simulated).lower() in ('true', '1'):
+                    self.is_simulated = True
+                else:
+                    self.is_simulated = False
+            elif not hasattr(self, 'is_simulated'):
+                self.is_simulated = False
 
             return df
         except Exception as e:
