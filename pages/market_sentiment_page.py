@@ -294,7 +294,10 @@ def init_sentiment_page():
                             index_task = loop.run_in_executor(executor, lambda: idm.get_index_data(selected_index_name, force_refresh=force))
                             
                             df, df_index = await asyncio.gather(temp_task, index_task)
-                            
+                        
+                        except asyncio.CancelledError:
+                            print("Data fetch cancelled.")
+                            return
                         except Exception as e:
                             # Error Handling: Show notify and clean up spinner if chart exists
                             ui.notify(f'系统错误: {str(e)}', type='negative')
@@ -442,7 +445,12 @@ def init_sentiment_page():
                             tickangle=-45,
                             showgrid=True,
                             gridcolor='#F3F4F6',
-                            ticks='outside'
+                            ticks='outside',
+                            rangeslider=dict(
+                                visible=True,
+                                thickness=0.08,
+                                bgcolor='#F9FAFB'
+                            )
                         )
 
                         # Y 轴：以 20 度为步长，边界向外扩展以覆盖背景区间
