@@ -27,6 +27,48 @@ class SectorSentiment:
         self.set_level(self.industry_level)
         self.api = None
         self.em_sector_map = None # Cache for EM mapping
+        self.manual_mapping = {
+            # TDX -> EM (Manual Mapping optimized for Margin Data availability)
+            "IT设备": "计算机设备", "一般零售": "商业百货", "专业工程": "工程建设", 
+            "专业服务": "多元金融", "专业连锁": "商业百货", "交通运输": "物流行业",
+            "产业互联网": "互联网服务", "休闲食品": "食品饮料", "传媒": "文化传媒",
+            "体育": "体育产业", "元器件": "电子元件", "光学广电": "光学光电子",
+            "全国性银行": "银行", "公共事业": "电力行业", "公路铁路": "铁路基建",
+            "其他发电设备": "电源设备", "其他电子": "电子元件", "养殖业": "农牧饲渔",
+            "军工电子": "军工", "农产品加工": "农牧饲渔", "农林牧渔": "农牧饲渔",
+            "农用化工": "化肥行业", "冶钢原料": "钢铁行业", "出版社": "文化传媒",
+            "动物保健": "生物制品", "包装印刷": "综合行业", "化工": "化学原料",
+            "医药医疗": "医药商业", "厨卫电器": "家电行业", "商业物业经营": "房地产开发",
+            "商用车": "汽车整车", "商贸": "贸易行业", "国防军工": "军工",
+            "地方性银行": "银行", "地面兵装": "军工", "基础建设": "工程建设",
+            "塑料": "塑料制品", "家居用品": "家电行业", "家电零部件": "家电行业",
+            "小家电": "家电行业", "工业金属": "有色金属", "工程咨询服务": "工程建设",
+            "广告营销": "文化传媒", "广播电视": "广电", "建材": "水泥建材",
+            "建筑": "工程建设", "影视院线": "影视概念", "房产服务": "房地产开发",
+            "房地产": "房地产开发", "房屋建设": "工程建设", "摩托车及其他": "交运设备",
+            "教育培训": "职业教育", "数字媒体": "数字经济", "文娱用品": "文化传媒",
+            "旅游": "旅游酒店", "日用化工": "化学制品", "普钢": "钢铁行业",
+            "有色": "有色金属", "服装家纺": "纺织服装", "机械设备": "工程机械",
+            "林业": "农牧饲渔", "橡胶": "橡胶制品", "水务": "环保行业",
+            "水泥": "水泥建材", "汽车": "汽车整车", "汽车服务": "汽车整车",
+            "油服工程": "采掘行业", "油气开采": "石油行业", "渔业": "水产养殖",
+            "焦炭加工": "煤炭行业", "煤炭开采": "煤炭行业", "燃气": "天然气",
+            "特钢": "钢铁行业", "环保设备": "环保行业", "环境治理": "环保行业",
+            "环境监测": "环保行业", "玻璃纤维": "玻璃玻纤", "电信服务": "通信服务",
+            "电力设备": "电网设备", "电子": "电子元件", "电子商务": "电商概念",
+            "电机制造": "电机", "白色家电": "家电行业", "石油化工": "石油行业",
+            "社会服务": "旅游酒店", "种植业": "农业种植", "稀有金属": "有色金属",
+            "纺织制造": "纺织服装", "纺织服饰": "纺织服装", "综合类": "综合行业",
+            "自动化设备": "专用设备", "航天装备": "航天航空", "航海设备": "船舶制造",
+            "航空装备": "航天航空", "装修装饰": "工程建设", "装饰建材": "工程建设",
+            "计算机": "计算机设备", "调味品": "调味品概念", "轨交设备": "交运设备",
+            "软件服务": "软件开发", "轻工制造": "综合行业", "通信": "通信设备",
+            "通信工程": "通信服务", "造纸": "综合行业", "酒店餐饮": "旅游酒店",
+            "金属新材料": "有色金属", "非银金融": "证券", "食品加工": "食品饮料",
+            "饮料乳品": "食品饮料", "饰品": "美容护理", "饲料": "农牧饲渔",
+            "黑色家电": "家电行业", "乘用车": "汽车整车", "云服务": "互联网服务",
+            "生物制品": "生物制品", "医疗器械": "医疗器械", "中药": "中药"
+        }
 
     def set_level(self, level):
         self.industry_level = int(level)
@@ -45,6 +87,28 @@ class SectorSentiment:
         if self.em_sector_map is not None:
             return self.em_sector_map
             
+        mapping = {}
+        
+        # 0. Try loading from local CSV (eastmoney_sector_rzrq.csv)
+        try:
+            root_dir = os.path.dirname(self.data_dir) # data_dir is root/data
+            csv_path = os.path.join(root_dir, 'eastmoney_sector_rzrq.csv')
+            if os.path.exists(csv_path):
+                try:
+                    df = pd.read_csv(csv_path, encoding='utf-8')
+                except:
+                    df = pd.read_csv(csv_path, encoding='gbk')
+                    
+                if '板块名称' in df.columns and '板块代码' in df.columns:
+                    for _, row in df.iterrows():
+                        mapping[str(row['板块名称'])] = str(row['板块代码'])
+                    print(f"Loaded {len(mapping)} sectors from local CSV")
+        except Exception as e:
+            print(f"Error loading local EM CSV: {e}")
+
+        # If we got a good mapping from CSV, we can use it, or merge with API.
+        # But API is fresher. Let's try API and merge.
+        
         url = "https://datacenter-web.eastmoney.com/api/data/v1/get"
         params = {
             "reportName": "RPTA_WEB_BKJYMXN",
@@ -60,14 +124,19 @@ class SectorSentiment:
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get('result') and data['result'].get('data'):
-                    mapping = {}
+                    # mapping = {} # Don't clear, just update/overwrite
                     for item in data['result']['data']:
                         mapping[item['BOARD_NAME']] = item['BOARD_CODE']
                     self.em_sector_map = mapping
-                    print(f"Loaded {len(mapping)} sectors from EastMoney")
+                    print(f"Loaded {len(mapping)} sectors from EastMoney (CSV + API)")
                     return mapping
         except Exception as e:
-            print(f"Failed to load EM sector map: {e}")
+            print(f"Failed to load EM sector map from Web: {e}")
+            
+        if mapping:
+            self.em_sector_map = mapping
+            return mapping
+            
         return {}
     
     def _find_em_code(self, tdx_name):
@@ -75,6 +144,14 @@ class SectorSentiment:
         if not mapping:
             return None
             
+        # 0. Check Manual Mapping first
+        if tdx_name in self.manual_mapping:
+            target_name = self.manual_mapping[tdx_name]
+            if target_name in mapping:
+                return mapping[target_name]
+            # Try appending "行业" or similar if manual mapping target is not exact code key
+            # But usually manual_mapping values are EM names.
+        
         # 1. Exact match
         if tdx_name in mapping:
             return mapping[tdx_name]
@@ -504,7 +581,8 @@ class SectorSentiment:
                     
                     company_df['margin_spread'] = company_df['sector_margin_pct'] - company_df['market_margin_pct']
                     company_df['margin_spread_ma60'] = company_df['margin_spread'].rolling(window=60).mean()
-                    company_df['score_margin'] = (company_df['margin_spread'] - company_df['margin_spread_ma60']) * 2000
+                    company_df['score_margin'] = (company_df['margin_spread'] - company_df['margin_spread_ma60']) * 1000
+                    company_df['score_margin'] = company_df['score_margin'].clip(lower=-50, upper=50)
                     
                     # 3. Final Temperature
                     has_margin = company_df['sector_margin_buy'].sum() > 1000

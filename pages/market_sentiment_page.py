@@ -674,9 +674,9 @@ def init_sentiment_page():
                                 with right_stats_container:
                                     ui.label('尚未加载统计数据，请加载或更新板块数据。').classes('text-xs text-gray-400')
 
-                    # Control Row & Chart Area merged
-                    with ui.row().classes('w-full justify-between items-center mb-2 px-1'):
-                        level_select = ui.toggle({1: '一级行业', 2: '二级行业'}, value=1, on_change=lambda e: load_sector_view()).props('no-caps push color=indigo')
+                    # Hidden Control State
+                    with ui.row().classes('hidden'):
+                        level_select = ui.toggle({1: '一级行业', 2: '二级行业'}, value=1).props('no-caps push color=indigo')
                         sector_status_label = ui.label('准备就绪').classes('hidden') # Hidden state label, controlled by logic
 
                     # Chart Area
@@ -689,9 +689,28 @@ def init_sentiment_page():
                     
                     # Initial Placeholder
                     with sector_chart_container:
-                         with ui.column().classes('w-full h-full items-center justify-center gap-4'):
+                        # New Header Layout
+                        with ui.row().classes('w-full justify-between items-start mb-4 pb-2 border-b border-gray-100'):
+                             with ui.column().classes('gap-1'):
+                                 with ui.row().classes('items-center gap-3'):
+                                     ui.icon('grid_view', color='indigo').classes('text-xl')
+                                     ui.label(f'全市场板块情绪热度').classes('text-xl font-bold text-gray-800')
+                                     
+                                     # Level Switcher
+                                     with ui.row().classes('bg-gray-100 rounded-lg p-1 gap-0'):
+                                         def switch_level_init(l):
+                                             level_select.value = l
+                                             load_sector_view()
+                                         
+                                         # Default is 1
+                                         ui.button('一级专区', on_click=lambda: switch_level_init(1)).props('unelevated rounded shadow-sm color=indigo text-xs py-1 px-3')
+                                         ui.button('二级专区', on_click=lambda: switch_level_init(2)).props('flat rounded text-gray-500 text-xs py-1 px-3')
+
+                                 with ui.row().classes('items-center gap-2 ml-1'):
+                                     ui.label('等待加载...').classes('text-xs text-gray-400')
+
+                        with ui.column().classes('w-full flex-1 items-center justify-center gap-4'):
                             ui.icon('analytics', color='indigo-200').classes('text-6xl')
-                            ui.label('全市场板块情绪热度').classes('text-2xl font-bold text-gray-700')
                             ui.label('请加载数据以查看分析结果').classes('text-gray-400')
                             with ui.row().classes('gap-4 mt-2'):
                                 load_cache_btn = ui.button('加载缓存', on_click=lambda: load_sector_view()).props('unelevated color=indigo-6 icon=history')
@@ -773,10 +792,32 @@ def init_sentiment_page():
                                 # Clear container to avoid confusion with stale data
                                 sector_chart_container.clear()
                                 with sector_chart_container:
-                                     with ui.column().classes('w-full h-full items-center justify-center gap-4'):
+                                    # Header Layout (Empty State)
+                                    with ui.row().classes('w-full justify-between items-start mb-4 pb-2 border-b border-gray-100'):
+                                        with ui.column().classes('gap-1'):
+                                            with ui.row().classes('items-center gap-3'):
+                                                ui.icon('grid_view', color='indigo').classes('text-xl')
+                                                ui.label(f'全市场板块情绪热度').classes('text-xl font-bold text-gray-800')
+                                                
+                                                with ui.row().classes('bg-gray-100 rounded-lg p-1 gap-0'):
+                                                     def switch_level_empty(l):
+                                                         level_select.value = l
+                                                         load_sector_view() 
+                                                     
+                                                     curr_l = level_select.value
+                                                     s_active = 'unelevated rounded shadow-sm color=indigo text-xs py-1 px-3'
+                                                     s_inactive = 'flat rounded text-gray-500 text-xs py-1 px-3'
+                                                     
+                                                     ui.button('一级专区', on_click=lambda: switch_level_empty(1)).props(s_active if curr_l == 1 else s_inactive)
+                                                     ui.button('二级专区', on_click=lambda: switch_level_empty(2)).props(s_active if curr_l == 2 else s_inactive)
+
+                                            with ui.row().classes('items-center gap-2 ml-1'):
+                                                ui.label('等待数据加载...').classes('text-xs text-gray-400')
+
+                                    with ui.column().classes('w-full flex-1 items-center justify-center gap-4'):
                                         ui.icon('analytics', color='indigo-200').classes('text-6xl')
-                                        ui.label(f'全市场板块情绪热度 (Level {level})').classes('text-2xl font-bold text-gray-700')
-                                        ui.label('暂无缓存数据，请点击下方按钮更新').classes('text-gray-400')
+                                        ui.label(f'暂无缓存 (Level {level})').classes('text-2xl font-bold text-gray-700')
+                                        ui.label('请点击下方按钮更新数据').classes('text-gray-400')
                                         with ui.row().classes('gap-4 mt-2'):
                                             load_cache_btn = ui.button('加载缓存', on_click=lambda: load_sector_view()).props('unelevated color=indigo-6 icon=history')
                                             update_sector_btn = ui.button('在线更新', on_click=lambda: update_sector_data()).props('outline color=indigo-6 icon=cloud_download')
@@ -892,11 +933,28 @@ def init_sentiment_page():
                                 print('Update sector stats failed:', e)
                             
                             with sector_chart_container:
-                                with ui.row().classes('w-full justify-between items-center mb-4 pb-2 border-b border-gray-100'):
-                                    with ui.row().classes('items-center gap-2'):
-                                        ui.icon('grid_view', color='indigo').classes('text-xl')
-                                        ui.label(f'全市场板块情绪热度').classes('text-xl font-bold text-gray-800')
-                                        
+                                with ui.row().classes('w-full justify-between items-start mb-4 pb-2 border-b border-gray-100'):
+                                    with ui.column().classes('gap-1'):
+                                        # Row 1: Title + Switcher
+                                        with ui.row().classes('items-center gap-3'):
+                                            ui.icon('grid_view', color='indigo').classes('text-xl')
+                                            ui.label(f'全市场板块情绪热度').classes('text-xl font-bold text-gray-800')
+                                            
+                                            # Integrated Level Switcher
+                                            with ui.row().classes('bg-gray-100 rounded-lg p-1 gap-0'):
+                                                 def switch_level_render(l):
+                                                     level_select.value = l
+                                                     load_sector_view() 
+                                                 
+                                                 curr_l = level_select.value
+                                                 # Styles
+                                                 s_active = 'unelevated rounded shadow-sm color=indigo text-xs py-1 px-3'
+                                                 s_inactive = 'flat rounded text-gray-500 text-xs py-1 px-3'
+                                                 
+                                                 ui.button('一级专区', on_click=lambda: switch_level_render(1)).props(s_active if curr_l == 1 else s_inactive)
+                                                 ui.button('二级专区', on_click=lambda: switch_level_render(2)).props(s_active if curr_l == 2 else s_inactive)
+
+                                        # Row 2: Date + Note
                                         # Simulation Label for this date (if any mock flag is true for this date)
                                         is_simulated = df_s['is_mock'].any() if 'is_mock' in df_s.columns else False
                                         date_display = f"{data_date}"
@@ -904,10 +962,11 @@ def init_sentiment_page():
                                         if is_simulated:
                                             date_badges.append("(含预估)")
                                             
-                                        with ui.row().classes('gap-1 items-center'):
-                                            ui.label(" ".join(date_badges)).classes('text-sm px-2 py-0.5 bg-gray-100 rounded text-gray-500')
-                                        
-                                        ui.label('（注：面积大小对应成交额）').classes('text-xs text-gray-400')
+                                        with ui.row().classes('items-center gap-2 ml-1'):
+                                            with ui.row().classes('gap-1 items-center'):
+                                                ui.label(" ".join(date_badges)).classes('text-sm px-2 py-0.5 bg-gray-100 rounded text-gray-500')
+                                            
+                                            ui.label('（注：面积大小对应成交额）').classes('text-xs text-gray-400')
                                     
                                     # Date selector for sector data (Only for history mode)
                                     date_select = None # Define scope
