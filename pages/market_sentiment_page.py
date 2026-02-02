@@ -1,6 +1,7 @@
 from nicegui import ui
 from utils.market_sentiment import MarketSentiment
 from utils.sector_sentiment import SectorSentiment
+from utils.index_data import IndexDataManager
 import plotly.graph_objects as go
 import pandas as pd
 import asyncio
@@ -240,30 +241,76 @@ def init_sentiment_page():
                     # Status Label
                     status_label = ui.label('正在连接数据接口...').classes('text-lg text-indigo-600 animate-pulse font-bold')
                     
-                    # Chart Container - 使用响应式高度（移动端更紧凑）
-                    chart_height_class = 'h-[360px]' if is_mobile else 'h-[480px]'
-                    chart_container = ui.card().classes(f'w-full max-w-6xl {chart_height_class} border-0 rounded-xl shadow-md bg-white p-1')
+                    # Chart Container (Card with Header)
+                    chart_height_class = 'h-[440px]' if is_mobile else 'h-[520px]'
+                    chart_container = ui.card().classes(f'w-full max-w-6xl {chart_height_class} border-0 rounded-xl shadow-md bg-white p-4 flex flex-col gap-0')
                     
+                    # Define controls ahead of time to capture reference, but place them inside card
+                    index_select = None
+                    
+                    with chart_container:
+                        # Header Row
+                        with ui.row().classes('w-full justify-between items-center mb-2 pb-2 border-b border-gray-100'):
+                             # Title Group
+                             with ui.row().classes('items-center gap-2'):
+                                 ui.icon('show_chart', color='indigo').classes('text-2xl')
+                                 ui.label('情绪温度趋势 (近三年)').classes('text-xl font-bold text-gray-800')
+                             
+                             # Actions Group
+                             with ui.row().classes('items-center gap-4'):
+                                 index_select = ui.select(
+                                      options=["上证指数", "深证成指", "创业板指", "上证50", "沪深300", "中证500"],
+                                      value="上证指数",
+                                      label="对比指数",
+                                      on_change=lambda e: fetch_and_draw_market()
+                                 ).props('dense outlined options-dense bg-white behavior=menu').classes('w-32')
+                                 
+                                 ui.button('重新加载', icon='refresh', on_click=lambda: fetch_and_draw_market(force=True)) \
+                                        .props('flat color=indigo icon-right').classes('text-indigo-600 font-bold')
+
+                        # Plot Area
+                        chart_plot_area = ui.column().classes('w-full flex-1 min-h-0 relative p-0 m-0')
+
                     # Data Table Container
                     data_container = ui.column().classes('w-full max-w-6xl mt-4 hidden')
 
                     async def fetch_and_draw_market(force=False):
                         loop = asyncio.get_running_loop()
                         ms = MarketSentiment()
+                        idm = IndexDataManager()
+                        selected_index_name = index_select.value
                         
+                        # Add loading indicator on the chart plot area
+                        if not chart_plot_area.is_deleted:
+                            with chart_plot_area:
+                                ui.spinner('dots', size='lg', color='primary').classes('absolute-center z-20')
+
                         if force:
-                            ui.notify('正在刷新最新数据...', type='info')
+                            ui.notify(f'正在刷新 {selected_index_name} 及情绪数据...', type='info')
                         
                         try:
-                            df = await loop.run_in_executor(executor, ms.get_temperature_data, force)
+                            # Parallel fetch
+                            temp_task = loop.run_in_executor(executor, ms.get_temperature_data, force)
+                            index_task = loop.run_in_executor(executor, lambda: idm.get_index_data(selected_index_name, force_refresh=force))
+                            
+                            df, df_index = await asyncio.gather(temp_task, index_task)
+                            
                         except Exception as e:
+                            # Error Handling: Show notify and clean up spinner if chart exists
+                            ui.notify(f'系统错误: {str(e)}', type='negative')
                             if not status_label.is_deleted:
                                 status_label.text = f'系统错误: {str(e)}'
                                 status_label.classes(replace='text-red-500')
+                            # Try to restore chart state or show error in container
+                            if not chart_plot_area.is_deleted:
+                                chart_plot_area.clear()
+                                with chart_plot_area:
+                                    ui.label('数据加载失败').classes('absolute-center text-red-500')
                             return
 
-                        if status_label.is_deleted: return
-                        status_label.delete()
+                        # Remove initial status label if it exists
+                        if not status_label.is_deleted:
+                            status_label.delete()
                         
                         if df is None or df.empty:
                             if hasattr(ui.context.client, 'layout'):
@@ -273,13 +320,32 @@ def init_sentiment_page():
                         # Limit data for mobile
                         if is_mobile:
                             df = df.tail(30)
+                            
+                        # Sync Index Data Range with Sentiment Data
+                        if df_index is not None and not df_index.empty and not df.empty:
+                            start_dt = df.index.min()
+                            end_dt = df.index.max()
+                            # Ensure df_index date is datetime
+                            if not pd.api.types.is_datetime64_any_dtype(df_index['date']):
+                                df_index['date'] = pd.to_datetime(df_index['date'])
+                            
+                            # Filter
+                            df_index = df_index[(df_index['date'] >= start_dt) & (df_index['date'] <= end_dt)]
                         
                         # Warning if simulated
-                        if getattr(ms, 'is_simulated', False) and not gauge_container.is_deleted:
+                        if getattr(ms, 'is_simulated', False) and not chart_plot_area.is_deleted:
                             with ui.row().classes('w-full justify-center bg-yellow-100 p-2 rounded mb-2 border border-yellow-300 items-center'):
                                 ui.icon('warning', color='orange').classes('text-2xl mr-2')
                                 ui.label('注意：当前展示的数据为模拟/估算数据。').classes('text-orange-800')
 
+                        # Gauge - Move gauge to separate area or keep here? 
+                        # Since chart_container is now card, we can't put gauge freely.
+                        # Wait, the gauge logic (above this block in original code) was using gauge_container which is in a different card.
+                        # Let's check context. gauge_container is defined BEFORE chart_container in original code.
+                        # So gauge logic shouldn't be affected unless I deleted it? 
+                        # I replaced lines 240-300. gauge_container definition was around line 200 (Top Layout: Info + Gauge).
+                        # Need to check if I broke gauge_container reference.
+                        
                         # Gauge
                         if not df.empty and not gauge_container.is_deleted:
                             last_record = df.iloc[-1]
@@ -315,10 +381,23 @@ def init_sentiment_page():
                         # Line Chart
                         fig = go.Figure()
                         
-                        # Background zones
+                        # Background zones (Sentiment)
                         fig.add_hrect(y0=100, y1=130, fillcolor="#FFEBEE", opacity=0.5, layer="below", line_width=0)
                         fig.add_hrect(y0=-30, y1=0, fillcolor="#E0F7FA", opacity=0.5, layer="below", line_width=0)
                         
+                        # --- Index Price Trace (Secondary Axis) ---
+                        if df_index is not None and not df_index.empty:
+                            # Align time range roughly
+                            fig.add_trace(go.Scatter(
+                                x=df_index['date'], 
+                                y=df_index['close'],
+                                mode='lines',
+                                name=selected_index_name,
+                                line=dict(color='#CFD8DC', width=1.5), # Grey line for index
+                                yaxis='y2',
+                                hovertemplate='%{y:.2f}<extra></extra>' 
+                            ))
+
                         # Main Line (Smooth curve + thicker)
                         fig.add_trace(go.Scatter(
                             x=df.index, y=df['temperature'], 
@@ -333,8 +412,10 @@ def init_sentiment_page():
                         if not low_df.empty: fig.add_trace(go.Scatter(x=low_df.index, y=low_df['temperature'], mode='markers', name='冰点', marker=dict(color='#26A69A', size=8, line=dict(color='white', width=1))))
                         
                         # 为移动端和桌面分别设置更合适的 x/y 轴格式与布局，丰富移动端刻度信息
-                        title_text = '<b>情绪温度趋势 (近30天)</b>' if is_mobile else '<b>情绪温度趋势 (近三年)</b>'
+                        # title_text = ... (Used custom component above now)
+                        
                         # X 轴：移动端显示月-日并每隔5天一个刻度（30天约7个刻度），桌面显示月-年格式
+
                         # 计算移动端tick起点（使用数据首日）和5天的毫秒间隔
                         try:
                             first_dt = pd.to_datetime(df.index[0])
@@ -376,10 +457,10 @@ def init_sentiment_page():
                         y_dtick = 20
 
                         height_val = 340 if is_mobile else 460
-                        margin_val = dict(l=36, r=18, t=48, b=36) if is_mobile else dict(l=50, r=40, t=60, b=50)
+                        margin_val = dict(l=36, r=18, t=10, b=36) if is_mobile else dict(l=50, r=40, t=10, b=50)
 
                         fig.update_layout(
-                            title=dict(text=title_text, font=dict(size=16 if is_mobile else 18, color='#374151')),
+                            # title=dict(text=title_text, ...), # Title removed
                             xaxis=xaxis_mobile if is_mobile else xaxis_desktop,
                             yaxis=dict(
                                 title='温度',
@@ -390,6 +471,13 @@ def init_sentiment_page():
                                 zeroline=True,
                                 zerolinecolor='#E5E7EB',
                                 tickformat=',d'
+                            ),
+                            yaxis2=dict(
+                                title=selected_index_name,
+                                overlaying='y',
+                                side='right',
+                                showgrid=False,
+                                zeroline=False
                             ),
                             margin=margin_val,
                             height=height_val,
@@ -402,13 +490,9 @@ def init_sentiment_page():
 
                         # Improve hover label formatting for unified hover
                         fig.update_traces(hovertemplate='%{y:.2f}°', selector=dict(type='scatter'))
-                        chart_container.clear()
-                        with chart_container:
-                            # Refresh Button
-                            with ui.row().classes('absolute right-4 top-4 z-10'):
-                                ui.button('重新加载', icon='refresh', on_click=lambda: fetch_and_draw_market(force=True)) \
-                                    .props('flat color=grey-6').tooltip('强制从服务器获取最新数据')
-                                    
+                        
+                        chart_plot_area.clear()
+                        with chart_plot_area:
                             custom_plotly(fig).classes('w-full h-full')
                         
                         # Market Table
