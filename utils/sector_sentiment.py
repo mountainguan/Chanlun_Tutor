@@ -21,12 +21,22 @@ tdx_industry_map = {
     "881230": "医药医疗", "881286": "国防军工", "881477": "综合",
 }
 class SectorSentiment:
-    def __init__(self):
+    def __init__(self, industry_level=1):
         self.data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
-        self.cache_file = os.path.join(self.data_dir, 'sector_sentiment_cache.json')
-        self.if_sector_list_cache = os.path.join(self.data_dir, 'sector_list.json')
+        self.industry_level = int(industry_level) # Ensure int
+        self.set_level(self.industry_level)
         self.api = None
         self.em_sector_map = None # Cache for EM mapping
+
+    def set_level(self, level):
+        self.industry_level = int(level)
+        if self.industry_level == 2:
+            self.cache_file = os.path.join(self.data_dir, 'sector_sentiment_cache_erji.json')
+            # Level 2 list comes from CSV, we might not need to cache the list itself separately like list.json
+            self.if_sector_list_cache = None
+        else:
+            self.cache_file = os.path.join(self.data_dir, 'sector_sentiment_cache.json')
+            self.if_sector_list_cache = os.path.join(self.data_dir, 'sector_list.json')
 
     def _get_em_sector_map(self):
         """
@@ -159,6 +169,31 @@ class SectorSentiment:
 
     def get_sector_list(self):
         """获取A股行业板块列表，返回 [{name, code}]"""
+        if self.industry_level == 2:
+            csv_path = os.path.join(self.data_dir, 'tdx_industry_erji.csv')
+            if os.path.exists(csv_path):
+                try:
+                    try:
+                        df = pd.read_csv(csv_path, encoding='utf-8')
+                    except UnicodeDecodeError:
+                        df = pd.read_csv(csv_path, encoding='gbk')
+
+                    # Determine code column name (compatible with '板块编码' or '二级板块编码')
+                    code_col = '二级板块编码' if '二级板块编码' in df.columns else '板块编码'
+
+                    if '二级板块名称' in df.columns and code_col in df.columns:
+                        sectors = []
+                        for _, row in df.iterrows():
+                            item = {'name': str(row['二级板块名称']), 'code': str(row[code_col])}
+                            if '一级板块名称' in row and pd.notna(row['一级板块名称']):
+                                item['group'] = str(row['一级板块名称'])
+                            sectors.append(item)
+                        print(f"Loaded {len(sectors)} Level 2 sectors from CSV")
+                        return sectors
+                except Exception as e:
+                    print(f"Error reading Level 2 sector CSV: {e}")
+            return []
+
         # 如果存在通达信测试结果文件，则优先根据测试通过的映射构建板块列表并缓存（覆盖旧缓存）
         test_file = os.path.join(self.data_dir, 'tdx_industry_test_results.json')
         try:
@@ -498,11 +533,16 @@ class SectorSentiment:
                     
                     # Latest entry
                     latest_entry = history_list[-1]
-                    
-                    results[name] = {
+
+                    # Preserve group info in the results
+                    item_data = {
                         'latest': latest_entry,
                         'history': history_list
                     }
+                    if 'group' in sector:
+                        item_data['group'] = sector['group']
+                    
+                    results[name] = item_data
                     
                     updated_count += 1
                     
@@ -617,10 +657,16 @@ class SectorSentiment:
 if __name__ == "__main__":
     import urllib3
     import sys
+    import argparse
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     
-    print(f"Running data update... Python: {sys.executable}")
-    ss = SectorSentiment()
+    parser = argparse.ArgumentParser(description='Update Sector Sentiment')
+    parser.add_argument('--level', type=int, default=1, choices=[1, 2], help='Industry Level (1: Level 1, 2: Level 2)')
+    # Allow unknown args passing
+    args, unknown = parser.parse_known_args()
+
+    print(f"Running data update Level {args.level}... Python: {sys.executable}")
+    ss = SectorSentiment(industry_level=args.level)
     # Explicitly connect first (like debug script) to ensure connectivity before heavy lifting
     print("Testing connection...")
     if not ss._connect_tdx():

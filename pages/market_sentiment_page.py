@@ -675,7 +675,9 @@ def init_sentiment_page():
                                     ui.label('尚未加载统计数据，请加载或更新板块数据。').classes('text-xs text-gray-400')
 
                     # Control Row & Chart Area merged
-                    sector_status_label = ui.label('准备就绪').classes('hidden') # Hidden state label, controlled by logic
+                    with ui.row().classes('w-full justify-between items-center mb-2 px-1'):
+                        level_select = ui.toggle({1: '一级行业', 2: '二级行业'}, value=1, on_change=lambda e: load_sector_view()).props('no-caps push color=indigo')
+                        sector_status_label = ui.label('准备就绪').classes('hidden') # Hidden state label, controlled by logic
 
                     # Chart Area
                     # give container a stable id so client-side JS can watch visibility
@@ -700,11 +702,14 @@ def init_sentiment_page():
                     
                     async def update_sector_data():
                         loop = asyncio.get_running_loop()
+                        level = level_select.value
+                        level_name = '一级行业' if level == 1 else '二级行业'
+                        
                         if update_sector_btn: update_sector_btn.disable()
                         if load_cache_btn: load_cache_btn.disable()
                         
                         sector_status_label.text = '正在更新...'
-                        ui.notify('开启独立进程更新，这需要几分钟...', type='info', timeout=5000)
+                        ui.notify(f'开启独立进程更新【{level_name}】，这需要几分钟...', type='info', timeout=5000)
                         
                         try:
                             # Re-render container with loading state
@@ -712,14 +717,16 @@ def init_sentiment_page():
                             with sector_chart_container:
                                 with ui.column().classes('w-full h-full items-center justify-center'):
                                      ui.spinner('dots', size='xl', color='indigo')
-                                     ui.label('正在从服务器获取并计算板块数据...').classes('text-indigo-500 font-bold mt-4')
+                                     ui.label(f'正在获取【{level_name}】板块数据...').classes('text-indigo-500 font-bold mt-4')
                                      ui.label('这可能需要1-2分钟').classes('text-gray-400 text-sm')
 
                             script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'utils', 'sector_sentiment.py')
                             
                             def run_script():
+                                cmd = [sys.executable, '-u', script_path, '--level', str(level)]
+                                print(f"Executing: {' '.join(cmd)}")
                                 result = subprocess.run(
-                                    [sys.executable, '-u', script_path], 
+                                    cmd, 
                                     capture_output=True, 
                                     text=True, 
                                     cwd=os.path.dirname(os.path.dirname(__file__))
@@ -755,13 +762,24 @@ def init_sentiment_page():
                         if load_cache_btn: load_cache_btn.enable()
 
                     def load_sector_view(date=None):
-                        ss = SectorSentiment()
+                        level = level_select.value
+                        ss = SectorSentiment(industry_level=level)
                         data = ss.get_display_data()
                         if data:
                             render_sector_view(data, target_date=date)
                         else:
                             try:
-                                ui.notify('无缓存数据，请点击更新', type='warning')
+                                ui.notify(f'无缓存数据 (Level {level})，请点击更新', type='warning')
+                                # Clear container to avoid confusion with stale data
+                                sector_chart_container.clear()
+                                with sector_chart_container:
+                                     with ui.column().classes('w-full h-full items-center justify-center gap-4'):
+                                        ui.icon('analytics', color='indigo-200').classes('text-6xl')
+                                        ui.label(f'全市场板块情绪热度 (Level {level})').classes('text-2xl font-bold text-gray-700')
+                                        ui.label('暂无缓存数据，请点击下方按钮更新').classes('text-gray-400')
+                                        with ui.row().classes('gap-4 mt-2'):
+                                            load_cache_btn = ui.button('加载缓存', on_click=lambda: load_sector_view()).props('unelevated color=indigo-6 icon=history')
+                                            update_sector_btn = ui.button('在线更新', on_click=lambda: update_sector_data()).props('outline color=indigo-6 icon=cloud_download')
                             except RuntimeError:
                                 pass  # Context might be deleted
 
@@ -803,6 +821,9 @@ def init_sentiment_page():
                                     # Clone entry to avoid modifying cache
                                     row = entry.copy()
                                     row['name'] = k
+                                    # Copy group info from parent record if available
+                                    if 'group' in v:
+                                        row['group'] = v['group']
                                     display_records.append(row)
                                     
                             df_s = pd.DataFrame(display_records)
@@ -921,13 +942,67 @@ def init_sentiment_page():
                                     [1.0, 'rgb(165, 0, 38)']
                                 ]
 
+                                # Prepare Treemap Data (Hierarchical if Level 2 and group info exists)
+                                tm_ids = []
+                                tm_labels = []
+                                tm_parents = []
+                                tm_values = []
+                                tm_colors = []
+                                tm_text = []
+
+                                has_group = 'group' in df_s.columns and df_s['group'].notna().any()
+                                
+                                if has_group:
+                                    # 1. Process Groups (Parents)
+                                    groups = df_s['group'].dropna().unique()
+                                    for g in groups:
+                                        if not g: continue
+                                        sub = df_s[df_s['group'] == g]
+                                        total_to = sub['turnover_yi'].sum()
+                                        
+                                        # Weighted Average Temperature
+                                        if total_to > 0:
+                                            avg_temp = (sub['temperature'] * sub['turnover_yi']).sum() / total_to
+                                        else:
+                                            avg_temp = sub['temperature'].mean()
+
+                                        tm_ids.append(f"G_{g}")
+                                        tm_labels.append(g)
+                                        tm_parents.append("") # Root
+                                        tm_values.append(total_to)
+                                        tm_colors.append(avg_temp)
+                                        tm_text.append(f"{avg_temp:.0f}°")
+                                    
+                                    # 2. Process Items (Children)
+                                    for _, row in df_s.iterrows():
+                                        tm_ids.append(row['name']) # Assuming unique sector names
+                                        tm_labels.append(row['name'])
+                                        
+                                        parent_id = f"G_{row['group']}" if pd.notna(row.get('group')) and row['group'] else ""
+                                        tm_parents.append(parent_id)
+                                        
+                                        tm_values.append(row['turnover_yi'])
+                                        tm_colors.append(row['temperature'])
+                                        tm_text.append(f"{row['temperature']:.0f}°")
+                                        
+                                else:
+                                    # Flat Structure (Level 1 or Level 2 without mapping)
+                                    tm_ids = df_s['name'].tolist()
+                                    tm_labels = df_s['name'].tolist()
+                                    tm_parents = [""] * len(df_s)
+                                    tm_values = df_s['turnover_yi'].tolist()
+                                    tm_colors = df_s['temperature'].tolist()
+                                    tm_text = df_s['temperature'].apply(lambda x: f"{x:.0f}°").tolist()
+
                                 fig = go.Figure(go.Treemap(
-                                    labels = df_s['name'],
-                                    parents = [""] * len(df_s),
-                                    values = df_s['turnover_yi'], 
-                                    text = df_s['temperature'].apply(lambda x: f"{x:.0f}°"),
+                                    ids = tm_ids,
+                                    labels = tm_labels,
+                                    parents = tm_parents,
+                                    values = tm_values, 
+                                    text = tm_text,
+                                    branchvalues = "total" if has_group else None,
                                     marker = dict(
-                                        colors = df_s['temperature'],
+                                        colors = tm_colors,
                                         colorscale = custom_colorscale, 
                                         cmin = -60, cmax = 120, cmid = 0,
                                         showscale = not is_mobile,
