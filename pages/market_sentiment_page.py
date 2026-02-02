@@ -933,68 +933,138 @@ def init_sentiment_page():
                                         update_sector_btn = ui.button('更新数据', on_click=lambda: update_sector_data()).props('unelevated color=indigo icon=cloud_download')
 
                                 # Treemap
-                                # Custom Colorscale: Cold Blue -> White -> Warm Red
-                                custom_colorscale = [
-                                    [0.0, 'rgb(49, 54, 149)'],
-                                    [0.3, 'rgb(116, 173, 209)'],
-                                    [0.5, 'rgb(255, 255, 255)'],
-                                    [0.7, 'rgb(244, 109, 67)'],
-                                    [1.0, 'rgb(165, 0, 38)']
-                                ]
+                                # Helper for manual color interpolation
+                                def get_color_hex(val):
+                                    # Base Colors
+                                    c_blue = (49, 54, 149)
+                                    c_white = (255, 255, 255)
+                                    c_red = (180, 0, 0) # Slightly brighter red
+                                    
+                                    try:
+                                        v = float(val)
+                                    except:
+                                        return '#CCCCCC'
+
+                                    def clamp(n, minn, maxn): return max(min(n, maxn), minn)
+                                    def lerp_rgb(c1, c2, t): # t in [0, 1]
+                                        return (
+                                            int(c1[0] + (c2[0] - c1[0]) * t),
+                                            int(c1[1] + (c2[1] - c1[1]) * t),
+                                            int(c1[2] + (c2[2] - c1[2]) * t)
+                                        )
+                                    
+                                    if v < 0:
+                                        # Map -60...0 to Blue...White
+                                        # t=0 -> White, t=1 -> Blue
+                                        # v=0 -> t=0; v=-60 -> t=1
+                                        t = clamp(abs(v) / 60.0, 0, 1)
+                                        rgb = lerp_rgb(c_white, c_blue, t)
+                                    else:
+                                        # Map 0...100 to White...Red
+                                        t = clamp(v / 100.0, 0, 1)
+                                        rgb = lerp_rgb(c_white, c_red, t)
+                                    
+                                    return f'rgb({rgb[0]},{rgb[1]},{rgb[2]})'
 
                                 # Prepare Treemap Data (Hierarchical if Level 2 and group info exists)
                                 tm_ids = []
                                 tm_labels = []
                                 tm_parents = []
                                 tm_values = []
-                                tm_colors = []
+                                # Using manual colors list instead of values mapping
+                                tm_colors = [] 
                                 tm_text = []
+                                tm_textcolors = []
 
                                 has_group = 'group' in df_s.columns and df_s['group'].notna().any()
                                 
+                                # Dummy trace for ColorBar
+                                colorbar_trace = go.Scatter(
+                                    x=[None], y=[None],
+                                    mode='markers',
+                                    marker=dict(
+                                        colorscale=[
+                                            [0.0, 'rgb(49, 54, 149)'],
+                                            [0.5, 'rgb(255, 255, 255)'],
+                                            [1.0, 'rgb(180, 0, 0)']
+                                        ],
+                                        cmin=-60, cmax=120, # Range adjustment
+                                        showscale=not is_mobile,
+                                        colorbar=dict(title='温度', thickness=15, len=0.8)
+                                    ),
+                                    hoverinfo='none',
+                                    showlegend=False
+                                )
+
                                 if has_group:
-                                    # 1. Process Groups (Parents)
+                                    # 1. Process Groups (Parents) - Black Style
                                     groups = df_s['group'].dropna().unique()
                                     for g in groups:
                                         if not g: continue
                                         sub = df_s[df_s['group'] == g]
                                         total_to = sub['turnover_yi'].sum()
                                         
-                                        # Weighted Average Temperature
+                                        # Weighted Average Temperature (just for label if needed)
                                         if total_to > 0:
                                             avg_temp = (sub['temperature'] * sub['turnover_yi']).sum() / total_to
                                         else:
                                             avg_temp = sub['temperature'].mean()
 
                                         tm_ids.append(f"G_{g}")
-                                        tm_labels.append(g)
+                                        tm_labels.append(f"<b>{g}</b>") # Bold label
                                         tm_parents.append("") # Root
                                         tm_values.append(total_to)
-                                        tm_colors.append(avg_temp)
-                                        tm_text.append(f"{avg_temp:.0f}°")
+                                        
+                                        # PARENT STYLE: Black background
+                                        tm_colors.append('#222222') 
+                                        tm_textcolors.append('white') # White text for visibility on black
+                                        
+                                        tm_text.append("") # No detailed text for parent, just label
                                     
                                     # 2. Process Items (Children)
                                     for _, row in df_s.iterrows():
-                                        tm_ids.append(row['name']) # Assuming unique sector names
-                                        tm_labels.append(row['name'])
+                                        tm_ids.append(row['name'])
+                                        tm_labels.append(f"<b>{row['name']}</b>") # Bold Label
                                         
                                         parent_id = f"G_{row['group']}" if pd.notna(row.get('group')) and row['group'] else ""
                                         tm_parents.append(parent_id)
                                         
                                         tm_values.append(row['turnover_yi'])
-                                        tm_colors.append(row['temperature'])
-                                        tm_text.append(f"{row['temperature']:.0f}°")
+                                        
+                                        # CHILD STYLE: Heatmap
+                                        temp = row['temperature']
+                                        tm_colors.append(get_color_hex(temp))
+                                        
+                                        # Text contrast
+                                        if temp < -30 or temp > 50:
+                                            tm_textcolors.append('white')
+                                        else:
+                                            tm_textcolors.append('#333333')
+
+                                        tm_text.append(f"{temp:.0f}°")
                                         
                                 else:
-                                    # Flat Structure (Level 1 or Level 2 without mapping)
+                                    # Flat Structure (Level 1)
                                     tm_ids = df_s['name'].tolist()
-                                    tm_labels = df_s['name'].tolist()
+                                    tm_labels = [f"<b>{x}</b>" for x in df_s['name']] # Bold Labels
                                     tm_parents = [""] * len(df_s)
                                     tm_values = df_s['turnover_yi'].tolist()
-                                    tm_colors = df_s['temperature'].tolist()
-                                    tm_text = df_s['temperature'].apply(lambda x: f"{x:.0f}°").tolist()
+                                    
+                                    tm_colors = []
+                                    tm_textcolors = []
+                                    tm_text = []
 
-                                fig = go.Figure(go.Treemap(
+                                    for _, row in df_s.iterrows():
+                                        temp = row['temperature']
+                                        tm_colors.append(get_color_hex(temp))
+                                        if temp < -30 or temp > 50:
+                                            tm_textcolors.append('white')
+                                        else:
+                                            tm_textcolors.append('#333333')
+                                        tm_text.append(f"{temp:.0f}°")
+
+                                fig = go.Figure()
+                                fig.add_trace(go.Treemap(
                                     ids = tm_ids,
                                     labels = tm_labels,
                                     parents = tm_parents,
@@ -1002,24 +1072,41 @@ def init_sentiment_page():
                                     text = tm_text,
                                     branchvalues = "total" if has_group else None,
                                     marker = dict(
-                                        colors = tm_colors,
-                                        colorscale = custom_colorscale, 
-                                        cmin = -60, cmax = 120, cmid = 0,
-                                        showscale = not is_mobile,
-                                        colorbar = dict(
-                                            title='温度', 
-                                            thickness=15, 
-                                            len=0.8,
-                                            tickfont=dict(color='#666')
-                                        ),
-                                        line = dict(width=2, color='#ffffff') # White borders for clean look
+                                        colors = tm_colors, # Direct colors list
+                                        # Use standard line width for separation instead of tiling padding
+                                        # This creates a "hairline" look
+                                        line = dict(width=1, color='#222222'), 
                                     ),
-                                    hovertemplate='<b>%{label}</b><br>温度: %{color:.1f}<br>成交额: %{value:.1f}亿<extra></extra>',
-                                    textinfo = "label+text",
-                                    textfont = dict(size=20, family="Roboto, sans-serif", color='#333'),
+                                    textfont = dict(family="Roboto, sans-serif", color=tm_textcolors),
                                     textposition = "middle center",
-                                    tiling = dict(pad=2) # Spacing inside
+                                    textinfo = "label+text", # Show Name + Temp
+                                    # Optimized text template for better look
+                                    texttemplate = "<b>%{label}</b><br>%{text}",
+                                    
+                                    # Layout optimization for "Black Header" look:
+                                    # maximize pathbar? No, pathbar is for zooming.
+                                    # Use root attributes?
+                                    root_color = '#222222', # Ensure background is dark
+                                    
+                                    # Tiling Padding: 
+                                    # Set to 0 to remove extra 'thick' borders around children
+                                    # Separation is now handled by marker.line
+                                    tiling = dict(pad=0),
+                                    
+                                    hovertemplate='<b>%{label}</b><br>成交额: %{value:.1f}亿<br>%{text}<extra></extra>'
                                 ))
+                                
+                                # Add dummy for colorbar
+                                fig.add_trace(colorbar_trace)
+                                
+                                fig.update_layout(
+                                    margin=dict(t=10, l=10, r=10, b=10), 
+                                    height=650,
+                                    paper_bgcolor='rgba(0,0,0,0)',
+                                    plot_bgcolor='rgba(0,0,0,0)',
+                                    font=dict(family="Roboto, 'Microsoft YaHei'"),
+                                    uniformtext=dict(minsize=10, mode='hide') # Hide tiny text
+                                )
                                 
                                 fig.update_layout(
                                     margin=dict(t=10, l=10, r=10, b=10), 
