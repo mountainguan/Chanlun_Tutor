@@ -756,36 +756,64 @@ def init_sentiment_page():
                         if update_sector_btn: update_sector_btn.enable()
                         if load_cache_btn: load_cache_btn.enable()
 
-                    def load_sector_view():
+                    def load_sector_view(date=None):
                         ss = SectorSentiment()
                         data = ss.get_display_data()
                         if data:
-                            render_sector_view(data)
+                            render_sector_view(data, target_date=date)
                         else:
                             try:
                                 ui.notify('无缓存数据，请点击更新', type='warning')
                             except RuntimeError:
                                 pass  # Context might be deleted
 
-                    def render_sector_view(data):
+                    def render_sector_view(data, target_date=None):
                         try:
                             if not data: return
                             
                             sector_chart_container.clear()
                             sector_table_container.classes(remove='hidden')
                             
-                            # Prepare Data
-                            records = []
+                            # Prepare Data for specific date
+                            # Determine latest date if not specified
+                            available_dates = set()
+                            for name, rec in data.items():
+                                if 'history' in rec:
+                                    for h in rec['history']: available_dates.add(h['date'])
+                                elif 'latest' in rec: available_dates.add(rec['latest']['date'])
+                                else: available_dates.add(rec.get('date'))
+                            
+                            sorted_dates = sorted([d for d in available_dates if d], reverse=True)
+                            if not sorted_dates: return
+
+                            if target_date is None or target_date not in sorted_dates:
+                                target_date = sorted_dates[0]
+                            
+                            display_records = []
                             for k, v in data.items():
-                                v['name'] = k
-                                records.append(v)
-                            df_s = pd.DataFrame(records)
+                                entry = None
+                                if 'history' in v:
+                                    # Find exact date
+                                    matches = [h for h in v['history'] if h['date'] == target_date]
+                                    if matches: entry = matches[0]
+                                elif 'latest' in v and v['latest']['date'] == target_date:
+                                    entry = v['latest']
+                                elif v.get('date') == target_date: # Old format
+                                    entry = v
+                                
+                                if entry:
+                                    # Clone entry to avoid modifying cache
+                                    row = entry.copy()
+                                    row['name'] = k
+                                    display_records.append(row)
+                                    
+                            df_s = pd.DataFrame(display_records)
                             
                             if df_s.empty:
                                 try:
-                                    ui.notify("数据为空", type='warning')
+                                    ui.notify(f"{target_date} 数据为空", type='warning')
                                 except RuntimeError:
-                                    pass  # Context might be deleted
+                                    pass
                                 return
                             
                             # Add turnover in 100 Millions for table display
@@ -793,24 +821,18 @@ def init_sentiment_page():
                                 df_s['turnover_yi'] = (df_s['turnover'] / 100000000).round(2)
 
                             # Header inside container
-                            data_date = list(data.values())[0].get("date", "未知日期")
-                            # Update the stats panel (过热/较冷/过冷)
+                            data_date = target_date # We know it applies to all displayed records
+                            
                             try:
-                                # compute categories from raw data dict
-                                # Overheat: temp > 90 (display top by temp desc)
-                                overheat_all = [(k, float(v.get('temperature', 0))) for k, v in data.items() if float(v.get('temperature', 0)) > 90]
-                                overheat_sorted = sorted(overheat_all, key=lambda x: x[1], reverse=True)
-                                overheat_display = [k for k, t in overheat_sorted][:5]
-
-                                # Cold (较冷): temp between -50 and -20 inclusive (display by temp asc)
-                                cold_all = [(k, float(v.get('temperature', 0))) for k, v in data.items() if -50 <= float(v.get('temperature', 0)) <= -20]
-                                cold_sorted = sorted(cold_all, key=lambda x: x[1])
-                                cold_display = [k for k, t in cold_sorted][:5]
-
-                                # Overcold (过冷): temp < -50 (display by temp asc)
-                                overcold_all = [(k, float(v.get('temperature', 0))) for k, v in data.items() if float(v.get('temperature', 0)) < -50]
-                                overcold_sorted = sorted(overcold_all, key=lambda x: x[1])
-                                overcold_display = [k for k, t in overcold_sorted][:5]
+                                # Recalculate stats for THIS date using helper or manual slice
+                                # Since we already have df_s, we can just use it.
+                                overheat_list = df_s[df_s['temperature'] > 90].sort_values('temperature', ascending=False)
+                                cold_list = df_s[(df_s['temperature'] >= -50) & (df_s['temperature'] <= -20)].sort_values('temperature', ascending=True)
+                                overcold_list = df_s[df_s['temperature'] < -50].sort_values('temperature', ascending=True)
+                                
+                                overheat_display = overheat_list['name'].head(5).tolist()
+                                cold_display = cold_list['name'].head(5).tolist()
+                                overcold_display = overcold_list['name'].head(5).tolist()
 
                                 # refresh UI container (right_stats_container defined in the info card)
                                 try:
@@ -822,11 +844,11 @@ def init_sentiment_page():
                                     ui.label(f"数据日期：{data_date}").classes('text-xs text-gray-500 mb-1')
                                     with ui.row().classes('w-full gap-2 mb-1'):
                                         with ui.column().classes('flex-1 bg-red-50 py-1 px-2 rounded-lg items-center justify-center'):
-                                            ui.label(f'过热: {len(overheat_all)}').classes('font-bold text-red-700')
+                                            ui.label(f'过热: {len(overheat_list)}').classes('font-bold text-red-700')
                                         with ui.column().classes('flex-1 bg-blue-50 py-1 px-2 rounded-lg items-center justify-center'):
-                                            ui.label(f'较冷: {len(cold_all)}').classes('font-bold text-blue-700')
+                                            ui.label(f'较冷: {len(cold_list)}').classes('font-bold text-blue-700')
                                         with ui.column().classes('flex-1 bg-purple-50 py-1 px-2 rounded-lg items-center justify-center'):
-                                            ui.label(f'过冷: {len(overcold_all)}').classes('font-bold text-purple-700')
+                                            ui.label(f'过冷: {len(overcold_list)}').classes('font-bold text-purple-700')
 
                                     # For each category show up to 5 top names inline (no expansion)
                                     def render_category(title, icon_name, icon_color, items_display, total_count):
@@ -844,10 +866,9 @@ def init_sentiment_page():
                                             else:
                                                 ui.label('无').classes('text-xs text-gray-400')
 
-                                    render_category('过热板块', 'whatshot', 'red', overheat_display, len(overheat_all))
-                                    render_category('较冷板块', 'ac_unit', 'blue', cold_display, len(cold_all))
-                                    # Use a known material icon for snowflake and purple color for overcold
-                                    render_category('过冷板块', 'ac_unit', 'purple', overcold_display, len(overcold_all))
+                                    render_category('过热板块', 'whatshot', 'red', overheat_display, len(overheat_list))
+                                    render_category('较冷板块', 'ac_unit', 'blue', cold_display, len(cold_list))
+                                    render_category('过冷板块', 'ac_unit', 'purple', overcold_display, len(overcold_list))
                             except Exception as e:
                                 print('Update sector stats failed:', e)
                             
@@ -856,13 +877,40 @@ def init_sentiment_page():
                                     with ui.row().classes('items-center gap-2'):
                                         ui.icon('grid_view', color='indigo').classes('text-xl')
                                         ui.label(f'全市场板块情绪热度').classes('text-xl font-bold text-gray-800')
-                                        ui.label(f'{data_date}').classes('text-sm px-2 py-0.5 bg-gray-100 rounded text-gray-500')
+                                        
+                                        # Simulation Label for this date (if any mock flag is true for this date)
+                                        is_simulated = df_s['is_mock'].any() if 'is_mock' in df_s.columns else False
+                                        date_display = f"{data_date}"
+                                        date_badges = [date_display]
+                                        if is_simulated:
+                                            date_badges.append("(含预估)")
+                                            
+                                        with ui.row().classes('gap-1 items-center'):
+                                            ui.label(" ".join(date_badges)).classes('text-sm px-2 py-0.5 bg-gray-100 rounded text-gray-500')
+                                        
                                         ui.label('（注：面积大小对应成交额）').classes('text-xs text-gray-400')
                                     
+                                    # Date selector for sector data (Only for history mode)
+                                    date_select = None # Define scope
+
                                     with ui.row().classes('items-center gap-2'):
                                         # Recapture buttons for scope
                                         nonlocal update_sector_btn, load_cache_btn
-                                        load_cache_btn = ui.button('重新加载', on_click=lambda: load_sector_view()).props('flat icon=refresh color=grey').classes('text-gray-500')
+                                        
+                                        # Add Date Selector here
+                                        date_options = sorted_dates
+                                        
+                                        # Current selected date matches target_date
+                                        current_sector_date = target_date
+                                        
+                                        date_select = ui.select(
+                                            options=date_options, 
+                                            value=current_sector_date, 
+                                            label="选择日期",
+                                            on_change=lambda e: load_sector_view(date=e.value)
+                                        ).props('dense outlined options-dense bg-white behavior=menu').classes('w-40')
+
+                                        load_cache_btn = ui.button('重新加载', on_click=lambda: load_sector_view(date=date_select.value)).props('flat icon=refresh color=grey').classes('text-gray-500')
                                         update_sector_btn = ui.button('更新数据', on_click=lambda: update_sector_data()).props('unelevated color=indigo icon=cloud_download')
 
                                 # Treemap
@@ -878,7 +926,7 @@ def init_sentiment_page():
                                 fig = go.Figure(go.Treemap(
                                     labels = df_s['name'],
                                     parents = [""] * len(df_s),
-                                    values = df_s['turnover'], 
+                                    values = df_s['turnover_yi'], 
                                     text = df_s['temperature'].apply(lambda x: f"{x:.0f}°"),
                                     marker = dict(
                                         colors = df_s['temperature'],
@@ -893,7 +941,7 @@ def init_sentiment_page():
                                         ),
                                         line = dict(width=2, color='#ffffff') # White borders for clean look
                                     ),
-                                    hovertemplate='<b>%{label}</b><br>温度: %{color:.1f}<br>成交额: %{value}万<extra></extra>',
+                                    hovertemplate='<b>%{label}</b><br>温度: %{color:.1f}<br>成交额: %{value:.1f}亿<extra></extra>',
                                     textinfo = "label+text",
                                     textfont = dict(size=20, family="Roboto, sans-serif", color='#333'),
                                     textposition = "middle center",
@@ -991,6 +1039,7 @@ def init_sentiment_page():
                 if tabs.value == '板块温度' or str(tabs.value) == '板块温度':
                     ss = SectorSentiment()
                     if os.path.exists(ss.cache_file):
+                        # Default to latest
                         load_sector_view()
                     else:
                         # If no cache, show initial state with update prompt

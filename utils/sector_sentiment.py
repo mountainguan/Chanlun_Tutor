@@ -285,81 +285,60 @@ class SectorSentiment:
 
     def _fetch_market_history(self):
         """
-        Fetch Market (SH+SZ) data for Volume and Margin
+        Fetch Market (SH+SZ) data using MarketSentiment class to ensure consistency and include estimations.
         Returns DataFrame aligned by date columns: 'market_vol', 'market_margin_buy'
         """
-        # 1. Volume: SH (999999) + SZ (399001) from TDX
-        if not self.api: return None
+        import sys
         
+        # Ensure project root is in sys.path so 'utils' package can be resolved
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+
         try:
-             # SH Index
-            df_sh = self._fetch_sector_from_tdx('999999')
-            # SZ Index
-            df_sz = self._fetch_sector_from_tdx('399001')
-            
-            if df_sh is None or df_sz is None:
-                print("Failed to fetch SH/SZ index for market volume")
-                return None
-                
-            df_vol = pd.merge(df_sh[['amount']], df_sz[['amount']], on='date', suffixes=('_sh', '_sz'), how='inner')
-            df_vol['market_vol'] = df_vol['amount_sh'] + df_vol['amount_sz']
-            df_vol = df_vol[['market_vol']]
-            
-            # 2. Margin: Jin10
-            urls = {
-                "SH": "https://cdn.jin10.com/data_center/reports/fs_1.json",
-                "SZ": "https://cdn.jin10.com/data_center/reports/fs_2.json"
-            }
-            dfs_m = []
-            for market, url in urls.items():
-                try:
-                    r = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
-                    if r.status_code == 200:
-                        data = r.json()
-                        cols = [item['name'] for item in data['keys']]
-                        records = []
-                        for date_str, values in data['values'].items():
-                            record = {'date': date_str}
-                            for i, val in enumerate(values):
-                                if i < len(cols):
-                                    record[cols[i]] = val
-                            records.append(record)
-                        df = pd.DataFrame(records)
-                        df['date'] = pd.to_datetime(df['date'])
-                        df = df.set_index('date').sort_index()
-                        # Find '融资买入额'
-                        buy_col = next((c for c in df.columns if '融资买入额' in c), None)
-                        if buy_col:
-                            df = df[[buy_col]].rename(columns={buy_col: 'margin_buy'})
-                            # Convert to float
-                            df['margin_buy'] = pd.to_numeric(df['margin_buy'], errors='coerce')
-                            dfs_m.append(df)
-                except Exception as e:
-                    print(f"Jin10 fetch error {market}: {e}")
-            
-            df_margin = None
-            if len(dfs_m) == 2:
-                df_margin = pd.merge(dfs_m[0], dfs_m[1], on='date', suffixes=('_sh', '_sz'), how='inner')
-                df_margin['market_margin_buy'] = df_margin['margin_buy_sh'] + df_margin['margin_buy_sz']
-                df_margin = df_margin[['market_margin_buy']]
-            
-            # 3. Merge
-            if df_margin is not None:
-                # Use inner join to ensure we only use dates where both Volume and Margin are available
-                # (Typically T-1, as Margin data is delayed by 1 day)
-                df_market = pd.merge(df_vol, df_margin, on='date', how='inner')
-                return df_market
-            else:
-                print("Warning: Market Margin data missing")
+            from utils.market_sentiment import MarketSentiment
+        except ImportError:
+            # Fallback: if running inside utils folder directly
+            try:
+                from market_sentiment import MarketSentiment
+            except ImportError as e:
+                print(f"Import Error: {e}")
                 return None
 
+        try:
+            ms = MarketSentiment()
+            # force_refresh=False to use existing cache (which might contain estimated data from today)
+            # But if cache is old, MS logic will fetch new.
+            df_ms = ms.get_temperature_data()
+            
+            if df_ms is None or df_ms.empty:
+                print("MarketSentiment returned no data.")
+                return None
+            
+            # Map columns
+            # MarketSentiment: 'turnover_trillion' (Trillion), 'margin_buy' (Yuan)
+            # SectorSentiment logic expects:
+            # market_vol (Yuan) -> to match 'amount' from TDX which is usually Yuan (or needs checking)
+            # TDX amount is usually unit=1 (Yuan).
+            
+            df_market = pd.DataFrame(index=df_ms.index)
+            df_market['market_vol'] = df_ms['turnover_trillion'] * 1e12 
+            df_market['market_margin_buy'] = df_ms['margin_buy']
+            
+            # Carry over the simulation flag if needed, though we check it per-row usually or just valid/invalid.
+            # But SectorSentiment needs to know if market is simulated? 
+            # Actually, if market_margin_buy is estimated in MS, it is just a number here.
+            # We can trust that number for calculation.
+            
+            return df_market
+            
         except Exception as e:
-            print(f"Error fetching market history: {e}")
+            print(f"Error fetching market history via MarketSentiment: {e}")
             return None
 
     def update_data(self):
         """
-        更新板块情绪数据
+        更新板块情绪数据，支持历史回溯和预估
         """
         try:
            sectors = self.get_sector_list() # list of dicts {name, code}
@@ -377,7 +356,7 @@ class SectorSentiment:
             print(f"Retrying connection ({attempt+1}/3)...")
             time.sleep(2)
         
-        if not self.api or not self.api.client: # Check if connected
+        if not self.api or not self.api.client: 
              error_msg = "无法连接到通达信服务器，请检查网络 (All retries failed)"
              print(error_msg)
              raise Exception(error_msg)
@@ -392,9 +371,11 @@ class SectorSentiment:
                 except:
                     pass
             
-            today_str = datetime.datetime.now().strftime('%Y-%m-%d')
-            results = cache_data.copy()
-            
+            # 兼容性检查：如果旧格式（值为dict且没有history字段），则清空
+            # 我们尽量复用，但如果结构变了，最好重新生成
+            # 只要是 dict，我们可以把旧的作为 latest，新建 history 为空
+            results = {} # Start fresh to clean up old keys or formats
+
             # 0. Get Market Data (Global)
             print("Fetching Market Data (Volume & Margin)...")
             df_market = self._fetch_market_history()
@@ -409,39 +390,25 @@ class SectorSentiment:
             
             updated_count = 0
             
-            # 只需要简单的计数，不再因为失败而完全停止，而是转为 Mock
             for i, sector in enumerate(sectors):
                 name = sector['name']
                 code = sector['code']
-                
-                # Note: We need to RE-CALCULATE even if 'date' is today because the formula changed?
-                # Or just skip if already done today?
-                # Ideally, if user asks to "correct logic", we should force update.
-                # But 'update_data' might be called automatically.
-                # Let's assume we force update for now or skip. The user just asked for logic fix.
-                # If I want to reflect changes immediately, I should remove the skip check.
-                # But 'cache_data' checks name and date. If I change logic, I should invalidate cache.
-                # I'll Comment out the skip logic for now to force refresh.
-                # if name in cache_data and cache_data[name].get('date') == today_str:
-                #    continue
                 
                 print(f"[{i+1}/{len(sectors)}] Fetching {name} ({code})...")
                 
                 # 1. 尝试真实获取
                 df = self.fetch_sector_history_raw(code, name)
                 
-                is_mock = False
-                # 2. 如果失败，跳过，不使用 Mock
                 if df is None or df.empty:
                     print(f"Failed to fetch {name}, skipping...")
                     continue
                     
                 try:
-                    # Process data
-                    if len(df) < 60: # 至少需要一定的数据量 (60 for MA)
+                    if len(df) < 60: 
                         continue
                         
                     # Align with Market Data
+                    # Use inner join to find common dates, but ensure we don't lose today if market has it
                     company_df = pd.merge(df, df_market, left_index=True, right_index=True, how='inner')
                     if len(company_df) < 20: continue
                     
@@ -455,14 +422,36 @@ class SectorSentiment:
                     
                     if df_sector_margin is not None and not df_sector_margin.empty:
                          df_sector_margin = df_sector_margin.rename(columns={'FIN_BUY_AMT': 'sector_margin_buy'})
-                         # Use left merge to keep latest date from price/volume df
+                         # Left merge to keep validation logic later
                          company_df = pd.merge(company_df, df_sector_margin[['sector_margin_buy']], left_index=True, right_index=True, how='left')
-                         # Fill NaN with 0.0 to ensure only same-date data is used
-                         company_df['sector_margin_buy'] = company_df['sector_margin_buy'].fillna(0.0)
                     else:
-                        company_df['sector_margin_buy'] = 0.0
+                        company_df['sector_margin_buy'] = np.nan
 
-                    # --- New Formula Calculation ---
+                    # --- Estimation Logic for Sector Margin ---
+                    # Check the last row. If Sector Margin is NaN but we have Volume and Market Data
+                    last_idx = company_df.index[-1]
+                    is_simulated = False
+                    
+                    if pd.isna(company_df.at[last_idx, 'sector_margin_buy']):
+                        # Try to estimate using previous day's ratio
+                        # Find the last valid margin data point
+                        valid_margin_df = company_df.dropna(subset=['sector_margin_buy'])
+                        if not valid_margin_df.empty:
+                            last_valid = valid_margin_df.iloc[-1]
+                            # Use ratio: sector_margin_buy / amount
+                            if last_valid['amount'] > 0:
+                                prev_ratio = last_valid['sector_margin_buy'] / last_valid['amount']
+                                # Estimate: today_amount * prev_ratio
+                                est_val = company_df.at[last_idx, 'amount'] * prev_ratio
+                                # Update DataFrame
+                                company_df.at[last_idx, 'sector_margin_buy'] = est_val
+                                is_simulated = True
+                                # print(f"  Estimated margin for {name} on {last_idx.date()}")
+                        
+                    # Fill remaining NaNs with 0 (should not happen often if history is good)
+                    company_df['sector_margin_buy'] = company_df['sector_margin_buy'].fillna(0.0)
+
+                    # --- Calculation ---
                     
                     # 1. Volume Part
                     company_df['sector_vol_ma20'] = company_df['amount'].rolling(window=20).mean()
@@ -471,54 +460,50 @@ class SectorSentiment:
                     company_df['market_vol_ma20'] = company_df['market_vol'].rolling(window=20).mean()
                     company_df['market_vol_ratio'] = company_df['market_vol'] / company_df['market_vol_ma20']
                     
-                    # Relative Vol Ratio
-                    # Use a small epsilon for division safety? Or usually volumes are large.
                     company_df['rel_vol_ratio'] = company_df['sector_vol_ratio'] / company_df['market_vol_ratio']
-                    
-                    # Volume Score = (Relative Vol Ratio - 1) * 100
                     company_df['score_vol'] = (company_df['rel_vol_ratio'] - 1) * 100
                     
                     # 2. Margin Part
-                    # Sector Margin % = sector_margin_buy / amount (Vol)
                     company_df['sector_margin_pct'] = company_df['sector_margin_buy'] / company_df['amount']
-                    
-                    # Market Margin %
                     company_df['market_margin_pct'] = company_df['market_margin_buy'] / company_df['market_vol']
                     
-                    # Spread
                     company_df['margin_spread'] = company_df['sector_margin_pct'] - company_df['market_margin_pct']
-                    
-                    # Historical Spread MA 60
                     company_df['margin_spread_ma60'] = company_df['margin_spread'].rolling(window=60).mean()
-                    
-                    # Margin Score = (Spread - MA60) * 2000
                     company_df['score_margin'] = (company_df['margin_spread'] - company_df['margin_spread_ma60']) * 2000
                     
-                    # Latest value
-                    latest = company_df.iloc[-1]
-                    last_date = latest.name.strftime('%Y-%m-%d')
-                    
-                    s_vol = latest['score_vol']
-                    if pd.isna(s_vol): s_vol = 0
-                    
-                    s_margin = latest['score_margin']
-                    if pd.isna(s_margin): s_margin = 0 
-                    
-                    # If sector has very little margin trading (sum close to 0), ignore margin part
-                    has_margin = company_df['sector_margin_buy'].sum() > 1000 # minimal threshold
+                    # 3. Final Temperature
+                    has_margin = company_df['sector_margin_buy'].sum() > 1000
                     if not has_margin:
-                        s_margin = 0
+                        company_df['score_margin'] = 0
+                        
+                    company_df['temperature'] = company_df['score_vol'] + company_df['score_margin']
                     
-                    final_temp = s_vol + s_margin
+                    # Prepare Output Structure
+                    # Save last 180 days history
+                    hist_df = company_df.tail(180).copy()
+                    history_list = []
+                    
+                    for date_idx, row in hist_df.iterrows():
+                        # Determine if this specific row was simulated (only the last one could be)
+                        row_sim = is_simulated and (date_idx == last_idx)
+                        
+                        history_list.append({
+                            'date': date_idx.strftime('%Y-%m-%d'),
+                            'temperature': round(row['temperature'], 2) if pd.notna(row['temperature']) else 0,
+                            'turnover': float(row['amount']),
+                            'score_vol': round(row['score_vol'], 2) if pd.notna(row['score_vol']) else 0,
+                            'score_margin': round(row['score_margin'], 2) if pd.notna(row['score_margin']) else 0,
+                            'is_mock': row_sim
+                        })
+                    
+                    # Latest entry
+                    latest_entry = history_list[-1]
                     
                     results[name] = {
-                        'date': last_date,
-                        'temperature': round(final_temp, 2),
-                        'turnover': float(latest['amount']),
-                        'score_vol': round(float(s_vol), 2),
-                        'score_margin': round(float(s_margin), 2),
-                        'is_mock': is_mock 
+                        'latest': latest_entry,
+                        'history': history_list
                     }
+                    
                     updated_count += 1
                     
                     if updated_count % 5 == 0:
@@ -528,9 +513,7 @@ class SectorSentiment:
                 except Exception as e:
                     print(f"Error processing {name}: {e}")
                 
-                # Sleep only if not mock to save time
-                if not is_mock:
-                    time.sleep(0.05)
+                time.sleep(0.02)
 
             # Final Save
             with open(self.cache_file, 'w', encoding='utf-8') as f:
@@ -543,47 +526,84 @@ class SectorSentiment:
     def get_display_data(self):
         if not os.path.exists(self.cache_file):
             return None
-        with open(self.cache_file, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        try:
+            with open(self.cache_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                
+            # Backward compatibility check: if data structure is old (no 'history'), wrap it
+            # Assuming old structure: { "Name": { "temperature": ..., "date": ... } }
+            # New structure: { "Name": { "latest": {...}, "history": [...] } }
+            fixed_data = {}
+            for k, v in data.items():
+                if 'latest' not in v and 'temperature' in v:
+                    # Old format, convert on the fly for display
+                    fixed_data[k] = {
+                        'latest': v,
+                        'history': [v] # Fake history
+                    }
+                else:
+                    fixed_data[k] = v
+                    
+            return fixed_data
+        except Exception as e:
+            print(f"Error loading cache: {e}")
+            return None
 
-    def get_daily_stats(self):
+    def get_daily_stats(self, target_date=None):
         """
-        从缓存中读取当天的板块数据，按照温度分组返回统计信息。
-        返回结构示例：
-        {
-            'date': '2026-01-29',
-            'counts': {'overheat': 3, 'cold': 5, 'overcold': 1},
-            'overheat': ['板块A','板块B'],
-            'cold': ['板块C', ...],
-            'overcold': ['板块X', ...]
-        }
+        从缓存中读取指定日期的板块数据，按照温度分组返回统计信息。
+        target_date: 'YYYY-MM-DD' 或 None (Latest)
         """
         data = self.get_display_data()
         if not data:
             return None
 
-        # determine date (use first entry's date if available)
-        sample = next(iter(data.values()), {})
-        date = sample.get('date', '')
-
         overheat = []
         overcold = []
         cold = []
+        
+        display_date = target_date
 
+        # If no target date, find the max date available in data (usually today/yesterday)
+        if not display_date:
+            dates = set()
+            for v in data.values():
+                if 'latest' in v:
+                     dates.add(v['latest']['date'])
+            if dates:
+                display_date = max(dates)
+            else:
+                return None
+
+        # Iterate all sectors
         for name, rec in data.items():
-            try:
-                temp = float(rec.get('temperature', 0))
-            except Exception:
-                temp = 0
-            if temp > 100:
-                overheat.append(name)
-            elif temp < -50:
-                overcold.append(name)
-            elif temp <= -20 and temp >= -50:
-                cold.append(name)
+            entry = None
+            if 'history' in rec:
+                # Find the entry for target_date
+                # History is sorted by date ascending usually
+                # Linear search backwards is faster for recent dates
+                for h in reversed(rec['history']):
+                    if h['date'] == display_date:
+                         entry = h
+                         break
+            elif 'latest' in rec:
+                 if rec['latest']['date'] == display_date:
+                     entry = rec['latest']
+            
+            if entry:
+                try:
+                    temp = float(entry.get('temperature', 0))
+                except: temp = 0
+                
+                if temp > 100:
+                    overheat.append(name)
+                elif temp < -50:
+                    overcold.append(name)
+                elif temp <= -20 and temp >= -50:
+                    cold.append(name)
 
         return {
-            'date': date,
+            'date': display_date,
             'counts': {
                 'overheat': len(overheat),
                 'cold': len(cold),
