@@ -2,6 +2,8 @@ from nicegui import ui
 from utils.market_sentiment import MarketSentiment
 from utils.sector_sentiment import SectorSentiment
 from utils.index_data import IndexDataManager
+from utils.money_flow import MoneyFlow
+from pages.money_flow_component import render_money_flow_panel
 import plotly.graph_objects as go
 import pandas as pd
 import asyncio
@@ -200,6 +202,7 @@ def init_sentiment_page():
                         .props('indicator-color="transparent" active-color="white" active-bg-color="primary" active-class="shadow-sm rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white"') as tabs:
                     market_tab = ui.tab('大盘温度').classes('px-8 font-bold tracking-wide transition-all')
                     sector_tab = ui.tab('板块温度').classes('px-8 font-bold tracking-wide transition-all')
+                    money_tab = ui.tab('资金流向').classes('px-8 font-bold tracking-wide transition-all')
 
             with ui.tab_panels(tabs, value=market_tab).classes('w-full max-w-6xl bg-transparent p-0'):
                 
@@ -1250,6 +1253,13 @@ def init_sentiment_page():
                                     ui.button('重试加载', on_click=lambda: load_sector_view()).props('unelevated color=indigo')
 
 
+            # Container for Money Flow Panel to support lazy loading
+            money_flow_initialized = False
+            money_flow_container = None
+
+            with ui.tab_panel(money_tab).classes('w-full p-0 flex flex-col gap-6'):
+                money_flow_container = ui.column().classes('w-full')
+
             # Start Market Fetch automatically
             async def auto_fetch_market():
                 await asyncio.sleep(0.5)
@@ -1258,6 +1268,8 @@ def init_sentiment_page():
             
             # Add tab change handler to load sector data only when tab is activated
             def on_tab_change():
+                nonlocal money_flow_initialized
+                
                 # Compare with tab label/name instead of object
                 if tabs.value == '板块温度' or str(tabs.value) == '板块温度':
                     ss = SectorSentiment()
@@ -1279,6 +1291,12 @@ def init_sentiment_page():
                             ui.notify('无缓存数据，请点击更新获取板块数据', type='info', timeout=3000)
                         except RuntimeError:
                             pass
+                
+                elif (tabs.value == '资金流向' or str(tabs.value) == '资金流向'):
+                    if not money_flow_initialized:
+                        with money_flow_container:
+                            render_money_flow_panel(plotly_renderer=custom_plotly)
+                        money_flow_initialized = True
             
             tabs.on_value_change(on_tab_change)
             
