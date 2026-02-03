@@ -273,9 +273,25 @@ class MarketSentiment:
         need_fetch = True
         
         if cache is not None and not cache.empty:
-            latest_date = cache.index[-1].date()
+            # Check if the last record is a simulated value from the past (yesterday or older)
+            if 'is_simulated' in cache.columns:
+                try:
+                    is_sim = str(cache.iloc[-1]['is_simulated']).lower() in ('true', '1')
+                    last_dt = cache.index[-1].date()
+                    if is_sim and last_dt < today:
+                        print(f"Removing simulated data from {last_dt} to fetch actual data.")
+                        cache = cache.iloc[:-1]
+                        self.save_cache(cache)
+                except Exception as e:
+                    print(f"Error checking simulated status: {e}")
+
+            if not cache.empty:
+                latest_date = cache.index[-1].date()
+            else:
+                latest_date = None
+
             # If we have data for today (or future), skip fetch
-            if latest_date >= today:
+            if latest_date and latest_date >= today:
                 if force_refresh:
                     print(f"Force refresh requested. Deleting today's data from cache.")
                     # 显式从缓存中删除今天及以后的数据，确保重新获取时能够覆盖

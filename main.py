@@ -525,7 +525,7 @@ def main_page():
 
                 fig = create_candlestick_chart(chart_data, "", macd_data=chart_macd, shapes=display_shapes)
                 fig.update_layout(
-                    margin=dict(l=30, r=10, t=10, b=20), # 减小边距
+                    margin=dict(l=10, r=0, t=0, b=0), # 减小边距
                     height=None, 
                     paper_bgcolor='rgba(0,0,0,0)',
                     plot_bgcolor='rgba(0,0,0,0)',

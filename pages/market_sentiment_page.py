@@ -1056,6 +1056,16 @@ def init_sentiment_page():
                                 )
 
                                 if has_group:
+                                    # Create Root Node to remove outer gaps
+                                    total_all = df_s['turnover_yi'].sum()
+                                    tm_ids.append("ROOT_ALL")
+                                    tm_labels.append("")
+                                    tm_parents.append("")
+                                    tm_values.append(total_all)
+                                    tm_colors.append('rgba(0,0,0,0)')
+                                    tm_textcolors.append('rgba(0,0,0,0)')
+                                    tm_text.append("")
+
                                     # 1. Process Groups (Parents) - Black Style
                                     groups = df_s['group'].dropna().unique()
                                     for g in groups:
@@ -1071,12 +1081,12 @@ def init_sentiment_page():
 
                                         tm_ids.append(f"G_{g}")
                                         tm_labels.append(f"<b>{g}</b>") # Bold label
-                                        tm_parents.append("") # Root
+                                        tm_parents.append("ROOT_ALL") # Parent to Root
                                         tm_values.append(total_to)
                                         
-                                        # PARENT STYLE: Black background
-                                        tm_colors.append('#222222') 
-                                        tm_textcolors.append('white') # White text for visibility on black
+                                        # PARENT STYLE: Transparent background for "borderless" look
+                                        tm_colors.append('rgba(0,0,0,0)') 
+                                        tm_textcolors.append('#333333') # Dark text for visibility on light bg
                                         
                                         tm_text.append("") # No detailed text for parent, just label
                                     
@@ -1085,7 +1095,7 @@ def init_sentiment_page():
                                         tm_ids.append(row['name'])
                                         tm_labels.append(f"<b>{row['name']}</b>") # Bold Label
                                         
-                                        parent_id = f"G_{row['group']}" if pd.notna(row.get('group')) and row['group'] else ""
+                                        parent_id = f"G_{row['group']}" if pd.notna(row.get('group')) and row['group'] else "ROOT_ALL"
                                         tm_parents.append(parent_id)
                                         
                                         tm_values.append(row['turnover_yi'])
@@ -1130,11 +1140,11 @@ def init_sentiment_page():
                                     values = tm_values, 
                                     text = tm_text,
                                     branchvalues = "total" if has_group else None,
+                                    pathbar = dict(visible=False), # Hide pathbar to avoid root header
                                     marker = dict(
                                         colors = tm_colors, # Direct colors list
-                                        # Use standard line width for separation instead of tiling padding
-                                        # This creates a "hairline" look
-                                        line = dict(width=1, color='#222222'), 
+                                        # Remove borders completely to avoid "white gaps"
+                                        line = dict(width=0, color='#FFFFFF'), 
                                     ),
                                     textfont = dict(family="Roboto, sans-serif", color=tm_textcolors),
                                     textposition = "middle center",
@@ -1145,7 +1155,7 @@ def init_sentiment_page():
                                     # Layout optimization for "Black Header" look:
                                     # maximize pathbar? No, pathbar is for zooming.
                                     # Use root attributes?
-                                    root_color = '#222222', # Ensure background is dark
+                                    root_color = 'rgba(0,0,0,0)', # Ensure background is transparent
                                     
                                     # Tiling Padding: 
                                     # Set to 0 to remove extra 'thick' borders around children
@@ -1159,20 +1169,14 @@ def init_sentiment_page():
                                 fig.add_trace(colorbar_trace)
                                 
                                 fig.update_layout(
-                                    margin=dict(t=10, l=10, r=10, b=10), 
+                                    margin=dict(t=10, l=0, r=0, b=0), 
                                     height=650,
                                     paper_bgcolor='rgba(0,0,0,0)',
                                     plot_bgcolor='rgba(0,0,0,0)',
+                                    xaxis=dict(visible=False),
+                                    yaxis=dict(visible=False),
                                     font=dict(family="Roboto, 'Microsoft YaHei'"),
                                     uniformtext=dict(minsize=10, mode='hide') # Hide tiny text
-                                )
-                                
-                                fig.update_layout(
-                                    margin=dict(t=10, l=10, r=10, b=10), 
-                                    height=650,
-                                    paper_bgcolor='rgba(0,0,0,0)',
-                                    plot_bgcolor='rgba(0,0,0,0)',
-                                    font=dict(family="Roboto, 'Microsoft YaHei'")
                                 )
                                 
                                 custom_plotly(fig).classes('w-full flex-1 min-h-0')
