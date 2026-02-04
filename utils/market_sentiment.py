@@ -33,6 +33,33 @@ class MarketSentiment:
         except Exception as e:
             print(f"Cache save failed: {e}")
 
+    def fetch_sina_live(self, code):
+        """
+        获取新浪实时交易数据，主要用于补全当天的成交额
+        code: sh000001, sz399001
+        """
+        url = f"http://hq.sinajs.cn/list={code}"
+        headers = {"Referer": "https://finance.sina.com.cn/"}
+        try:
+            r = requests.get(url, headers=headers, timeout=5)
+            if r.status_code == 200:
+                text = r.text
+                if code in text and '"' in text:
+                    content = text.split('"')[1]
+                    parts = content.split(',')
+                    if len(parts) > 30:
+                        date_str = parts[30]
+                        # time_str = parts[31]
+                        # Index 9 is amount in Yuan
+                        amt = float(parts[9])
+                        
+                        df = pd.DataFrame({'date': [date_str], 'amount': [amt]})
+                        df['date'] = pd.to_datetime(df['date'])
+                        return df.set_index('date')['amount']
+        except Exception as e:
+            print(f"Fetch Sina Live failed for {code}: {e}")
+        return None
+
     def get_sh_sz_turnover(self, beg="0"):
         """
         获取沪深两市成交额
@@ -138,14 +165,51 @@ class MarketSentiment:
                         df = pd.DataFrame(rows)
                         df['date'] = pd.to_datetime(df['date'])
                         print(f"Sohu fallback success for {sohu_code}")
+                        
+                        # Check if we need to append today's data from Sina Live
+                        # Sohu usually updates after close, but sometimes delays.
+                        # Always try to fetch live data for today if Sohu doesn't have it (or even if it does, live might be fresher)
+                        
+                        try:
+                            # Map secid to sina code
+                            sina_live_code = "sh000001" if secid == "1.000001" else "sz399001"
+                            live_df = self.fetch_sina_live(sina_live_code)
+                            
+                            if live_df is not None and not live_df.empty:
+                                live_date = live_df.index[0]
+                                if live_date not in df['date'].values:
+                                    print(f"Appending Sina Live data for {sina_live_code}: {live_date.date()}")
+                                    # live_df index is date, value is amount. Reset to match df format
+                                    live_row = pd.DataFrame({'date': [live_date], 'amount': [live_df.iloc[0]]})
+                                    df = pd.concat([df, live_row], ignore_index=True)
+                                else:
+                                    # Update today's data if exists (realtime is better than hisHq history if same day)
+                                    print(f"Updating today's data from Sina Live for {sina_live_code}")
+                                    df.loc[df['date'] == live_date, 'amount'] = live_df.iloc[0]
+                        except Exception as e_live:
+                            print(f"Error fetching live data: {e_live}")
+
                         return df.set_index('date')['amount']
             except Exception as e:
                  print(f"Sohu fallback failed for {secid}: {e}")
 
             # --- Fallback to Sina (Volume -> Estimated Turnover) ---
+            # Try Sina Live FIRST if historical Sina fails or as a supplement?
+            # If Sohu failed, we have NO historical data. 
+            # We can at least return Today's data from Sina Live to keep the app running for today.
+            
+            sina_symbol = "sh000001" if secid == "1.000001" else "sz399001"
+            
+            # 1. Try Sina Live for at least TODAY's data
+            live_df = self.fetch_sina_live(sina_symbol)
+            if live_df is not None:
+                print(f"Sina Live success for {sina_symbol} (Single Day)")
+                # If we only have today, that's better than nothing.
+                # But if user requested historical (datalen=800), we still lack history.
+                # We can try to fetch history from Sina KLine (estimated) and overwrite today with Live.
+            
             try:
                 # Sina symbol: SH="sh000001", SZ="sz399001"
-                sina_symbol = "sh000001" if secid == "1.000001" else "sz399001"
                 url_sina = "https://quotes.sina.cn/cn/api/json_v2.php/CN_MarketDataService.getKLineData"
                 params_sina = {
                     "symbol": sina_symbol,
@@ -168,9 +232,25 @@ class MarketSentiment:
                      df = pd.DataFrame(rows)
                      df['date'] = pd.to_datetime(df['date'])
                      print(f"Sina fallback success for {sina_symbol}")
+                     
+                     # MERGE LIVE DATA
+                     if live_df is not None:
+                         live_date = live_df.index[0]
+                         mask = df['date'] == live_date
+                         if mask.any():
+                             df.loc[mask, 'amount'] = live_df.iloc[0]
+                             print(f"Overwrote Sina estimated data with Live data for {live_date.date()}")
+                         else:
+                             live_row = pd.DataFrame({'date': [live_date], 'amount': [live_df.iloc[0]]})
+                             df = pd.concat([df, live_row], ignore_index=True)
+                     
                      return df.set_index('date')['amount']
             except Exception as e:
                 print(f"Sina fallback failed: {e}")
+
+            if live_df is not None:
+                 print(f"Returning Sina Live data only for {sina_symbol}")
+                 return live_df
 
             return None
             return None

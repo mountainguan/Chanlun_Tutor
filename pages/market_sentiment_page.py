@@ -3,6 +3,7 @@ from utils.market_sentiment import MarketSentiment
 from utils.sector_sentiment import SectorSentiment
 from utils.index_data import IndexDataManager
 from utils.money_flow import MoneyFlow
+from utils.macro_data import get_savings_mv_ratio_data
 from pages.money_flow_component import render_money_flow_panel
 import plotly.graph_objects as go
 import pandas as pd
@@ -287,6 +288,65 @@ def init_sentiment_page():
 
                     # Data Table Container
                     data_container = ui.column().classes('w-full max-w-6xl mt-4 hidden')
+                    
+                    # Savings Ratio Table Container
+                    savings_container = ui.column().classes('w-full max-w-6xl mt-4')
+
+                    async def fetch_and_update_savings_ratio(force=False):
+                        if savings_container.is_deleted:
+                            return
+                        if force:
+                            ui.notify('正在刷新存款规模与市值比例数据...', type='info')
+                        
+                        try:
+                            # Pass 'force' to ensure cache refresh when requested
+                            savings_df = await asyncio.get_running_loop().run_in_executor(executor, lambda: get_savings_mv_ratio_data(force_update=force))
+                            if savings_df is not None and not savings_df.empty and not savings_container.is_deleted:
+                                savings_container.clear()
+                                with savings_container:
+                                    with ui.card().classes('w-full p-6 rounded-xl border-0 shadow-md bg-white'):
+                                        with ui.row().classes('w-full items-center justify-between mb-4'):
+                                            with ui.row().classes('items-center gap-2'):
+                                                ui.icon('account_balance', color='teal').classes('text-2xl')
+                                                ui.label('存款规模与A股总市值比例').classes('text-xl font-bold text-gray-800')
+                                            
+                                            with ui.row().classes('items-center gap-2'):
+                                                # Independent Refresh Button
+                                                ui.button(icon='refresh', on_click=lambda: fetch_and_update_savings_ratio(force=True)) \
+                                                    .props('flat color=teal round') \
+                                                    .tooltip('刷新存款数据')
+
+                                                # Export Button
+                                                def export_csv():
+                                                    content = savings_df.to_csv(index=False, encoding='utf-8-sig')
+                                                    ui.download(content.encode('utf-8-sig'), 'deposit_market_ratio.csv')
+                                                    ui.notify('准备导出存款比例数据', type='info')
+                                                    
+                                                ui.button('导出数据', icon='download', on_click=export_csv) \
+                                                    .props('flat color=teal icon-right').classes('text-teal-600')
+
+                                        # Info text
+                                        ui.label('该表展示了总存款、企业存款和储蓄存款相对于股市估值的倍数。比例越高，说明存款总量相对于股市体量越充裕。').classes('text-sm text-gray-500 mb-4')
+                                        
+                                        # Create table
+                                        # Using last 15 entries for a bit more history
+                                        table_data = savings_df.sort_values('月份', ascending=False).head(15).copy()
+                                        rows = table_data.to_dict('records')
+                                        columns = [
+                                            {'name': '月份', 'label': '月份', 'field': '月份', 'align': 'left'},
+                                            {'name': '交易日期', 'label': '对比日', 'field': '交易日期', 'align': 'center'},
+                                            {'name': '总存款/市值', 'label': '总存款/市值', 'field': '总存款/市值', 'sortable': True, 'style': 'font-weight: bold'},
+                                            {'name': '企业存款/市值', 'label': '企业/市值', 'field': '企业存款/市值', 'sortable': True},
+                                            {'name': '储蓄存款/市值', 'label': '储蓄/市值', 'field': '储蓄存款/市值', 'sortable': True},
+                                            {'name': 'A股总市值(亿)', 'label': 'A股总市值', 'field': 'A股总市值(亿)', 'sortable': True},
+                                        ]
+                                        
+                                        # Optional: add numeric formatting if needed, but the data is already rounded
+                                        ui.table(columns=columns, rows=rows, pagination=15).classes('w-full shadow-none border-0')
+                                        
+                                        ui.label('注：A股总市值由当日指数收盘价与 2026-02-03 总市值锚点对比估算得出。').classes('text-xs text-gray-400 mt-2')
+                        except Exception as e:
+                            print(f"Error rendering savings table: {e}")
 
                     async def fetch_and_draw_market(force=False):
                         loop = asyncio.get_running_loop()
@@ -1260,7 +1320,7 @@ def init_sentiment_page():
             async def auto_fetch_market():
                 await asyncio.sleep(0.5)
                 # Remove auto-load sector cache here - will load on tab switch instead
-                await fetch_and_draw_market()
+                await asyncio.gather(fetch_and_draw_market(), fetch_and_update_savings_ratio())
             
             # Add tab change handler to load sector data only when tab is activated
             def on_tab_change():
