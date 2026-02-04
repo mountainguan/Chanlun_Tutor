@@ -197,17 +197,17 @@ def init_sentiment_page():
         with ui.column().classes('w-full items-center bg-gray-100 min-h-screen p-4'):
             
             # --- TABS: 悬浮胶囊风格 ---
-            with ui.row().classes('w-full max-w-6xl justify-center mb-4'):
+            with ui.row().classes('w-full justify-center mb-4'):
                 with ui.tabs().classes('bg-white text-gray-500 rounded-full shadow-md p-1') \
                         .props('indicator-color="transparent" active-color="white" active-bg-color="primary" active-class="shadow-sm rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white"') as tabs:
                     market_tab = ui.tab('大盘温度').classes('px-8 font-bold tracking-wide transition-all')
                     sector_tab = ui.tab('板块温度').classes('px-8 font-bold tracking-wide transition-all')
                     money_tab = ui.tab('资金流向').classes('px-8 font-bold tracking-wide transition-all')
 
-            with ui.tab_panels(tabs, value=market_tab).classes('w-full max-w-6xl bg-transparent p-0'):
+            with ui.tab_panels(tabs, value=market_tab).classes('w-full bg-transparent p-0'):
                 
                 # --- MARKET TAB ---
-                with ui.tab_panel(market_tab).classes('p-0 flex flex-col items-center gap-4'):
+                with ui.tab_panel(market_tab).classes('w-full max-w-6xl mx-auto p-0 flex flex-col items-center gap-4'):
                     # Top Layout: Info + Gauge
                     with ui.row().classes('w-full gap-4 items-stretch'):
                         # Info Card
@@ -614,7 +614,7 @@ def init_sentiment_page():
                                     }).classes('w-full h-[500px]')
 
                 # --- SECTOR TAB ---
-                with ui.tab_panel(sector_tab).classes('p-0 flex flex-col items-center gap-4'):
+                with ui.tab_panel(sector_tab).classes('w-full max-w-6xl mx-auto p-0 flex flex-col items-center gap-4'):
                     
                     # Redesigned: Left main column for explanations + right stats sidebar
                     # Make both top blocks equal width and height by using two flex-1 columns and stretch alignment
@@ -1253,7 +1253,7 @@ def init_sentiment_page():
                                     ui.button('重试加载', on_click=lambda: load_sector_view()).props('unelevated color=indigo')
 
 
-                with ui.tab_panel(money_tab).classes('w-full p-0 flex flex-col gap-6'):
+                with ui.tab_panel(money_tab).classes('w-full max-w-[1920px] mx-auto p-0 flex flex-col gap-6'):
                     render_money_flow_panel(plotly_renderer=custom_plotly)
 
             # Start Market Fetch automatically

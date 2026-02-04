@@ -31,27 +31,39 @@ def render_money_flow_panel(plotly_renderer=None):
         'selected_code': None,
         'selected_name': None,
         'time_range': '近6月',
-        'subs': []  # Start empty, load later
+        'subs': [],  # Start empty, load later
+        'groups': ['默认']
     }
     
     def get_subs():
         return state['subs']
-        
+    
+    def save_groups_to_browser():
+        js_val = json.dumps(state['groups'], ensure_ascii=False)
+        js_cmd = f'localStorage.setItem("stock_groups", {json.dumps(js_val)})'
+        ui.run_javascript(js_cmd)
+
     def save_subs_to_browser():
         # Sync current state to browser LocalStorage
         js_val = json.dumps(state['subs'], ensure_ascii=False)
         # Escape for JS string
         js_cmd = f'localStorage.setItem("stock_subscriptions", {json.dumps(js_val)})'
         ui.run_javascript(js_cmd)
+        save_groups_to_browser() # sync groups too
 
-    def add_sub(code, name):
+    def add_sub(code, name, group='默认'):
         subs = state['subs']
         if any(s['code'] == code for s in subs):
             return False, "已存在该股票"
         if not name:
             name = code
-        subs.append({'code': code, 'name': name})
-        save_subs_to_browser()
+            
+        # Add group if explicit new
+        if group not in state['groups']:
+            state['groups'].append(group)
+            
+        subs.append({'code': code, 'name': name, 'group': group})
+        save_subs_to_browser() # saves both
         return True, "添加成功"
 
     def remove_sub(code):
@@ -60,6 +72,9 @@ def render_money_flow_panel(plotly_renderer=None):
         state['subs'] = new_subs
         save_subs_to_browser()
         return True
+    
+    def get_groups():
+        return state['groups']
 
     # -- async load logic --
     async def load_subs_from_browser():
@@ -68,31 +83,169 @@ def render_money_flow_panel(plotly_renderer=None):
             data_str = await ui.run_javascript('return localStorage.getItem("stock_subscriptions")')
             if data_str:
                 state['subs'] = json.loads(data_str)
-                refresh_list()
+            
+            # Read Groups
+            groups_str = await ui.run_javascript('return localStorage.getItem("stock_groups")')
+            if groups_str:
+                state['groups'] = json.loads(groups_str)
+            else:
+                # Migration: infer
+                inferred = set(s.get('group', '默认') for s in state['subs'])
+                inferred.add('默认')
+                state['groups'] = sorted(list(inferred))
+                save_groups_to_browser()
+            
+            # Ensure '默认' exists and is first if feasible, or just exists
+            if '默认' not in state['groups']:
+                state['groups'].insert(0, '默认')
+                
+            refresh_list()
         except Exception as e:
             # Maybe silenced if not on browser context yet, but should be fine inside a timer
-            print(f"Error loading subs: {e}") 
+            print(f"Error loading subs: {e}")  
+
+
+    # -- Logic Manager Functions --
+    # Dialog for Group Management
+    group_dialog = ui.dialog().classes('w-96')
+    
+    def open_group_manager():
+        groups = get_groups()
+        group_dialog.clear()
+        with group_dialog, ui.card().classes('w-[500px] p-4 flex flex-col gap-4'):
+             with ui.row().classes('w-full items-center justify-between'):
+                 ui.label('分组管理').classes('text-xl font-bold text-gray-800')
+                 ui.button(icon='close', on_click=group_dialog.close).props('flat round dense')
+             
+             # Add New Group Section
+             with ui.row().classes('w-full items-center gap-2 bg-blue-50 p-2 rounded-lg'):
+                 new_group_input = ui.input(placeholder='新分组名称').props('dense outlined bg-white').classes('flex-grow')
+                 def add_new_group():
+                     name = new_group_input.value.strip()
+                     if not name: return
+                     if name in state['groups']:
+                         ui.notify('分组已存在', type='warning')
+                         return
+                     state['groups'].append(name)
+                     save_groups_to_browser()
+                     ui.notify(f'已添加分组: {name}') # Move notify before UI update/clear
+                     refresh_list()
+                     open_group_manager()
+                 ui.button('新建', icon='add', on_click=add_new_group).props('unelevated dense color=primary')
+                 
+             ui.separator()
+
+             if not groups or (len(groups) == 1 and groups[0] == '默认'):
+                 ui.label('暂无自定义分组').classes('text-gray-400 italic')
+             
+             with ui.column().classes('w-full gap-2 max-h-[400px] overflow-y-auto p-1'):
+                 for g in groups:
+                     # Skip default
+                     if g == '默认': 
+                         continue 
+
+                     with ui.card().classes('w-full p-2 bg-gray-50 border border-gray-200'):
+                        with ui.row().classes('w-full items-center gap-2'):
+                            # Edit Mode State
+                            name_input = ui.input(value=g).props('dense outlined').classes('flex-grow')
+                            
+                            def rename_group(old, new_input):
+                                new_name = new_input.value.strip()
+                                if not new_name or new_name == old: return
+                                if new_name in state['groups']:
+                                     ui.notify('分组名已存在', type='warning')
+                                     return
+                                
+                                # Update subs
+                                for s in state['subs']:
+                                    if s.get('group') == old:
+                                        s['group'] = new_name
+                                
+                                # Update groups list (replace in place to keep order)
+                                idx = state['groups'].index(old)
+                                state['groups'][idx] = new_name
+                                
+                                save_subs_to_browser() # saves both
+                                ui.notify(f'已重命名: {old} -> {new_name}') # Move notify before refresh
+                                refresh_list() # refresh main list
+                                open_group_manager() # refresh dialog
+
+                            ui.button(icon='save', on_click=lambda o=g, i=name_input: rename_group(o, i)) \
+                                .props('flat round dense color=primary').classes('opacity-80 hover:opacity-100') \
+                                .tooltip('保存重命名')
+
+                            def delete_group_action(target_group):
+                                count = 0
+                                for s in state['subs']:
+                                    if s.get('group') == target_group:
+                                        s['group'] = '默认'
+                                        count += 1
+                                
+                                if target_group in state['groups']:
+                                    state['groups'].remove(target_group)
+                                    
+                                save_subs_to_browser()
+                                ui.notify(f'已删除分组"{target_group}"，{count}个股票移至"默认"') # Move notify up
+                                refresh_list()
+                                open_group_manager()
+
+                            ui.button(icon='delete', on_click=lambda t=g: delete_group_action(t)) \
+                                .props('flat round dense color=red').classes('opacity-80 hover:opacity-100') \
+                                .tooltip('删除分组 (股票移至默认)')
+
+        group_dialog.open()
 
     # -- UI Containers --
     # We create the structure first
-    with ui.row().classes('w-full items-start gap-4'):
+    with ui.row().classes('w-full items-stretch gap-6'):
 
         # === Left Column: Subscription Management ===
-        with ui.card().classes('w-80 flex-none p-4 gap-3 no-inner-shadow'):
-            ui.label('我的自选股').classes('text-lg font-bold text-gray-700')
+        with ui.card().classes('w-[320px] flex-none p-4 gap-4 no-inner-shadow h-[700px] flex flex-col'):
+            with ui.row().classes('w-full items-center justify-between'):
+                ui.label('我的自选股').classes('text-xl font-bold text-gray-800 tracking-tight')
+                ui.button(icon='settings', on_click=open_group_manager).props('flat round dense color=grey-7').tooltip('管理分组')
             
             # Input Area
-            with ui.column().classes('w-full gap-2'):
-                code_input = ui.input(placeholder='代码 (如 600000)').props('outlined dense').classes('w-full')
-                name_input = ui.input(placeholder='名称 (可选)').props('outlined dense').classes('w-full')
+            with ui.column().classes('w-full gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100'):
+                ui.label('添加新股票').classes('text-xs font-bold text-gray-500 uppercase tracking-wider')
+                code_input = ui.input(placeholder='代码 (如 600000)').props('outlined dense bg-white').classes('w-full')
+                name_input = ui.input(placeholder='名称 (可选)').props('outlined dense bg-white').classes('w-full')
                 
+                # Auto-fetch name logic
+                async def on_code_changed(e):
+                    val = e.value
+                    if val and len(val) >= 6 and val.isdigit():
+                        # Try fetch
+                        loop = asyncio.get_event_loop()
+                        name = await loop.run_in_executor(None, mf.get_stock_name, val)
+                        if name:
+                            name_input.value = name
+                            ui.notify(f'已识别: {name}', type='positive', position='top')
+                
+                code_input.on('blur', lambda: on_code_changed(code_input))
+                code_input.on('keyup.enter', lambda: on_code_changed(code_input))
+                
+                # Group Selection with Create new option
+                # Use a standard select but allow selecting from state['groups']
+                # But NiceGUI select dynamic options binding is tricky.
+                # Let's use a function to get options
+                
+                group_select = ui.select(options=state['groups'], value='默认', label='分组', with_input=True, new_value_mode='add-unique') \
+                    .props('outlined dense bg-white use-input hide-selected fill-input behavior="menu"') \
+                    .classes('w-full')
+                
+                # Bind options to always reflect state['groups'] (Removed explicit bind_prop call to avoid attribute errors)
+                # Instead, we will manually update options in refresh_list()
+
                 async def add_btn_click():
                     code = code_input.value.strip()
                     name = name_input.value.strip()
+                    group = group_select.value.strip() if group_select.value else '默认'
+                    
                     if not code:
                         ui.notify('请输入股票代码', type='warning')
                         return
-                    success, msg = add_sub(code, name)
+                    success, msg = add_sub(code, name, group)
                     if success:
                         ui.notify(f'已添加 {code}')
                         code_input.value = ''
@@ -102,45 +255,70 @@ def render_money_flow_panel(plotly_renderer=None):
                         ui.notify(msg, type='negative')
 
                 ui.button('添加订阅', icon='add', on_click=add_btn_click) \
-                  .props('unelevated color=indigo w-full')
+                  .props('unelevated color=primary text-color=white w-full rounded-lg') \
+                  .classes('shadow-sm font-bold')
             
-            ui.separator()
+            ui.separator().classes('bg-gray-100')
             
             # List Area
-            list_container = ui.column().classes('w-full gap-1 h-[500px] overflow-y-auto pr-2')
+            list_container = ui.column().classes('w-full gap-1 flex-1 overflow-y-auto pr-2 custom-scrollbar')
         
         # === Right Column: Charts ===
-        with ui.column().classes('flex-grow h-full gap-4'):
+        with ui.column().classes('flex-grow h-[700px] gap-4 min-w-0'):
             # Header
-            with ui.row().classes('w-full justify-between items-center bg-white p-4 rounded-lg shadow-sm'):
-                header_label = ui.label('请选择左侧股票查看资金流向').classes('text-xl font-bold text-gray-700')
+            with ui.row().classes('w-full justify-between items-center bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex-none'):
+                with ui.row().classes('items-center gap-3'):
+                    ui.icon('analytics', color='primary').classes('text-3xl')
+                    header_label = ui.label('请选择左侧股票查看资金流向').classes('text-2xl font-bold text-gray-800 tracking-tight')
                 
-                with ui.row().classes('items-center gap-2'):
-                    # Time Range Selector
+                with ui.row().classes('items-center gap-3'):
+                    # Time Range Selector - Chip style
                     time_options = ['近1月', '近3月', '近6月', '近1年', '全部']
                     
-                    async def on_time_range_change(e):
-                        state['time_range'] = e.value
+                    async def set_time_range(val):
+                        # Simple re-render of this specific UI part is tricky in NiceGUI loops, 
+                        # so we rely on the header container being static and state being dynamic?
+                        # Actually, toggling button style requires re-rendering the button group.
+                        # For simplicity, we just update state and chart, button style might lag unless we wrap buttons in a clearable container.
+                        state['time_range'] = val
+                        # Re-render buttons (a bit hacky but works for instant feedback)
+                        header_controls.clear()
+                        with header_controls:
+                            render_time_controls()
+                            render_sync_btn()
+                        
                         if state['selected_code']:
                             await render_chart(state['selected_code'], state['selected_name'])
-                            
-                    ui.toggle(time_options, value=state['time_range'], on_change=on_time_range_change) \
-                      .props('dense color=indigo')
 
-                    async def update_btn_click():
-                        if state['selected_code']:
-                            await render_chart(state['selected_code'], state['selected_name'], force=True)
-                        else:
-                            ui.notify('请先选择股票', type='warning')
+                    header_controls = ui.row().classes('items-center gap-3')
+                    
+                    def render_time_controls():
+                        with ui.row().classes('bg-gray-100 rounded-lg p-1 gap-1'):
+                            for opt in time_options:
+                                is_active = (state['time_range'] == opt)
+                                ui.button(opt, on_click=lambda o=opt: set_time_range(o)) \
+                                    .props(f'flat dense no-caps size=sm {"color=primary" if is_active else "text-color=grey-8"}') \
+                                    .classes(f'px-3 rounded-md transition-all {"bg-white shadow-sm font-bold" if is_active else "hover:bg-gray-200"}')
 
-                    ui.button('同步最新数据', icon='sync', on_click=update_btn_click) \
-                      .props('outline color=indigo')
+                    def render_sync_btn():
+                        async def update_btn_click():
+                            if state['selected_code']:
+                                await render_chart(state['selected_code'], state['selected_name'], force=True)
+                            else:
+                                ui.notify('请先选择股票', type='warning')
+                        ui.button('同步最新', icon='sync', on_click=update_btn_click) \
+                        .props('outline color=primary size=sm rounded-lg')
+
+                    with header_controls:
+                        render_time_controls()
+                        render_sync_btn()
 
             # Chart Area
-            chart_container = ui.card().classes('w-full h-[600px] p-2 no-inner-shadow')
+            chart_container = ui.card().classes('w-full flex-grow p-2 no-inner-shadow')
+
 
     # -- Logic Functions --
-
+    
     async def render_chart(code, name, force=False):
         chart_container.clear()
         header_label.text = f'{name} ({code}) 资金流向趋势'
@@ -272,51 +450,73 @@ def render_money_flow_panel(plotly_renderer=None):
             plot_func(fig).classes('w-full h-full')
 
     def refresh_list():
+        # Update group select options
+        group_select.options = state['groups']
+        group_select.update()
+
         list_container.clear()
         subs = get_subs()
         
         if not subs:
             with list_container:
-                ui.label('列表为空').classes('text-gray-300 text-sm')
+                ui.label('列表为空').classes('text-gray-400 text-sm italic p-2')
             return
 
+        groups = get_groups()
+        
+        # Determine which group is currently "active" if selection exists, to auto-expand
+        # Or just expand all by default
+        
         with list_container:
-            for sub in subs:
-                code = sub['code']
-                name = sub.get('name', code)
+            for group in groups:
+                # Filter subs for this group
+                group_subs = [s for s in subs if s.get('group', '默认') == group]
+                if not group_subs:
+                    continue
                 
-                # Check selection
-                is_sel = (state['selected_code'] == code)
-                bg_cls = 'bg-indigo-50 border-indigo-200' if is_sel else 'bg-white hover:bg-gray-50 border-transparent'
-                
-                # Item Card
-                with ui.row().classes(f'w-full items-center justify-between p-3 rounded border shadow-sm cursor-pointer transition-colors {bg_cls}') as row:
-                    with ui.row().classes('items-center gap-3 flex-grow'):
-                        ui.icon('trending_up', color='indigo' if is_sel else 'gray').classes('text-xl')
-                        with ui.column().classes('gap-0'):
-                            ui.label(name).classes('font-bold text-gray-700 leading-tight')
-                            ui.label(code).classes('text-xs text-gray-400')
-                    
-                    # Click Handler for Selection
-                    async def on_select(e, c=code, n=name):
-                        state['selected_code'] = c
-                        state['selected_name'] = n
-                        refresh_list() # Update highlight
-                        await render_chart(c, n, force=False)
-                    
-                    row.on('click', on_select)
+                with ui.expansion(group, icon='folder').props('expand-separator default-opened dense header-class="text-gray-800 font-bold bg-gray-50 rounded-lg"').classes('w-full border-none mb-2 shadow-sm rounded-lg overflow-hidden'):
+                    with ui.column().classes('w-full gap-1 p-1 bg-white'):
+                        for sub in group_subs:
+                            code = sub['code']
+                            name = sub.get('name', code)
+                            
+                            # Check selection
+                            is_sel = (state['selected_code'] == code)
+                            
+                            # Styling
+                            bg_cls = 'bg-blue-50 border-blue-200 shadow-inner' if is_sel else 'bg-transparent hover:bg-gray-50 border-transparent'
+                            text_cls = 'text-blue-900' if is_sel else 'text-gray-700'
+                            
+                            # Item Card
+                            with ui.row().classes(f'w-full items-center justify-between p-2 rounded-md border cursor-pointer transition-all {bg_cls}') as row:
+                                with ui.row().classes('items-center gap-3 flex-grow min-w-0'):
+                                    # Color coded icon
+                                    icon_color = 'primary' if is_sel else 'grey-5'
+                                    ui.icon('trending_up', color=icon_color).classes('text-lg')
+                                    with ui.column().classes('gap-0 min-w-0 flex-1'):
+                                        ui.label(name).classes(f'font-bold {text_cls} leading-tight truncate w-full text-sm')
+                                        ui.label(code).classes('text-xs text-gray-400')
+                                
+                                # Click Handler for Selection
+                                async def on_select(e, c=code, n=name):
+                                    state['selected_code'] = c
+                                    state['selected_name'] = n
+                                    refresh_list() # Update highlight
+                                    await render_chart(c, n, force=False)
+                                
+                                row.on('click', on_select)
 
-                    # Delete Button (stop propagation not directly available, but separate button works)
-                    def perform_delete(c=code):
-                        remove_sub(c)
-                        if state['selected_code'] == c:
-                            state['selected_code'] = None
-                            chart_container.clear()
-                            header_label.text = '请选择左侧股票'
-                        refresh_list()
-                    
-                    ui.button(icon='close', on_click=lambda c=code: perform_delete(c)) \
-                      .props('flat round size=sm color=gray').classes('opacity-50 hover:opacity-100')
+                                # Delete Button (stop propagation not directly available, but separate button works)
+                                def perform_delete(c=code):
+                                    remove_sub(c)
+                                    if state['selected_code'] == c:
+                                        state['selected_code'] = None
+                                        chart_container.clear()
+                                        header_label.text = '请选择左侧股票'
+                                    refresh_list()
+                                
+                                ui.button(icon='close', on_click=lambda c=code: perform_delete(c)) \
+                                .props('flat round size=xs color=grey-4').classes('opacity-60 hover:opacity-100 hover:text-red-500')
 
     # Initial Render
     refresh_list()

@@ -1,6 +1,7 @@
 import pandas as pd
 import akshare as ak
 import datetime
+import requests
 from functools import lru_cache
 
 # Using a simple memory cache for the current session run
@@ -91,6 +92,38 @@ class MoneyFlow:
             except:
                 pass
         return info
+
+    def get_stock_name(self, code):
+        # 1. Try Akshare Info
+        info = self.get_stock_info(code)
+        name = info.get('股票简称')
+        if name:
+            return name
+            
+        # 2. Fallback to Sina (Very light and robust)
+        try:
+            prefix = 'sh' if code.startswith('6') or code.startswith('9') else 'sz'
+            if code.startswith('8') or code.startswith('4'): 
+                prefix = 'bj'
+            
+            # Special handling for Beijing/Nord
+            # Sina might use different prefixes for newer exchanges, but standard A share is sh/sz.
+            # Beijing might differ. But let's try standard first.
+            
+            url = f"http://hq.sinajs.cn/list={prefix}{code}"
+            headers = {'Referer': 'http://finance.sina.com.cn'}
+            r = requests.get(url, headers=headers, timeout=2)
+            if r.status_code == 200:
+                # var hq_str_sh600519="贵州茅台,..."
+                val = r.text.split('=')[1].strip().strip('";')
+                if val:
+                    parts = val.split(',')
+                    if len(parts) > 1:
+                        return parts[0]
+        except Exception as e:
+            print(f"Sina name fetch failed: {e}")
+            
+        return None
 
     def guess_market(self, code):
         if code.startswith('6'):
