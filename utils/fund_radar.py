@@ -213,10 +213,48 @@ class FundRadar:
         return merged
 
     def get_offensive_defensive_list(self):
-        # Based on user input
-        offensive = ["半导体", "电子元件", "互联网服务", "软件开发", "通信设备", "计算机设备", "消费电子", "游戏", "汽车整车"] # AI, Robot, Chips
-        defensive = ["银行", "电力行业", "煤炭行业", "公路铁路", "港口航运", "农牧饲渔", "食品饮料", "石油行业"] # High yield, stability
+        # Based on user input, expanded for better coverage (Includes both EM and Sina names)
+        offensive = [
+            # Eastmoney Names
+            "半导体", "电子元件", "互联网服务", "软件开发", "通信设备", "计算机设备", 
+            "消费电子", "游戏", "汽车整车", "光伏设备", "电池", "能源金属", "航天航空",
+            "光学光电子", "电子化学品",
+            # Sina Names
+            "电子器件", "电子信息", "传媒娱乐", "飞机制造", "电器行业", "仪器仪表", 
+            "汽车制造", "生物制药", "发电设备", "次新股"
+        ] 
+        defensive = [
+            # Eastmoney Names
+            "银行", "电力行业", "煤炭行业", "公路铁路", "港口航运", "农牧饲渔", 
+            "食品饮料", "石油行业", "中药", "医药商业", "保险", "证券", 
+            "家电行业", "酿酒行业", "工程建设",
+            # Sina Names
+            "公路桥梁", "供水供气", "金融行业", "农林牧渔", "食品行业", 
+            "交通运输", "建筑建材", "水泥行业", "钢铁行业"
+        ] 
         return offensive, defensive
+
+    def get_market_snapshot(self):
+        """Fetch real-time snapshot for SH Index (000001)"""
+        try:
+            # Using stock_zh_index_spot_sina for real-time overview as stock_zh_index_spot is deprecated
+            # Returns: 代码, 名称, 最新价, 涨跌额, 涨跌幅, 成交量, 成交额...
+            df = ak.stock_zh_index_spot_sina()
+            if df is not None and not df.empty:
+                # Find SH Index
+                sh_row = df[df['代码'] == 'sh000001']
+                if not sh_row.empty:
+                    return {
+                        'change_pct': float(sh_row.iloc[0]['涨跌幅']),
+                        'amount': float(sh_row.iloc[0]['成交额']), 
+                        'price': float(sh_row.iloc[0]['最新价']),
+                        'name': '上证指数'
+                    }
+        except Exception as e:
+            print(f"Error fetching market snapshot: {e}")
+            
+        return None
+
 
     def analyze_market_status(self, sh_index_df, flow_df):
         """

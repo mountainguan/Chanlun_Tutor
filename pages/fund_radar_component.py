@@ -113,7 +113,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                     elif avg_chg_top10 < -1.0:
                         market_nature = "放量下杀 (Panic)"
                         nature_desc = "高成交换手下大幅下跌，恐慌盘涌出。"
-                        nature_color = "green" # Green usually means down
+                        nature_color = "green" # Green usually means down in classic western, but standard CN is Green=Down. Let's use Theme Colors.
                     else:
                         market_nature = "分歧震荡 (Divergence)"
                         nature_desc = "高成交板块涨跌互现，市场分歧巨大。"
@@ -222,12 +222,12 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         )
                         plot_func(fig_bar).classes('w-full h-full min-h-[400px]')
 
-                    # Chart B: Bubble / Scatter
+                    # Chart B: Bubble / Scatter (Now available for BOTH modes)
                     with ui.card().classes('w-full p-0 rounded-xl shadow-md border-0 bg-white overflow-hidden'):
                          # Header
                         with ui.row().classes('w-full p-4 border-b border-gray-100 items-center justify-between'):
                             with ui.row().classes('items-center gap-2'):
-                                ui.icon('bubble_chart' if is_fallback_mode else 'show_chart', color='indigo').classes('text-xl')
+                                ui.icon('bubble_chart', color='indigo').classes('text-xl')
                                 ui.label('板块全景透视 (Panorama - Top 50)').classes('font-bold text-gray-800')
                             # Legend
                             with ui.row().classes('text-xs gap-2'):
@@ -235,55 +235,143 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                 ui.label('绿:下跌').classes('text-emerald-500 font-bold')
                                 ui.label('气泡大小:成交活跃度').classes('text-gray-400')
 
-                        if is_fallback_mode:
-                            # Scatter Map
-                            df_scatter = df_sorted.head(50).copy() # Top 50
-                            
-                            # Refined Bubble Sizing
-                            # Using Sqrt Scale relative to Max for better visual differentiation
-                            max_val = df_scatter[metric_col].max()
-                            if max_val > 0:
-                                # Normalize 0.1 to 1.0, then scale to pixel size 15 to 60
-                                bubble_sizes = (np.sqrt(df_scatter[metric_col]) / np.sqrt(max_val)) * 45 + 15
-                            else:
-                                bubble_sizes = 20
+                        # Scatter Map Logic (Unified)
+                        df_scatter = df_sorted.head(50).copy() # Top 50
 
-                            fig_scatter = go.Figure()
-                            
-                            # Add Zero Lines
-                            fig_scatter.add_shape(type="line", x0=df_scatter[metric_col].min(), y0=0, x1=df_scatter[metric_col].max(), y1=0,
-                                line=dict(color="gray", width=1, dash="dash"))
+                        # Refined Bubble Sizing
+                        # Using Sqrt Scale relative to Max for better visual differentiation
+                        max_val_scatter = df_scatter[metric_col].max()
+                         # Avoid div by zero
+                        if max_val_scatter <= 0: max_val_scatter = 1.0
+                        
+                        bubble_sizes = (np.sqrt(df_scatter[metric_col].replace(0, 1)) / np.sqrt(max_val_scatter)) * 45 + 15
 
-                            fig_scatter.add_trace(go.Scatter(
-                                x=df_scatter[metric_col],
-                                y=df_scatter['涨跌幅'],
-                                mode='markers+text',
-                                text=df_scatter['名称'],
-                                textposition="top center",
-                                marker=dict(
-                                    size=bubble_sizes,
-                                    sizemode='diameter',
-                                    color=np.where(df_scatter['涨跌幅'] > 0, '#ef4444', '#10b981'), # Red/Emerald
-                                    opacity=0.7,
-                                    line=dict(color='white', width=1)
-                                ),
-                                hovertemplate='<b>%{text}</b><br>成交额: %{x:.2f}<br>涨跌幅: %{y:.2f}%<extra></extra>'
-                            ))
+                        fig_scatter = go.Figure()
+                        
+                        # Add Zero Lines
+                        min_x = df_scatter[metric_col].min() if not df_scatter[metric_col].empty else 0
+                        max_x = df_scatter[metric_col].max() if not df_scatter[metric_col].empty else 1
+                        fig_scatter.add_shape(type="line", x0=min_x, y0=0, x1=max_x, y1=0,
+                            line=dict(color="gray", width=1, dash="dash"))
+
+                        fig_scatter.add_trace(go.Scatter(
+                            x=df_scatter[metric_col],
+                            y=df_scatter['涨跌幅'],
+                            mode='markers+text',
+                            text=df_scatter['名称'],
+                            textposition="top center",
+                            marker=dict(
+                                size=bubble_sizes,
+                                sizemode='diameter',
+                                color=np.where(df_scatter['涨跌幅'] > 0, '#ef4444', '#10b981'), # Red/Emerald
+                                opacity=0.7,
+                                line=dict(color='white', width=1)
+                            ),
+                            hovertemplate='<b>%{text}</b><br>数值: %{x:.2f}<br>涨跌幅: %{y:.2f}%<extra></extra>'
+                        ))
+                        
+                        x_title = f"主力净流入 ({metric_col})" if not is_fallback_mode else f"成交活跃度 ({metric_col})"
+
+                        fig_scatter.update_layout(
+                            height=500, margin=dict(l=60, r=20, t=30, b=50),
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            xaxis=dict(title=x_title, gridcolor='#F3F4F6', showgrid=True),
+                            yaxis=dict(title="板块涨跌幅 (%)", gridcolor='#F3F4F6'),
+                            showlegend=False,
+                            autosize=True
+                        )
+                        plot_func(fig_scatter).classes('w-full h-full min-h-[500px]')
+
+                # --- 4. Confrontation (Battlefield) Section ---
+                # Compare Sector Chg vs Market Chg + Offensive vs Defensive
+                # NOW AVAILABLE IN BOTH MODES
+                market_snap = radar.get_market_snapshot()
+                
+                # Check if we have market data
+                if market_snap:
+                    mkt_chg = market_snap.get('change_pct', 0.0)
+                    mkt_name = market_snap.get('name', '大盘')
+                    
+                    with ui.card().classes('w-full p-0 rounded-xl shadow-md border-0 bg-white overflow-hidden mt-0'):
+                        # Header
+                        with ui.row().classes('w-full p-4 border-b border-gray-100 items-center justify-between'):
+                            with ui.row().classes('items-center gap-2'):
+                                ui.icon('swords', color='indigo').classes('text-xl') # battle icon
+                                ui.label('多空阵营博弈 (Offense vs Defense)').classes('font-bold text-gray-800')
                             
-                            fig_scatter.update_layout(
-                                height=500, margin=dict(l=60, r=20, t=30, b=50),
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                xaxis=dict(title=f"成交活跃度 ({metric_col})", gridcolor='#F3F4F6', showgrid=True),
-                                yaxis=dict(title="板块涨跌幅 (%)", gridcolor='#F3F4F6'),
-                                showlegend=False,
-                                autosize=True
-                            )
-                            plot_func(fig_scatter).classes('w-full h-full min-h-[500px]')
-                        else:
-                             # RS Placeholder styling
-                             with ui.column().classes('w-full h-[380px] items-center justify-center bg-gray-50'):
-                                 ui.icon('science', size='3rem', color='gray-300')
-                                 ui.label('RS相对强度模型持续跟踪中...').classes('text-gray-400 mt-2')
+                            ui.label(f'{mkt_name}基准: {mkt_chg:+.2f}%').classes('text-sm font-bg bg-gray-100 px-2 py-1 rounded text-gray-600')
+
+                        # Data Prep
+                        # Calculate Alpha
+                        df_flow['alpha'] = df_flow['涨跌幅'] - mkt_chg
+                        
+                        # Split Camps
+                        df_off = df_flow[df_flow['名称'].isin(offensive)].copy()
+                        df_def = df_flow[df_flow['名称'].isin(defensive)].copy()
+                        
+                        # Sort by Alpha (Best performing first)
+                        df_off = df_off.sort_values(by='alpha', ascending=False).head(8)
+                        df_def = df_def.sort_values(by='alpha', ascending=False).head(8)
+                        
+                        # Reverse for plotting (Top is Top in chart)
+                        df_off = df_off.iloc[::-1]
+                        df_def = df_def.iloc[::-1]
+
+                        # Visualization: Two Horizontal Bars sharing range?
+                        from plotly.subplots import make_subplots
+                        
+                        fig_battle = make_subplots(
+                            rows=1, cols=2, 
+                            shared_yaxes=False,
+                            subplot_titles=("🛡️ 防守阵营 (Defensive)", "⚔️ 进攻阵营 (Offensive)"),
+                            horizontal_spacing=0.15
+                        )
+                        
+                        # Defensive Trace (Left)
+                        def_text = [f"{n} ({v:+.2f}%)" for n, v in zip(df_def['名称'], df_def['涨跌幅'])]
+                        fig_battle.add_trace(go.Bar(
+                            y=df_def['名称'],
+                            x=df_def['alpha'],
+                            orientation='h',
+                            marker_color=['#10b981' if a > 0 else '#6b7280' for a in df_def['alpha']], # Green if beating market
+                            text=def_text,
+                            textposition='auto',
+                            name='防守Alpha'
+                        ), row=1, col=1)
+
+                        # Offensive Trace (Right)
+                        off_text = [f"{n} ({v:+.2f}%)" for n, v in zip(df_off['名称'], df_off['涨跌幅'])]
+                        fig_battle.add_trace(go.Bar(
+                            y=df_off['名称'],
+                            x=df_off['alpha'],
+                            orientation='h',
+                            marker_color=['#ef4444' if a > 0 else '#6b7280' for a in df_off['alpha']], # Red if beating market
+                            text=off_text,
+                            textposition='auto',
+                            name='进攻Alpha'
+                        ), row=1, col=2)
+                        
+                        # Layout
+                        # Fix X range to be symmetric or shared max to compare magnitude
+                        max_alpha_val = df_off['alpha'].abs().max() if not df_off.empty else 0
+                        max_alpha_val_2 = df_def['alpha'].abs().max() if not df_def.empty else 0
+                        max_alpha = max(max_alpha_val, max_alpha_val_2, 3.0) # Min 3% range
+                        range_limit = max_alpha * 1.2
+                        
+                        fig_battle.update_layout(
+                            height=400,
+                            margin=dict(l=20, r=20, t=50, b=20),
+                            showlegend=False,
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                        )
+                        
+                        # Update X axes
+                        fig_battle.update_xaxes(title_text="相对大盘超额收益 (%)", range=[-range_limit, range_limit], zeroline=True, zerolinewidth=2, zerolinecolor='gray', row=1, col=1)
+                        fig_battle.update_xaxes(title_text="相对大盘超额收益 (%)", range=[-range_limit, range_limit], zeroline=True, zerolinewidth=2, zerolinecolor='gray', row=1, col=2)
+                        
+                        plot_func(fig_battle).classes('w-full h-full min-h-[400px]')
+
 
 
