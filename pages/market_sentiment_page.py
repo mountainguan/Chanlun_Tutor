@@ -2,6 +2,7 @@ from nicegui import ui
 from pages.money_flow_component import render_money_flow_panel
 from pages.market_sentiment_component import render_market_sentiment_panel
 from pages.sector_sentiment_component import render_sector_sentiment_panel
+from pages.fund_radar_component import render_fund_radar_panel
 import json
 import uuid
 from plotly.utils import PlotlyJSONEncoder
@@ -189,6 +190,7 @@ def init_sentiment_page():
                     market_tab = ui.tab('大盘温度').classes('px-8 font-bold tracking-wide transition-all')
                     sector_tab = ui.tab('板块温度').classes('px-8 font-bold tracking-wide transition-all')
                     money_tab = ui.tab('资金流向').classes('px-8 font-bold tracking-wide transition-all')
+                    radar_tab = ui.tab('主力雷达').classes('px-8 font-bold tracking-wide transition-all')
 
             with ui.tab_panels(tabs, value=market_tab).classes('w-full bg-transparent p-0'):
                 
@@ -203,5 +205,9 @@ def init_sentiment_page():
                 # --- MONEY FLOW TAB ---
                 with ui.tab_panel(money_tab).classes('w-full max-w-[1920px] mx-auto p-0 flex flex-col gap-6'):
                     render_money_flow_panel(plotly_renderer=custom_plotly)
+
+                # --- RADAR TAB ---
+                with ui.tab_panel(radar_tab).classes('w-full max-w-6xl mx-auto p-0 flex flex-col items-center gap-4'):
+                    render_fund_radar_panel(plotly_renderer=custom_plotly, is_mobile=is_mobile)
 
         # Finished rendering panels
