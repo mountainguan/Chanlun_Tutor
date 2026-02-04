@@ -393,7 +393,7 @@ class MoneyFlow:
                         # Note: 'retail_money' used before was (Small + Mid).
                         # Main Force Score ~ -(Small + Mid).
                         # New weighted proxy:
-                        weighted_retail_money = (small_net * 1.0) + (mid_net * 0.2)
+                        weighted_retail_money = (small_net * 1.0) 
                         
                         # Calc equivalent score from Retail Perspective
                         retail_proxy_shares_wan = (weighted_retail_money / p) / 10000.0
@@ -423,11 +423,11 @@ class MoneyFlow:
                     retail_counts.append(current_N)
 
                 # Store the user's score 
-                rc_series = pd.Series(retail_counts, index=sorted_dates)
+                rc_series = pd.Series(retail_counts, index=sorted_dates).round(2)
                 df['retail_count_index'] = rc_series
                 
                 # Direct Score for Bar Chart
-                df['retail_score'] = pd.Series(retail_scores, index=sorted_dates)
+                df['retail_score'] = pd.Series(retail_scores, index=sorted_dates).round(2)
 
         except Exception as e:
             print(f"Retail count calc failed (New Formula): {e}")

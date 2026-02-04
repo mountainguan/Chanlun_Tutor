@@ -210,18 +210,20 @@ def render_money_flow_panel(plotly_renderer=None):
                     x=dates, y=df[score_col],
                     name='散户变动',
                     marker_color=get_colors(df[score_col]),
-                    showlegend=True
+                    showlegend=True,
+                    hovertemplate='%{y:.2f}'
                 ), row=1, col=1)
                 
                 # Trend Line (MA5)
                 if len(df) > 5:
-                    ma5 = df[score_col].rolling(window=5).mean()
+                    ma5 = df[score_col].rolling(window=5).mean().round(2)
                     fig.add_trace(go.Scatter(
                         x=dates, y=ma5,
                         mode='lines',
                         name='5日均线',
                         line=dict(color='#FFA726', width=2),
-                        opacity=0.8
+                        opacity=0.8,
+                        hovertemplate='%{y:.2f}'
                     ), row=1, col=1)
 
             # --- 2. Money Flow (Bottom) ---
@@ -262,6 +264,9 @@ def render_money_flow_panel(plotly_renderer=None):
 
             # Force category axis to avoid weekend gaps and ensure clean ticks
             fig.update_xaxes(type='category', tickmode='auto', nticks=10)
+            
+            # Format Y axes
+            fig.update_yaxes(hoverformat='.2f', row=1, col=1)
             
             # Using custom renderer or ui.plotly
             plot_func(fig).classes('w-full h-full')
