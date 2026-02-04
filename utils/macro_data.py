@@ -149,7 +149,7 @@ def get_savings_mv_ratio_data(force_update=False):
                 
                 est_mv = close_price * SCALE_FACTOR
                 
-                # Ratios
+                # Ratios (Proportion: 1 unit of Deposit vs X units of Market Value)
                 total_dep = float(row['新增存款(亿元)_数量'])
                 corp_dep = float(row['新增企业存款(亿元)_数量'])
                 sav_dep = float(row['新增储蓄存款(亿元)_数量'])
@@ -161,9 +161,10 @@ def get_savings_mv_ratio_data(force_update=False):
                     '企业存款(亿)': round(corp_dep, 2),
                     '储蓄存款(亿)': round(sav_dep, 2),
                     'A股总市值(亿)': round(est_mv, 2),
-                    '总存款/市值': round(total_dep / est_mv, 2) if est_mv != 0 else 0,
-                    '企业存款/市值': round(corp_dep / est_mv, 2) if est_mv != 0 else 0,
-                    '储蓄存款/市值': round(sav_dep / est_mv, 2) if est_mv != 0 else 0
+                    # Ratio of MV/Deposit, we will display as 1:X in UI
+                    '总存款比例': round(est_mv / total_dep, 4) if total_dep != 0 else 0,
+                    '企业存款比例': round(est_mv / corp_dep, 4) if corp_dep != 0 else 0,
+                    '储蓄存款比例': round(est_mv / sav_dep, 4) if sav_dep != 0 else 0
                 })
             except:
                 continue

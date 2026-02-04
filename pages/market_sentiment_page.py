@@ -331,17 +331,22 @@ def init_sentiment_page():
                                         # Create table
                                         # Using last 15 entries for a bit more history
                                         table_data = savings_df.sort_values('月份', ascending=False).head(15).copy()
+                                        
+                                        # Convert ratios to "1 : X" format for display
+                                        for col in ['总存款比例', '企业存款比例', '储蓄存款比例']:
+                                            if col in table_data.columns:
+                                                table_data[col] = table_data[col].apply(lambda x: f"1 : {x:.2f}")
+                                                
                                         rows = table_data.to_dict('records')
                                         columns = [
                                             {'name': '月份', 'label': '月份', 'field': '月份', 'align': 'left'},
                                             {'name': '交易日期', 'label': '对比日', 'field': '交易日期', 'align': 'center'},
-                                            {'name': '总存款/市值', 'label': '总存款/市值', 'field': '总存款/市值', 'sortable': True, 'style': 'font-weight: bold'},
-                                            {'name': '企业存款/市值', 'label': '企业/市值', 'field': '企业存款/市值', 'sortable': True},
-                                            {'name': '储蓄存款/市值', 'label': '储蓄/市值', 'field': '储蓄存款/市值', 'sortable': True},
+                                            {'name': '总存款比例', 'label': '总存款 : 市值', 'field': '总存款比例', 'sortable': True, 'style': 'font-weight: bold'},
+                                            {'name': '企业存款比例', 'label': '企业存款 : 市值', 'field': '企业存款比例', 'sortable': True},
+                                            {'name': '储蓄存款比例', 'label': '储蓄存款 : 市值', 'field': '储蓄存款比例', 'sortable': True},
                                             {'name': 'A股总市值(亿)', 'label': 'A股总市值', 'field': 'A股总市值(亿)', 'sortable': True},
                                         ]
                                         
-                                        # Optional: add numeric formatting if needed, but the data is already rounded
                                         ui.table(columns=columns, rows=rows, pagination=15).classes('w-full shadow-none border-0')
                                         
                                         ui.label('注：A股总市值由当日指数收盘价与 2026-02-03 总市值锚点对比估算得出。').classes('text-xs text-gray-400 mt-2')
