@@ -299,7 +299,6 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
                             'resizable': True,
                             'sortable': True,
                             'filter': True,
-                            'menuTabs': ['filterMenuTab', 'generalMenuTab'],
                         },
                         'rowClassRules': {
                             'bg-red-50': 'data.temperature > 90',

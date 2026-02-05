@@ -36,46 +36,82 @@ def init_sentiment_page():
                     })();
                 }
 
-                // Robust render: wait until element exists AND has non-zero size before plotting
-                window._plotly_cache = window._plotly_cache || {};
-                window.renderPlotly = function(id, data, layout, config) {
-                    var attempt = 0;
-                    function tryRender() {
-                        var el = document.getElementById(id);
-                        var hasPlotly = (typeof window.Plotly !== 'undefined') || window._plotly_ready;
-                        if (el && hasPlotly) {
-                            var width = el.offsetWidth || el.clientWidth || (el.getBoundingClientRect && el.getBoundingClientRect().width) || 0;
-                            var height = el.offsetHeight || el.clientHeight || (el.getBoundingClientRect && el.getBoundingClientRect().height) || 0;
-                            if (width > 0 && height > 0) {
-                                try {
-                                    // If Plotly is not yet attached to window but _plotly_ready is true,
-                                    // give browser a brief moment to expose the global.
-                                    if (typeof window.Plotly === 'undefined' && window._plotly_ready) {
-                                        setTimeout(function(){ try{ window.Plotly && Plotly.newPlot(id, data, layout, config).then(function(){ window._plotly_cache[id] = {data:data, layout:layout, config:config}; }); }catch(e){} }, 50);
-                                    } else {
-                                        Plotly.newPlot(id, data, layout, config).then(function(){ window._plotly_cache[id] = {data:data, layout:layout, config:config}; });
-                                    }
-                                    // attempt a safe resize after render
-                                    setTimeout(function(){ try{ window.Plotly && Plotly.Plots.resize(document.getElementById(id)); }catch(e){} }, 120);
-                                } catch (err) {
-                                    // swallow error to avoid noisy console spam
-                                }
-                            } else {
-                                if (attempt < 20) {
-                                    attempt++;
-                                    setTimeout(tryRender, 100);
-                                }
-                                return;
-                            }
-                        } else {
-                            if (attempt < 20) {
-                                attempt++;
-                                setTimeout(tryRender, 100);
-                            }
+                // Global render queue to handle charts in hidden tabs or conditional v-if
+                window._chartQueue = window._chartQueue || [];
+                window._chartQueueRunning = false;
+                
+                window._processChartQueue = function() {
+                    // Always request next frame first to keep loop alive if we want persistent checking,
+                    // but for performance we might want to be smart.
+                    // For now, let's just run every 500ms via setTimeout instead of RAF to save battery 
+                    // when idle, or mix them. 
+                    // Let's use a simpler approach: run loop.
+                    
+                    if (window._chartQueue.length > 0) {
+                         // Iterate backwards to allow safe removal
+                         for (var i = window._chartQueue.length - 1; i >= 0; i--) {
+                             var item = window._chartQueue[i];
+                             var el = document.getElementById(item.id);
+                             
+                             if (!el) {
+                                  // Element might be gone (re-rendered or removed)
+                                  // Keep it for a bit? No, just remove it if it's truly gone from DOM.
+                                  // But maybe it's just detached momentarily? 
+                                  // Let's assume if it's not by ID, it's gone or hasn't arrived.
+                                  // We'll give it a lifespan (timestamp)
+                                  if (Date.now() - item.ts > 120000) { // 2 mins timeout
+                                      window._chartQueue.splice(i, 1);
+                                  }
+                                  continue;
+                             }
+                             
+                             // Check visibility
+                             var rect = el.getBoundingClientRect();
+                             // Width/Height > 0 usually means visible
+                             if (rect.width > 0 && rect.height > 0) {
+                                 // Check Plotly lib
+                                 var hasPlotly = (typeof window.Plotly !== 'undefined') || window._plotly_ready;
+                                 if (hasPlotly) {
+                                     try {
+                                         // Render!
+                                         // If Plotly object exists on window but might not be fully ready? 
+                                         // We assume if _plotly_ready is set, window.Plotly is available or will be momentarily.
+                                         if (window.Plotly) {
+                                             Plotly.newPlot(item.id, item.data, item.layout, item.config).then(function(gd){
+                                                 try { Plotly.Plots.resize(gd); } catch(ex){}
+                                             });
+                                             // Remove from queue
+                                             window._chartQueue.splice(i, 1);
+                                         }
+                                     } catch(e) {
+                                         console.error("Queue Render failed for " + item.id, e);
+                                     }
+                                 }
+                             }
+                         }
+                    }
+                    setTimeout(window._processChartQueue, 300);
+                };
+                
+                if (!window._chartQueueRunning) {
+                   window._chartQueueRunning = true;
+                   window._processChartQueue();
+                }
+
+                window.addToChartQueue = function(id, data, layout, config) {
+                    // Check if already in queue, update if so
+                    var found = false;
+                    for(var i=0; i<window._chartQueue.length; i++){
+                        if(window._chartQueue[i].id === id) {
+                            window._chartQueue[i] = {id: id, data: data, layout: layout, config: config, ts: Date.now()};
+                            found = true;
+                            break;
                         }
                     }
-                    tryRender();
-                }
+                    if (!found) {
+                        window._chartQueue.push({id: id, data: data, layout: layout, config: config, ts: Date.now()});
+                    }
+                };
             </script>
         ''')
 
@@ -104,71 +140,37 @@ def init_sentiment_page():
             # determine desired height from figure layout (fallback None)
             layout = fig.get('layout', {}) if isinstance(fig, dict) else {}
             height_px = layout.get('height') if isinstance(layout, dict) else None
-            style_attr = ''
+            
+            # Default styling to ensure non-zero height
+            style_attr = 'style="width: 100%; min-height: 400px;"'
             if height_px:
                 try:
-                    style_attr = f'style="height:{int(height_px)}px;min-height:{int(height_px)}px; width:100%;"'
+                    style_attr = f'style="height:{int(height_px)}px; min-height:{int(height_px)}px; width:100%;"'
                 except Exception:
-                    style_attr = ''
+                    pass
+            
+            # Create element
             c = ui.element('div').props(f'id="{chart_id}" {style_attr}')
+            
             if hasattr(fig, 'to_dict'):
                 fig = fig.to_dict()
             data = fig.get('data', [])
             layout = fig.get('layout', {})
             config = fig.get('config', {'responsive': True, 'displayModeBar': False})
             config['responsive'] = True
+            
             j_data = json.dumps(data, cls=PlotlyJSONEncoder)
             j_layout = json.dumps(layout, cls=PlotlyJSONEncoder)
             j_config = json.dumps(config, cls=PlotlyJSONEncoder)
-            js = f'''
-(function(){{
-    var id = "{chart_id}";
-    var data = {j_data};
-    var layout = {j_layout};
-    var config = {j_config};
-    var attempts = 0;
-    function tryRender(){{
-        try{{
-            var el = document.getElementById(id);
-            var hasPlotly = (typeof window.Plotly !== 'undefined') || window._plotly_ready;
-            if (el && hasPlotly){{
-                var width = el.offsetWidth || el.clientWidth || (el.getBoundingClientRect && el.getBoundingClientRect().width) || 0;
-                var height = el.offsetHeight || el.clientHeight || (el.getBoundingClientRect && el.getBoundingClientRect().height) || 0;
-                // if height is zero, try to find a parent width/height or set a sensible minHeight
-                if (height === 0){{
-                    try{{ el.style.minHeight = el.style.minHeight || '260px'; }}catch(e){{}}
-                    height = el.offsetHeight || el.clientHeight || (el.getBoundingClientRect && el.getBoundingClientRect().height) || 0;
-                }}
-                if (width > 0 && height > 0){{
-                    try{{
-                        // prefer the shared helper if available
-                        if (window.renderPlotly){{
-                            window.renderPlotly(id, data, layout, config);
-                        }} else if (window.Plotly){{
-                            Plotly.newPlot(id, data, layout, config).then(function(){{ try{{ Plotly.Plots.resize(document.getElementById(id)); }}catch(e){{}} }});
-                        }}
-                        // attempt a resize after render
-                        setTimeout(function(){{ try{{ window.Plotly && Plotly.Plots.resize(document.getElementById(id)); }}catch(e){{}} }}, 120);
-                    }}catch(err){{}}
-                    return;
-                }}
-            }}
-        }}catch(e){{}}
-        attempts += 1;
-        if (attempts < 40){{
-            setTimeout(tryRender, 100);
-        }}
-    }}
-    tryRender();
-}})();
-'''
-            # schedule JS render shortly after the element is attached to DOM
+            
+            # Simply push to queue
+            js = f'window.addToChartQueue("{chart_id}", {j_data}, {j_layout}, {j_config});'
+            
             try:
                 ui.timer(0.05, lambda: ui.run_javascript(js), once=True)
-                # extra fallback run to handle longer race windows
-                ui.timer(0.25, lambda: ui.run_javascript(js), once=True)
+                # Backup push
+                ui.timer(0.5, lambda: ui.run_javascript(js), once=True)
             except Exception:
-                # final fallback: run immediately
                 ui.run_javascript(js)
             return c
 
