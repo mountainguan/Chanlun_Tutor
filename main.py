@@ -252,7 +252,7 @@ def main_page():
                 {'id': 'simulator', 'label': '股票走势模拟器', 'special': True},
             ]},
             {'title': '市场工具', 'items': [
-                {'id': 'mood', 'label': '大盘情绪温度 🌡️', 'special': True, 'link': '/mood'},
+                {'id': 'mood', 'label': '大盘情绪温度 🌡️', 'special': True, 'link': '/mood/market'},
             ]}
         ]
 
