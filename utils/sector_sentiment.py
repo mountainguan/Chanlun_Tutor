@@ -506,13 +506,14 @@ class SectorSentiment:
                 name = sector['name']
                 code = sector['code']
                 
-                print(f"[{i+1}/{len(sectors)}] Fetching {name} ({code})...")
+                progress = (i + 1) / len(sectors) * 100
+                print(f"[{i+1}/{len(sectors)} {progress:5.1f}%] 正在获取 {name:10} ({code})...", end='', flush=True)
                 
                 # 1. 尝试真实获取
                 df = self.fetch_sector_history_raw(code, name)
                 
                 if df is None or df.empty:
-                    print(f"Failed to fetch {name}, skipping...")
+                    print(" 失败 (跳过)")
                     continue
                     
                 try:
@@ -611,6 +612,7 @@ class SectorSentiment:
                     
                     # Latest entry
                     latest_entry = history_list[-1]
+                    print(f" 完成 (温度: {latest_entry['temperature']:>6.2f})")
 
                     # Preserve group info in the results
                     item_data = {
@@ -629,7 +631,7 @@ class SectorSentiment:
                             json.dump(results, f, ensure_ascii=False, indent=4)
 
                 except Exception as e:
-                    print(f"Error processing {name}: {e}")
+                    print(f" 出错: {e}")
                 
                 time.sleep(0.02)
 

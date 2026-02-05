@@ -137,12 +137,18 @@ def init_sentiment_page():
         # Custom Plotly render function
         def custom_plotly(fig):
             chart_id = f"chart_{uuid.uuid4().hex}"
+            
+            if hasattr(fig, 'to_dict'):
+                fig_dict = fig.to_dict()
+            else:
+                fig_dict = fig if isinstance(fig, dict) else {}
+                
             # determine desired height from figure layout (fallback None)
-            layout = fig.get('layout', {}) if isinstance(fig, dict) else {}
+            layout = fig_dict.get('layout', {})
             height_px = layout.get('height') if isinstance(layout, dict) else None
             
             # Default styling to ensure non-zero height
-            style_attr = 'style="width: 100%; min-height: 400px;"'
+            style_attr = 'style="width: 100%; min-height: 200px;"'
             if height_px:
                 try:
                     style_attr = f'style="height:{int(height_px)}px; min-height:{int(height_px)}px; width:100%;"'
@@ -152,11 +158,9 @@ def init_sentiment_page():
             # Create element
             c = ui.element('div').props(f'id="{chart_id}" {style_attr}')
             
-            if hasattr(fig, 'to_dict'):
-                fig = fig.to_dict()
-            data = fig.get('data', [])
-            layout = fig.get('layout', {})
-            config = fig.get('config', {'responsive': True, 'displayModeBar': False})
+            data = fig_dict.get('data', [])
+            layout = fig_dict.get('layout', {})
+            config = fig_dict.get('config', {'responsive': True, 'displayModeBar': False})
             config['responsive'] = True
             
             j_data = json.dumps(data, cls=PlotlyJSONEncoder)

@@ -88,13 +88,13 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
         return f'rgb({rgb[0]},{rgb[1]},{rgb[2]})'
 
     def load_sector_view(date=None):
-        level = level_select.value
-        ss = SectorSentiment(industry_level=level)
-        data = ss.get_display_data()
-        if data:
-            render_sector_view_internal(data, target_date=date)
-        else:
-            try:
+        try:
+            level = level_select.value
+            ss = SectorSentiment(industry_level=level)
+            data = ss.get_display_data()
+            if data:
+                render_sector_view_internal(data, target_date=date)
+            else:
                 ui.notify(f'无缓存数据 (Level {level})，请点击更新', type='warning')
                 sector_chart_container.clear()
                 with sector_chart_container:
@@ -103,20 +103,21 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
                     with ui.row().classes('gap-4 mt-2'):
                         ui.button('加载缓存', on_click=lambda: load_sector_view()).props('unelevated color=indigo-6 icon=history')
                         ui.button('在线更新', on_click=lambda: update_sector_data()).props('outline color=indigo-6 icon=cloud_download')
-            except RuntimeError: pass
+        except RuntimeError:
+            pass
 
     async def update_sector_data():
-        loop = asyncio.get_running_loop()
-        level = level_select.value
-        level_name = '一级行业' if level == 1 else '二级行业'
-        
-        if state['update_btn']: state['update_btn'].disable()
-        if state['load_btn']: state['load_btn'].disable()
-        
-        sector_status_label.text = '正在更新...'
-        ui.notify(f'开启独立进程更新【{level_name}】，这需要几分钟...', type='info', timeout=5000)
-        
         try:
+            loop = asyncio.get_running_loop()
+            level = level_select.value
+            level_name = '一级行业' if level == 1 else '二级行业'
+            
+            if state['update_btn']: state['update_btn'].disable()
+            if state['load_btn']: state['load_btn'].disable()
+            
+            sector_status_label.text = '正在更新...'
+            ui.notify(f'开启独立进程更新【{level_name}】，这需要几分钟...', type='info', timeout=5000)
+            
             sector_chart_container.clear()
             sector_table_container.clear()
             with sector_chart_container:
@@ -126,20 +127,45 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
 
             script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'utils', 'sector_sentiment.py')
             def run_script():
+                # 使用 -u 参数确保输出不被缓冲
                 cmd = [sys.executable, '-u', script_path, '--level', str(level)]
-                result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.path.dirname(os.path.dirname(__file__)))
-                if result.returncode != 0: raise Exception(f"Script failed.\n{result.stderr}")
-                return result.stdout
+                # 不捕获输出，让其直接打印到控制台，以便用户实时查看进度
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    cwd=os.path.dirname(os.path.dirname(__file__))
+                )
+                
+                print(f"\n--- 开始更新【{level_name}】板块数据 ---", flush=True)
+                for line in process.stdout:
+                    print(line, end='', flush=True)
+                
+                process.wait()
+                if process.returncode != 0:
+                    raise Exception(f"板块更新脚本执行失败，退出码: {process.returncode}")
+                print(f"--- 【{level_name}】板块数据更新完成 ---\n", flush=True)
+                return ""
 
             await loop.run_in_executor(None, run_script)
             load_sector_view() 
             ui.notify('板块数据更新成功', type='positive')
+        except RuntimeError:
+            pass
         except Exception as e:
-            ui.notify(f'更新失败: {e}', type='negative')
-            load_sector_view()
-        
-        if state['update_btn']: state['update_btn'].enable()
-        if state['load_btn']: state['load_btn'].enable()
+            try:
+                ui.notify(f'更新失败: {e}', type='negative')
+                load_sector_view()
+            except RuntimeError:
+                pass
+        finally:
+            try:
+                if state['update_btn']: state['update_btn'].enable()
+                if state['load_btn']: state['load_btn'].enable()
+            except RuntimeError:
+                pass
 
     def render_sector_view_internal(data, target_date=None):
         try:
@@ -181,7 +207,12 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
                 overcold_list = df_s[df_s['temperature'] < -50].sort_values('temperature', ascending=True)
                 
                 with right_stats_container:
-                    ui.label(f"数据日期：{target_date}").classes('text-xs text-gray-500 mb-1')
+                    is_estim_sidebar = df_s['is_mock'].any() if 'is_mock' in df_s.columns else False
+                    with ui.row().classes('items-center gap-1 mb-1'):
+                        ui.label(f"数据日期：{target_date}").classes('text-xs text-gray-500')
+                        if is_estim_sidebar:
+                            ui.label('预估').classes('text-[10px] font-bold text-yellow-800 bg-yellow-100 px-1 rounded')
+                    
                     with ui.row().classes('w-full gap-2 mb-1'):
                         ui.label(f'过热: {len(overheat_list)}').classes('bg-red-50 py-1 px-2 rounded-lg text-red-700 font-bold text-xs')
                         ui.label(f'较冷: {len(cold_list)}').classes('bg-blue-50 py-1 px-2 rounded-lg text-blue-700 font-bold text-xs')
@@ -208,7 +239,13 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
                                 cl = level_select.value
                                 ui.button('一级专区', on_click=lambda: (setattr(level_select, 'value', 1), load_sector_view())).props('unelevated rounded shadow-sm color=indigo text-xs py-1 px-3' if cl==1 else 'flat rounded text-gray-500 text-xs py-1 px-3')
                                 ui.button('二级专区', on_click=lambda: (setattr(level_select, 'value', 2), load_sector_view())).props('unelevated rounded shadow-sm color=indigo text-xs py-1 px-3' if cl==2 else 'flat rounded text-gray-500 text-xs py-1 px-3')
-                        ui.label(f"{target_date}（注：面积大小对应成交额）").classes('text-xs text-gray-400 ml-1')
+                        
+                        is_estim = df_s['is_mock'].any() if 'is_mock' in df_s.columns else False
+                        with ui.row().classes('items-center gap-1 ml-1'):
+                            ui.label(f"{target_date}").classes('text-xs text-gray-400')
+                            if is_estim:
+                                ui.label('预估').classes('text-[10px] font-bold text-yellow-800 bg-yellow-100 px-1.5 rounded')
+                            ui.label('（注：面积大小对应成交额）').classes('text-xs text-gray-400')
                     
                     with ui.row().classes('items-center gap-2'):
                         date_select = ui.select(options=sorted_dates, value=target_date, label="选择日期", on_change=lambda e: load_sector_view(date=e.value)).props('dense outlined options-dense bg-white').classes('w-40')

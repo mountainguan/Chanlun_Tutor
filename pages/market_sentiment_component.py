@@ -240,7 +240,8 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
                 }
             ))
             fig_gauge.update_layout(
-                margin=dict(l=50, r=50, t=35, b=10),
+                margin=dict(l=30, r=30, t=10, b=10),
+                height=240,
                 autosize=True,
                 paper_bgcolor = "rgba(0,0,0,0)",
                 font = dict(family="Roboto, sans-serif")
