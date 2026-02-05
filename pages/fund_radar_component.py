@@ -221,30 +221,52 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         df_def = df_flow[df_flow['名称'].isin(defensive)].sort_values(by='alpha', ascending=False).head(8).iloc[::-1]
 
                         from plotly.subplots import make_subplots
-                        fig_battle = make_subplots(rows=1, cols=2, shared_yaxes=False, horizontal_spacing=0.15,
-                            subplot_titles=("🛡️ 防守阵营 (Defensive)", "⚔️ 进攻阵营 (Offensive)"))
+                        fig_battle = make_subplots(rows=1, cols=2, shared_yaxes=False, horizontal_spacing=0.12,
+                            subplot_titles=("🛡️ 防守阵营 (Defensive)", "🚀 进攻阵营 (Offensive)"))
                         
+                        # Bar colors: Red for Positive Alpha, Green for Negative Alpha
+                        def_colors = ['#ef4444' if a > 0 else '#10b981' for a in df_def['alpha']]
                         def_text = [f"{n} ({v:+.2f}%)" for n, v in zip(df_def['名称'], df_def['涨跌幅'])]
                         fig_battle.add_trace(go.Bar(
                             y=df_def['名称'], x=df_def['alpha'], orientation='h',
-                            marker_color=['#10b981' if a > 0 else '#6b7280' for a in df_def['alpha']],
+                            marker_color=def_colors,
                             text=def_text, textposition='auto', name='防守Alpha'
                         ), row=1, col=1)
 
+                        off_colors = ['#ef4444' if a > 0 else '#10b981' for a in df_off['alpha']]
                         off_text = [f"{n} ({v:+.2f}%)" for n, v in zip(df_off['名称'], df_off['涨跌幅'])]
                         fig_battle.add_trace(go.Bar(
                             y=df_off['名称'], x=df_off['alpha'], orientation='h',
-                            marker_color=['#ef4444' if a > 0 else '#6b7280' for a in df_off['alpha']],
+                            marker_color=off_colors,
                             text=off_text, textposition='auto', name='进攻Alpha'
                         ), row=1, col=2)
                         
                         max_alpha = max(df_off['alpha'].abs().max() if not df_off.empty else 0, df_def['alpha'].abs().max() if not df_def.empty else 0, 3.0)
-                        range_limit = max_alpha * 1.2
+                        range_limit = max_alpha * 1.3
+                        
+                        # Enhance sections with background colors
+                        # Using 'y domain' and 'y2 domain' correctly fills the subplot area vertically
+                        fig_battle.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1,
+                                           fillcolor="rgba(16, 185, 129, 0.06)", layer="below", line_width=0, row=1, col=1)
+                        # Row 1 Col 2: Offensive (Light Rose bg)
+                        fig_battle.add_shape(type="rect", xref="x2 domain", yref="y2 domain", x0=0, y0=0, x1=1, y1=1,
+                                           fillcolor="rgba(239, 68, 68, 0.06)", layer="below", line_width=0, row=1, col=2)
+
                         fig_battle.update_layout(
-                            height=400, margin=dict(l=20, r=20, t=50, b=20), showlegend=False,
-                            plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+                            height=400, margin=dict(l=20, r=20, t=60, b=20), showlegend=False,
+                            plot_bgcolor='rgba(255,255,255,1)', paper_bgcolor='rgba(0,0,0,0)',
+                            font=dict(size=12)
                         )
-                        fig_battle.update_xaxes(title_text="Alpha (%)", range=[-range_limit, range_limit], zeroline=True, zerolinewidth=2, zerolinecolor='gray')
+                        
+                        # Fix annotations (Titles) style
+                        if len(fig_battle.layout.annotations) >= 2:
+                            fig_battle.layout.annotations[0].update(font=dict(size=14, color='#10b981', weight='bold'))
+                            fig_battle.layout.annotations[1].update(font=dict(size=14, color='#ef4444', weight='bold'))
+
+                        fig_battle.update_xaxes(title_text="Alpha (%)", range=[-range_limit, range_limit], 
+                                              zeroline=True, zerolinewidth=1, zerolinecolor='rgba(0,0,0,0.2)',
+                                              gridcolor='rgba(0,0,0,0.05)')
+                        fig_battle.update_yaxes(gridcolor='rgba(0,0,0,0.05)')
                         plot_func(fig_battle).classes('w-full h-full min-h-[400px]')
                 else:
                     # Message about missing history for Battlefield
@@ -283,7 +305,10 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                 ui.label('主力动向四象限 (Main Force Intent Map)').classes('font-bold text-gray-800')
                             with ui.row().classes('items-center gap-2 text-xs text-gray-500'):
                                 ui.label('X轴: 市场涨跌').classes('px-2 py-0.5 bg-gray-100 rounded')
-                                ui.label('Y轴: 主力净占比').classes('px-2 py-0.5 bg-indigo-50 text-indigo-500 rounded')
+                                with ui.row().classes('items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-500 rounded cursor-help'):
+                                    ui.label('Y轴: 主力净占比')
+                                    ui.icon('info', size='14px')
+                                    ui.tooltip('主力净占比 = (主力净流入 / 总成交额) * 100%。反映单位成交量中主力介入的“密度”，比单纯的金额更能剔除盘子大小的影响。').classes('text-xs')
 
                          # Prepare Quadrant Data
                          # Q1: Up + Inflow (Bullish Consensus)
