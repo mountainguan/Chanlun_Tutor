@@ -9,6 +9,9 @@ import json
 import re
 import uuid
 import urllib.request
+import asyncio
+import datetime
+from utils.fund_radar import FundRadar
 from plotly.utils import PlotlyJSONEncoder
 from utils.charts import create_candlestick_chart, get_demo_fenxing_data, get_chart_data
 from utils.simulator_logic import generate_simulation_data, analyze_action, resample_klines, analyze_advanced_action, get_chanlun_shapes
@@ -44,6 +47,42 @@ def ensure_static_assets():
 
 # 确保资源存在
 ensure_static_assets()
+
+# --- 后台任务 ---
+async def run_background_tasks():
+    """后台定时任务：在交易时间段自动刷新数据"""
+    print("Starting background tasks...")
+    radar = FundRadar()
+    
+    while True:
+        try:
+            # Use China Time (UTC+8)
+            utc_now = datetime.datetime.now(datetime.timezone.utc)
+            cn_now = utc_now + datetime.timedelta(hours=8)
+            
+            # Check if trading time (Mon-Fri)
+            if cn_now.weekday() < 5:  # 0=Monday, 4=Friday
+                current_time = cn_now.time()
+                # Morning: 09:25 - 11:35 | Afternoon: 12:55 - 15:05 (extend slightly to catch close)
+                is_trading = (
+                    (current_time >= datetime.time(9, 25) and current_time <= datetime.time(11, 35)) or
+                    (current_time >= datetime.time(12, 55) and current_time <= datetime.time(15, 10))
+                )
+                
+                if is_trading:
+                    today_str = cn_now.strftime('%Y-%m-%d')
+                    print(f"[Background] Updating Fund Radar for {today_str} at {cn_now.strftime('%H:%M:%S')}")
+                    # Run in executor to avoid blocking main thread
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(None, lambda: radar.get_sector_data_by_date(today_str, force_refresh=True))
+        
+        except Exception as e:
+            print(f"[Background] Task error: {e}")
+            
+        # Update every 5 minutes (300 seconds)
+        await asyncio.sleep(300)
+
+app.on_startup(run_background_tasks)
 
 # 挂载静态文件目录
 app.add_static_files('/static', os.path.join(BASE_DIR, 'static'))

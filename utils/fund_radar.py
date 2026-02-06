@@ -39,17 +39,8 @@ class FundRadar:
         
         cache_path = self._get_cache_file_path(date_str)
         
-        # 1. Handle Force Refresh
-        if force_refresh and date_str == today_str:
-            if os.path.exists(cache_path):
-                try:
-                    os.remove(cache_path)
-                    print(f"Cache cleared for {date_str}")
-                except Exception as e:
-                    print(f"Failed to clear cache: {e}")
-        
-        # 2. Try Loading from Cache
-        if os.path.exists(cache_path):
+        # 1. Try Loading from Cache (skip if force_refresh is True for Today)
+        if os.path.exists(cache_path) and not (force_refresh and date_str == today_str):
             try:
                 with open(cache_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
