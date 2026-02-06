@@ -12,6 +12,9 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
     """
     radar = FundRadar()
     
+    # Default state for the component
+    radar_state = {'duration': 1}
+    
     # Ensure Today is based on China Time (UTC+8)
     utc_now = datetime.datetime.now(datetime.timezone.utc)
     cn_now = utc_now + datetime.timedelta(hours=8)
@@ -34,8 +37,8 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                     with ui.column().classes('gap-0'):
                         with ui.row().classes('items-center gap-3'):
                             ui.label('主力资金雷达').classes('text-lg md:text-xl font-bold text-gray-800 tracking-tight')
-                            # Duration Toggle: Redesigned as flat/segmented
-                            duration_toggle = ui.toggle({1: '1天'}, value=1).props('dense no-caps unelevated color=transparent text-color=grey-7 toggle-color=indigo toggle-text-color=white').classes('text-xs bg-gray-100/50 rounded-lg p-0.5')
+                            # Duration Toggle: Redesigned as segmented buttons (pill style)
+                            duration_container = ui.row().classes('bg-gray-100 rounded-lg p-1 gap-1 items-center')
                         
                         with ui.row().classes('items-center gap-2'):
                             ui.label('Sector Heat Radar (Multi-Day)').classes('text-xs text-gray-400 font-medium hidden md:block')
@@ -69,24 +72,44 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                 idx = available_dates.index(date_val)
                                 available_count = idx + 1
                             elif date_val == today_str: 
-                                # Today might not be cached yet, but conceptually 1 day is available
-                                available_count = 1 if len(available_dates)==0 or available_dates[-1] != today_str else len(available_dates) + (1 if today_str not in available_dates else 0)
-                                # Simplified: If today, at least 1 day. Use actual cache for history.
-                                # If today is in cache, count is accurate. If not, maybe just 1.
                                 available_count = available_dates.index(date_val) + 1 if date_val in available_dates else 1
                             else:
                                 available_count = 0 
                         except:
                             available_count = 0
 
-                        options = {1: '1天'}
-                        for d in [3, 5, 10, 20, 30]:
-                            if available_count >= d:
-                                options[d] = f'{d}天'
+                        # Map display labels to days following "Money Flow" style
+                        possible_options = [
+                            (1, '1天'),
+                            (3, '3天'),
+                            (5, '5天'),
+                            (10, '10天'),
+                            (20, '20天'),
+                            (60, '60天')
+                        ]
                         
-                        duration_toggle.set_options(options)
-                        if duration_toggle.value not in options:
-                            duration_toggle.set_value(1)
+                        options = {}
+                        for d, label in possible_options:
+                            # Show if only 1 day or enough data exists
+                            if d == 1 or available_count >= d:
+                                options[d] = label
+                        
+                        if radar_state['duration'] not in options:
+                            radar_state['duration'] = 1
+                            
+                        duration_container.clear()
+                        with duration_container:
+                            for d, lbl in options.items():
+                                is_active = (radar_state['duration'] == d)
+                                # Capture d in closure
+                                ui.button(lbl, on_click=lambda val=d: set_duration(val)) \
+                                    .props(f'flat dense no-caps size=sm {"color=indigo" if is_active else "text-color=grey-7"}') \
+                                    .classes(f'px-2 md:px-3 rounded-md transition-all {"bg-white shadow-sm font-bold" if is_active else "hover:bg-gray-200"} text-xs')
+
+                    async def set_duration(val):
+                        radar_state['duration'] = val
+                        update_duration_options(date_input.value)
+                        await update_dashboard(date_input.value)
 
                     # Event Listeners
                     async def on_date_change():
@@ -95,7 +118,6 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         await update_dashboard(date_input.value)
 
                     date_input.on_value_change(on_date_change)
-                    duration_toggle.on_value_change(lambda: update_dashboard(date_input.value))
 
                     # Init
                     check_refresh_visibility()
@@ -550,7 +572,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
             dashboard_content.clear()
             
             # Determine duration
-            duration = duration_toggle.value if duration_toggle.value else 1
+            duration = radar_state['duration']
 
             with dashboard_content:
                 # Loading State
@@ -619,7 +641,9 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
                 # Ensure Types for Sina DF
                 if not df_flow.empty:
+                    # Data is now normalized to '亿' (100M) by FundRadar class
                     df_flow[metric_col] = pd.to_numeric(df_flow[metric_col], errors='coerce').fillna(0)
+                    
                     if '涨跌幅' in df_flow.columns:
                         df_flow['涨跌幅'] = pd.to_numeric(df_flow['涨跌幅'], errors='coerce').fillna(0)
                     else:
@@ -637,7 +661,22 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                 # Ensure Types for THS DF (Net Inflow)
                 if not df_ths.empty:
                      df_ths['净流入'] = pd.to_numeric(df_ths['净流入'], errors='coerce').fillna(0)
+                     if '总成交额' in df_ths.columns:
+                         df_ths['总成交额'] = pd.to_numeric(df_ths['总成交额'], errors='coerce').fillna(0)
                      df_ths['涨跌幅'] = pd.to_numeric(df_ths['涨跌幅'], errors='coerce').fillna(0)
+                     # Calculate Main Force Net Inflow Ratio
+                     df_ths['净占比'] = (df_ths['净流入'] / df_ths['总成交额'].replace(0, 1)) * 100
+
+                # Create Combined DF for Leaderboard (Join Sina Turnover + THS Inflow)
+                if not df_flow.empty and not df_ths.empty:
+                    df_leader = pd.merge(df_flow, df_ths[['名称', '净流入', '净占比']], on='名称', how='left')
+                elif not df_flow.empty:
+                    df_leader = df_flow.copy()
+                    df_leader['净流入'] = np.nan
+                    df_leader['净占比'] = np.nan
+                else:
+                    df_leader = df_ths.copy()
+                    if metric_col not in df_leader.columns: df_leader[metric_col] = df_leader.get('总成交额', 0)
 
                 offensive, defensive = radar.get_offensive_defensive_list()
 
@@ -681,140 +720,232 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         ui.icon('history', color='blue').classes('text-xl')
                         ui.label(f'正在回溯历史数据快照：{date_val}').classes('text-blue-800 text-sm font-medium')
 
-                with ui.grid(columns=3 if not is_mobile else 1).classes('w-full gap-6'):
+                # Calculate stats for the new style
+                total_net = df_ths['净流入'].sum() if not df_ths.empty else 0
+                pos_count = len(df_flow[df_flow['涨跌幅'] > 0]) if not df_flow.empty else 0
+                total_count = len(df_flow) if not df_flow.empty else 1
+                pos_ratio = (pos_count / total_count) * 100
+                
+                with ui.grid(columns=3 if not is_mobile else 1).classes('w-full gap-3 md:gap-4 px-1'):
 
-                    # Card 1: Market Nature
-                    with ui.card().classes(f'w-full p-4 rounded-xl shadow-sm border {border_theme} {bg_theme} relative overflow-hidden'):
-                         ui.icon(icon_theme).classes('absolute -right-4 -bottom-4 text-8xl opacity-10')
-                         ui.label('市场性质判定').classes('text-gray-500 text-xs font-bold uppercase tracking-wider')
-                         ui.label(market_nature).classes(f'text-xl font-extrabold mt-1 {text_theme}')
-                         ui.label(nature_desc).classes('text-gray-600 text-sm mt-2 leading-relaxed')
-
-                    # Card 2: Top Sector (Amount or Inflow)
-                    if not top_10.empty:
-                        top_sector_name = top_10.iloc[0]['名称']
-                        top_sector_val = top_10.iloc[0][metric_col]
-                        val_str = f"{top_sector_val/1e8:.2f}亿" if top_sector_val > 1e8 else f"{top_sector_val/1e4:.0f}万"
-                        label_sub = "资金热度领跑"
-                    elif not df_ths.empty:
-                        # Fallback to THS Inflow
-                        top_to = df_ths.sort_values('净流入', ascending=False).iloc[0]
-                        top_sector_name = top_to['名称']
-                        val_str = f"净流入 {top_to['净流入']:.2f}亿" # Assume Yi
-                        label_sub = "主力扫货最强"
+                    # Card 1: AI Insight Specialist (Screenshot 1 Style)
+                    # Use existing nature_color logic to map to status colors
+                    if nature_color == "red":
+                        status_color = "rose"
+                        bg_gradient = "bg-gradient-to-br from-rose-50 to-white"
+                        border_color = "border-rose-100"
+                    elif nature_color == "green":
+                        status_color = "emerald"
+                        bg_gradient = "bg-gradient-to-br from-emerald-50 to-white"
+                        border_color = "border-emerald-100"
                     else:
-                        top_sector_name = "N/A"
-                        val_str = "-"
-                        label_sub = ""
+                        status_color = "amber"
+                        bg_gradient = "bg-gradient-to-br from-amber-50 to-white"
+                        border_color = "border-amber-100"
 
-                    with ui.card().classes('w-full p-4 rounded-xl shadow-sm border border-gray-200 bg-white'):
-                        with ui.row().classes('items-center justify-between w-full'):
-                            ui.label('Top1 活跃板块').classes('text-gray-500 text-xs font-bold uppercase tracking-wider')
-                            ui.icon('emoji_events', color='amber').classes('text-xl')
+                    with ui.card().classes(f'w-full p-3 rounded-xl shadow-sm border {border_color} {bg_gradient} relative overflow-hidden group hover:shadow-md transition-all duration-500'):
+                        ui.element('div').classes('absolute -right-8 -top-8 w-24 h-24 rounded-full bg-white opacity-20 group-hover:scale-125 transition-transform duration-700')
+                        
+                        with ui.row().classes('items-center gap-2 mb-1'):
+                            ui.icon('psychology', color=status_color).classes('text-lg')
+                            ui.label('智能态势洞察').classes('text-xs font-black tracking-widest text-gray-400')
+                        
+                        with ui.column().classes('gap-0'):
+                            ui.label(market_nature.split(' ')[0]).classes(f'text-3xl md:text-4xl font-black {f"text-{status_color}-600"} tracking-tight')
+                            ui.label(market_nature.split(' ')[1] if ' ' in market_nature else "MARKET TREND").classes('text-xs font-bold text-gray-300 tracking-widest -mt-1')
+                        
+                        with ui.column().classes('mt-2 gap-1.5'):
+                            with ui.row().classes('items-center gap-1.5'):
+                                ui.element('div').classes(f'w-1.5 h-1.5 rounded-full bg-{status_color}-500')
+                                ui.label(f'多空共识：{abs(total_net):.1f}亿 {"净流入" if total_net > 0 else "净流出"}').classes('text-sm font-bold text-gray-700')
+                            
+                            with ui.row().classes('items-center gap-1.5'):
+                                ui.element('div').classes(f'w-1.5 h-1.5 rounded-full bg-{status_color}-500')
+                                ui.label(f'演化阶段：{nature_desc.split("，")[0]} ({pos_ratio:.0f}%参与)').classes('text-sm font-bold text-gray-700 font-tight')
 
-                        ui.label(top_sector_name).classes('text-2xl font-extrabold text-gray-800 mt-1')
-                        with ui.row().classes('items-center gap-1 mt-1'):
-                            ui.label(val_str).classes('text-lg font-bold text-indigo-600')
-                            ui.label('热度领跑').classes('text-xs bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full')
+                        ui.label(nature_desc.split("，")[1] if "，" in nature_desc else nature_desc).classes('text-xs text-gray-400 mt-2 border-t border-gray-100 pt-2 italic')
 
-                    # Card 3: Avg Performance
-                    avg_change = top_10['涨跌幅'].mean()
-                    chg_color = "red-500" if avg_change > 0 else "emerald-500"
-                    sign = "+" if avg_change > 0 else ""
+                    # Card 2: Market Pulse (Screenshot 1 Style)
+                    avg_change = analysis_df['涨跌幅'].mean() if not analysis_df.empty else 0
+                    chg_color = "rose-500" if avg_change > 0 else "emerald-500"
+                    
+                    with ui.card().classes('w-full p-3 rounded-xl shadow-sm border border-gray-100 bg-white hover:border-indigo-200 transition-colors duration-300'):
+                        with ui.row().classes('items-center gap-2 mb-2'):
+                            ui.icon('sensors', color='indigo').classes('text-lg')
+                            ui.label('市场进攻脉搏').classes('text-xs font-black tracking-widest text-gray-400')
+                        
+                        with ui.row().classes('w-full items-end justify-between'):
+                            with ui.column().classes('gap-0'):
+                                ui.label(f'{avg_change:+.2f}%').classes(f'text-4xl font-black text-{chg_color}')
+                                with ui.row().classes('items-center gap-1'):
+                                    ui.label('核心板块表现').classes('text-xs font-bold text-gray-400')
+                            
+                            # Small bars for positive/negative balance
+                            with ui.column().classes('items-end gap-1'):
+                                with ui.row().classes('items-center gap-2'):
+                                    ui.label(f'{pos_count}').classes('text-xs font-black text-rose-500')
+                                    ui.element('div').classes(f'h-1 bg-rose-500 rounded-full').style(f'width: {(pos_count/total_count)*40 if total_count > 0 else 0}px')
+                                with ui.row().classes('items-center gap-2'):
+                                    neg_count = total_count - pos_count
+                                    ui.label(f'{neg_count}').classes('text-xs font-black text-emerald-500')
+                                    ui.element('div').classes(f'h-1 bg-emerald-500 rounded-full').style(f'width: {(neg_count/total_count)*40 if total_count > 0 else 0}px')
 
-                    with ui.card().classes('w-full p-4 rounded-xl shadow-sm border border-gray-200 bg-white'):
-                        ui.label('Top10平均涨幅').classes('text-gray-500 text-xs font-bold uppercase tracking-wider')
-                        with ui.row().classes('items-baseline gap-1 mt-1'):
-                            ui.label(f"{sign}{avg_change:.2f}").classes(f'text-3xl font-extrabold text-{chg_color}')
-                            ui.label('%').classes(f'text-lg font-bold text-{chg_color}')
+                        with ui.grid(columns=2).classes('w-full mt-3 pt-3 border-t border-gray-50 gap-2'):
+                            with ui.column().classes('gap-0'):
+                                ui.label('统计规模').classes('text-xs text-gray-400 font-bold uppercase')
+                                ui.label(f'{total_count} 个板块').classes('text-sm font-black text-gray-700')
+                            with ui.column().classes('gap-0 items-end'):
+                                total_vol = df_flow[metric_col].sum() if not df_flow.empty else 0
+                                ui.label('总成交额').classes('text-xs text-gray-400 font-bold uppercase')
+                                ui.label(f'{total_vol/1e4:.1f}万亿' if total_vol > 1e4 else f'{total_vol:.1f}亿').classes('text-sm font-black text-gray-700')
 
-                        ui.label('头部板块整体表现').classes('text-gray-400 text-sm mt-1')
+                    # Card 3: Sector Alpha/Leaderboard (Screenshot 1 Style)
+                    with ui.card().classes('w-full p-3 rounded-xl shadow-sm border border-gray-100 bg-white'):
+                        with ui.row().classes('items-center gap-2 mb-2'):
+                            ui.icon('military_tech', color='amber').classes('text-lg')
+                            ui.label('领跑板块榜单').classes('text-xs font-black tracking-widest text-gray-400')
+                        
+                        # Use Combined Leader Data
+                        top_list = df_leader.sort_values(by=metric_col, ascending=False).head(3)
+                        
+                        if not top_list.empty:
+                            max_sector = top_list.iloc[0]
+                            # Top 1 Section
+                            with ui.row().classes('w-full items-start justify-between'):
+                                with ui.column().classes('gap-0'):
+                                    ui.label(max_sector["名称"]).classes('text-3xl font-black text-gray-900 tracking-tighter')
+                                    with ui.row().classes('items-center gap-2 mt-0.5'):
+                                        ui.label(f'成交:{max_sector[metric_col]:.1f}亿').classes('text-xs font-bold text-gray-400')
+                                        if pd.notnull(max_sector.get('净流入')):
+                                            inf = max_sector['净流入']
+                                            color = "rose-500" if inf > 0 else "emerald-500"
+                                            ui.label(f'主力:{inf:+.1f}亿').classes(f'text-xs font-black text-{color}')
+                                ui.icon('workspace_premium', color='amber-400').classes('text-4xl line-height-0')
+
+                            # Top 2 & 3 List
+                            with ui.column().classes('w-full mt-2 space-y-1'):
+                                for i, row in enumerate(top_list.iloc[1:3].itertuples()):
+                                    with ui.row().classes('w-full justify-between items-center bg-gray-50/50 px-2 py-1 rounded-lg'):
+                                        with ui.column().classes('gap-0'):
+                                            ui.label(f'NO.{i+2} {row.名称}').classes('text-xs font-extrabold text-gray-600')
+                                            ui.label(f'成交:{getattr(row, metric_col):.1f}亿').classes('text-[11px] text-gray-400')
+                                        
+                                        if hasattr(row, '净流入') and pd.notnull(row.净流入):
+                                            color_sub = "rose-500" if row.净流入 > 0 else "emerald-500"
+                                            ui.label(f'{row.净流入:+.1f}亿').classes(f'text-xs font-bold text-{color_sub}')
+                            
+                            # Efficiency Badge (Fallback if not multi-day)
+                            if not df_ths.empty:
+                                best_ratio = df_ths.sort_values(by='净占比', ascending=False).iloc[0]
+                                with ui.row().classes('w-full items-center justify-between mt-2 pt-2 border-t border-dashed border-gray-100'):
+                                    with ui.row().classes('items-center gap-1'):
+                                        ui.label('最强强度:').classes('text-xs font-black text-gray-400 uppercase')
+                                        ui.label(best_ratio["名称"]).classes('text-sm font-bold text-indigo-400')
+                                    ui.label(f'{best_ratio["净占比"]:+.1f}%').classes('text-xs bg-indigo-50 text-indigo-400 px-1.5 py-0.5 rounded font-mono font-bold')
+                        else:
+                            ui.label('暂无成交数据').classes('text-gray-300 text-sm italic py-8 text-center w-full')
+
 
                 # --- 4. Confrontation (Battlefield) Section (Moved to Top) ---
                 # Uses market_snap_data from tuple (Fetched or Cached)
 
                 if market_snap_data:
                     mkt_chg = market_snap_data.get('change_pct', 0.0)
-                    with ui.card().classes('w-full p-0 rounded-xl shadow-sm border border-gray-200 bg-white overflow-hidden mt-0'):
-                        with ui.row().classes('w-full p-4 border-b border-gray-200 items-center justify-between'):
+                    with ui.card().classes('w-full p-0 rounded-xl shadow-sm border border-gray-200 bg-white overflow-hidden mt-3'):
+                        with ui.row().classes('w-full p-3 border-b border-gray-200 items-center justify-between'):
                             with ui.row().classes('items-center gap-2'):
                                 ui.icon('compare_arrows', color='indigo').classes('text-xl')
-                                ui.label('多空阵营博弈 (Offense vs Defense)').classes('font-bold text-gray-800')
-                            ui.label(f'上证基准: {mkt_chg:+.2f}%').classes('text-sm font-bg bg-gray-100 px-2 py-1 rounded text-gray-600')
+                                ui.label('多空阵营博弈 (Offense vs Defense)').classes('font-bold text-gray-800 text-base')
+                            ui.label(f'上证基准: {mkt_chg:+.2f}%').classes('text-xs font-bold bg-gray-50 px-2 py-1 rounded text-gray-500')
 
                         df_flow['alpha'] = df_flow['涨跌幅'] - mkt_chg
-                        df_off = df_flow[df_flow['名称'].isin(offensive)].sort_values(by='alpha', ascending=False).head(8).iloc[::-1]
-                        df_def = df_flow[df_flow['名称'].isin(defensive)].sort_values(by='alpha', ascending=False).head(8).iloc[::-1]
-                        df_bal = df_flow[~df_flow['名称'].isin(offensive + defensive)].sort_values(by='alpha', ascending=False).head(8).iloc[::-1]
+                        
+                        # Calculate Camp Averages
+                        df_off_all = df_flow[df_flow['名称'].isin(offensive)]
+                        df_def_all = df_flow[df_flow['名称'].isin(defensive)]
+                        df_bal_all = df_flow[~df_flow['名称'].isin(offensive + defensive)]
+                        
+                        avg_off = df_off_all['alpha'].mean() if not df_off_all.empty else 0
+                        avg_def = df_def_all['alpha'].mean() if not df_def_all.empty else 0
+                        avg_bal = df_bal_all['alpha'].mean() if not df_bal_all.empty else 0
+
+                        # Select Display Data (Limit to 8 for clarity)
+                        df_off = df_off_all.sort_values(by='alpha', ascending=False).head(8).iloc[::-1]
+                        df_def = df_def_all.sort_values(by='alpha', ascending=False).head(8).iloc[::-1]
+                        df_bal = df_bal_all.sort_values(by='alpha', ascending=False).head(8).iloc[::-1]
 
                         from plotly.subplots import make_subplots
-                        fig_battle = make_subplots(rows=1, cols=3, shared_yaxes=False, horizontal_spacing=0.08,
-                            subplot_titles=("🛡️ 防守阵营", "⚖️ 平衡/轮动", "🚀 进攻阵营"))
+                        b_rows = 3 if is_mobile else 1
+                        b_cols = 1 if is_mobile else 3
+                        
+                        titles = (
+                            f"🛡️ 防守阵营 (Avg:{avg_def:+.1f}%)", 
+                            f"⚖️ 平衡/轮动 (Avg:{avg_bal:+.1f}%)", 
+                            f"🚀 进攻阵营 (Avg:{avg_off:+.1f}%)"
+                        )
 
-                        # Bar colors: Red for Positive Alpha, Green for Negative Alpha
-                        # 1. Defense (Left)
-                        def_colors = ['#ef4444' if a > 0 else '#10b981' for a in df_def['alpha']]
-                        def_text = [f"{n} ({v:+.2f}%)" for n, v in zip(df_def['名称'], df_def['涨跌幅'])]
-                        fig_battle.add_trace(go.Bar(
-                            y=df_def['名称'], x=df_def['alpha'], orientation='h',
-                            marker_color=def_colors,
-                            text=def_text, textposition='auto', name='防守Alpha'
-                        ), row=1, col=1)
+                        fig_battle = make_subplots(rows=b_rows, cols=b_cols, shared_yaxes=False, 
+                                                 horizontal_spacing=0.05, vertical_spacing=0.08,
+                                                 subplot_titles=titles)
 
-                        # 2. Balanced (Middle)
-                        bal_colors = ['#ef4444' if a > 0 else '#10b981' for a in df_bal['alpha']]
-                        bal_text = [f"{n} ({v:+.2f}%)" for n, v in zip(df_bal['名称'], df_bal['涨跌幅'])]
-                        fig_battle.add_trace(go.Bar(
-                            y=df_bal['名称'], x=df_bal['alpha'], orientation='h',
-                            marker_color=bal_colors,
-                            text=bal_text, textposition='auto', name='平衡Alpha'
-                        ), row=1, col=2)
+                        # Bar colors & Styling
+                        def add_camp_trace(fig, df, row, col, name):
+                            colors = ['#ef4444' if a > 0 else '#10b981' for a in df['alpha']]
+                            text = [f"<b>{n}</b> ({v:+.2f}%)" for n, v in zip(df['名称'], df['涨跌幅'])]
+                            fig.add_trace(go.Bar(
+                                y=df['名称'], x=df['alpha'], orientation='h',
+                                marker_color=colors,
+                                marker_line=dict(width=1, color='rgba(255,255,255,0.5)'),
+                                text=text, textposition='outside', 
+                                textfont=dict(size=11, color='#374151'),
+                                name=name,
+                                showlegend=False,
+                                cliponaxis=False
+                            ), row=row, col=col)
 
-                        # 3. Offense (Right)
-                        off_colors = ['#ef4444' if a > 0 else '#10b981' for a in df_off['alpha']]
-                        off_text = [f"{n} ({v:+.2f}%)" for n, v in zip(df_off['名称'], df_off['涨跌幅'])]
-                        fig_battle.add_trace(go.Bar(
-                            y=df_off['名称'], x=df_off['alpha'], orientation='h',
-                            marker_color=off_colors,
-                            text=off_text, textposition='auto', name='进攻Alpha'
-                        ), row=1, col=3)
+                        add_camp_trace(fig_battle, df_def, 1, 1, '防守Alpha')
+                        add_camp_trace(fig_battle, df_bal, 2 if is_mobile else 1, 1 if is_mobile else 2, '平衡Alpha')
+                        add_camp_trace(fig_battle, df_off, 3 if is_mobile else 1, 1 if is_mobile else 3, '进攻Alpha')
 
                         max_alpha = max(
-                            df_off['alpha'].abs().max() if not df_off.empty else 0, 
-                            df_def['alpha'].abs().max() if not df_def.empty else 0,
-                            df_bal['alpha'].abs().max() if not df_bal.empty else 0,
+                            df_flow['alpha'].abs().max() if not df_flow.empty else 0, 
                             3.0
                         )
-                        range_limit = max_alpha * 1.3
+                        range_limit = max_alpha * 1.5 # Extra room for labels
 
-                        # Enhance sections with background colors
-                        # Left: Greenish
-                        fig_battle.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1,
-                                           fillcolor="rgba(16, 185, 129, 0.05)", layer="below", line_width=0, row=1, col=1)
-                        # Middle: Grayish/Yellowish
-                        fig_battle.add_shape(type="rect", xref="x2 domain", yref="y2 domain", x0=0, y0=0, x1=1, y1=1,
-                                           fillcolor="rgba(245, 158, 11, 0.05)", layer="below", line_width=0, row=1, col=2)
-                        # Right: Reddish
-                        fig_battle.add_shape(type="rect", xref="x3 domain", yref="y3 domain", x0=0, y0=0, x1=1, y1=1,
-                                           fillcolor="rgba(239, 68, 68, 0.05)", layer="below", line_width=0, row=1, col=3)
+                        # Enhance sections with background colors (Subtle Gradients)
+                        # Define colors
+                        bg_colors = ["rgba(16, 185, 129, 0.03)", "rgba(245, 158, 11, 0.03)", "rgba(239, 68, 68, 0.03)"]
+                        for i in range(3):
+                            r = i + 1 if is_mobile else 1
+                            c = 1 if is_mobile else i + 1
+                            # Plotly uses 'x', 'x2', 'x3'... (no 'x1')
+                            ax_id = f"{i + 1}" if i > 0 else ""
+                            fig_battle.add_shape(type="rect", xref=f"x{ax_id} domain", yref=f"y{ax_id} domain", 
+                                               x0=0, y0=0, x1=1, y1=1,
+                                               fillcolor=bg_colors[i], layer="below", line_width=0, row=r, col=c)
 
                         fig_battle.update_layout(
-                            height=420, margin=dict(l=10, r=10, t=60, b=20), showlegend=False,
+                            height=700 if is_mobile else 420, 
+                            margin=dict(l=10, r=40, t=40, b=10), 
+                            showlegend=False,
                             plot_bgcolor='rgba(255,255,255,1)', paper_bgcolor='rgba(0,0,0,0)',
-                            font=dict(size=11)
+                            font=dict(size=12)
                         )
 
-                        # Fix annotations (Titles) style
+                        # Enhanced Titles Styling
                         if len(fig_battle.layout.annotations) >= 3:
-                            fig_battle.layout.annotations[0].update(font=dict(size=16, color='#10b981', weight='bold'))
-                            fig_battle.layout.annotations[1].update(font=dict(size=16, color='#f59e0b', weight='bold'))
-                            fig_battle.layout.annotations[2].update(font=dict(size=16, color='#ef4444', weight='bold'))
+                            title_colors = ['#10b981', '#f59e0b', '#ef4444']
+                            for i, color in enumerate(title_colors):
+                                fig_battle.layout.annotations[i].update(font=dict(size=14, color=color, weight='bold'))
 
-                        fig_battle.update_xaxes(title_text="Alpha (%)", range=[-range_limit, range_limit], 
-                                              zeroline=True, zerolinewidth=1, zerolinecolor='rgba(0,0,0,0.2)',
-                                              gridcolor='rgba(0,0,0,0.05)')
-                        fig_battle.update_yaxes(gridcolor='rgba(0,0,0,0.05)', showticklabels=False)
-                        plot_func(fig_battle).classes('w-full h-full min-h-[420px]')
+                        fig_battle.update_xaxes(title_text="Alpha (%)" if not is_mobile else "", range=[-range_limit, range_limit], 
+                                              zeroline=True, zerolinewidth=1, zerolinecolor='rgba(0,0,0,0.3)',
+                                              gridcolor='rgba(0,0,0,0.04)', tickfont=dict(size=10))
+                        fig_battle.update_yaxes(showticklabels=False, zeroline=False, gridcolor='rgba(0,0,0,0.02)')
+                        
+                        plot_func(fig_battle).classes(f'w-full {"h-[900px]" if is_mobile else "h-[460px]"}')
+
                 else:
                     # Message about missing history for Battlefield
                     with ui.row().classes('w-full justify-center p-4'):
@@ -823,17 +954,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                 # --- NEW SECTION: THS Deep Insight Analysis ---
                 if not df_ths.empty:
                     # 1. Data Processing & Derived Metrics
-                    # Ensure numeric and clean potential units if any (though usually float)
-                    for col in ['净流入', '总成交额', '涨跌幅']:
-                         # Simple cleanup just in case they are strings with units (though akshare usually gives floats now for this endpoint)
-                         if df_ths[col].dtype == object:
-                             df_ths[col] = df_ths[col].astype(str).str.replace('亿','').str.replace('万','').replace('nan', '0')
-                         df_ths[col] = pd.to_numeric(df_ths[col], errors='coerce').fillna(0)
-
-                    # Calculate "Main Force Net Inflow Ratio" (主力净占比)
-                    # Filter out noise: Ignore sectors with very low volume (e.g., < 5% of max turnover)
-                    max_turnover = df_ths['总成交额'].max()
-                    # Copy to avoid SettingWithCopy warning on the original slice if filtered later, but here we derivate first
+                    # Note: Data is already normalized to '亿' by FundRadar
                     df_ths_clean = df_ths.copy()
 
                     # Avoid division by zero
@@ -924,72 +1045,68 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                     distributing = df_ths_clean[ (df_ths_clean['涨跌幅'] > 0) & (df_ths_clean['净流入'] < 0) ].sort_values('净占比', ascending=True).head(5)
 
                     if not accumulating.empty or not distributing.empty:
-                        with ui.grid(columns=2 if not is_mobile else 1).classes('w-full gap-6 mt-0'):
+                        with ui.grid(columns=2 if not is_mobile else 1).classes('w-full gap-3 mt-2'):
                             # Accumulation List
-                            with ui.card().classes('w-full p-4 rounded-xl shadow-sm border border-amber-100 bg-amber-50'):
-                                with ui.row().classes('items-center gap-2 mb-3'):
-                                    ui.icon('vertical_align_bottom', color='amber').classes('text-xl')
+                            with ui.card().classes('w-full p-2 rounded-xl shadow-sm border border-amber-50 bg-amber-50/50'):
+                                with ui.row().classes('items-center gap-2 mb-1'):
+                                    ui.icon('vertical_align_bottom', color='amber').classes('text-lg')
                                     with ui.column().classes('gap-0'):
-                                        ui.label('隐形吸筹榜 (Hidden Accumulation)').classes('font-bold text-gray-800 text-sm')
-                                        ui.label('下跌但主力净流入').classes('text-xs text-gray-500')
+                                        ui.label('隐形吸筹榜 (Accumulation)').classes('font-black text-gray-800 text-xs uppercase')
+                                        ui.label('下跌但主力净流入').classes('text-xs text-gray-400')
 
                                 if not accumulating.empty:
                                     for _, row in accumulating.iterrows():
-                                        with ui.row().classes('w-full items-center justify-between text-sm py-2 border-b border-amber-200 border-opacity-50 last:border-0'):
-                                            ui.label(row['名称']).classes('font-medium text-gray-700')
-                                            with ui.row().classes('gap-3 items-center'):
-                                                ui.label(f"{row['涨跌幅']:.2f}%").classes('text-emerald-600 font-mono text-xs')
-                                                with ui.column().classes('items-end gap-0'):
-                                                    ui.label(f"流入 {row['净流入']:.1f}亿").classes('text-red-600 font-bold text-xs')
-                                                    ui.label(f"占比 {row['净占比']:.1f}%").classes('text-amber-600 text-[10px]')
+                                        with ui.row().classes('w-full items-center justify-between py-1.5 border-b border-amber-100 last:border-0'):
+                                            ui.label(row['名称']).classes('font-bold text-gray-700 text-sm')
+                                            with ui.row().classes('gap-2 items-center'):
+                                                ui.label(f"{row['涨跌幅']:.2f}%").classes('text-emerald-500 font-mono text-xs')
+                                                ui.label(f"{row['净流入']:.1f}亿").classes('text-rose-500 font-black text-sm')
                                 else:
                                     ui.label('暂无明显数据').classes('text-gray-400 text-xs italic')
 
                             # Distribution List
-                            with ui.card().classes('w-full p-4 rounded-xl shadow-sm border border-emerald-100 bg-emerald-50'):
-                                with ui.row().classes('items-center gap-2 mb-3'):
-                                    ui.icon('warning', color='emerald').classes('text-xl')
+                            with ui.card().classes('w-full p-2 rounded-xl shadow-sm border border-emerald-50 bg-emerald-50/50'):
+                                with ui.row().classes('items-center gap-2 mb-1'):
+                                    ui.icon('warning', color='emerald').classes('text-lg')
                                     with ui.column().classes('gap-0'):
-                                        ui.label('背离警示榜 (Divergence Warning)').classes('font-bold text-gray-800 text-sm')
-                                        ui.label('上涨但主力净流出').classes('text-xs text-gray-500')
+                                        ui.label('背离警示榜 (Divergence)').classes('font-black text-gray-800 text-xs uppercase')
+                                        ui.label('上涨但主力净流出').classes('text-xs text-gray-400')
 
                                 if not distributing.empty:
                                     for _, row in distributing.iterrows():
-                                        with ui.row().classes('w-full items-center justify-between text-sm py-2 border-b border-emerald-200 border-opacity-50 last:border-0'):
-                                            ui.label(row['名称']).classes('font-medium text-gray-700')
-                                            with ui.row().classes('gap-3 items-center'):
-                                                ui.label(f"+{row['涨跌幅']:.2f}%").classes('text-red-600 font-mono text-xs')
-                                                with ui.column().classes('items-end gap-0'):
-                                                    ui.label(f"流出 {abs(row['净流入']):.1f}亿").classes('text-emerald-600 font-bold text-xs')
-                                                    ui.label(f"占比 {row['净占比']:.1f}%").classes('text-gray-500 text-[10px]')
+                                        with ui.row().classes('w-full items-center justify-between py-1.5 border-b border-emerald-100 last:border-0'):
+                                            ui.label(row['名称']).classes('font-bold text-gray-700 text-sm')
+                                            with ui.row().classes('gap-2 items-center'):
+                                                ui.label(f"+{row['涨跌幅']:.2f}%").classes('text-rose-500 font-mono text-xs')
+                                                ui.label(f"{abs(row['净流入']):.1f}亿").classes('text-emerald-500 font-black text-sm')
                                 else:
                                     ui.label('暂无明显数据').classes('text-gray-400 text-xs italic')
                 # --- 3. Main Charts Section ---
-                with ui.column().classes('w-full gap-6'):
+                with ui.column().classes('w-full gap-4 mt-2'):
 
                     # Chart B: Bubble / Scatter 
                     with ui.card().classes('w-full p-0 rounded-xl shadow-sm border border-gray-200 bg-white overflow-hidden'):
-                        with ui.row().classes('w-full p-4 border-b border-gray-200 items-center justify-between'):
+                        with ui.row().classes('w-full p-2 border-b border-gray-200 items-center justify-between px-3'):
                             with ui.row().classes('items-center gap-2'):
                                 ui.icon('bubble_chart', color='indigo').classes('text-xl')
-                                ui.label('板块全景透视 (Panorama - Top 50)').classes('font-bold text-gray-800')
+                                ui.label('板块全景透视 (Panorama)').classes('font-bold text-gray-800 text-sm')
                             with ui.row().classes('text-xs gap-2'):
-                                ui.label('红:上涨').classes('text-red-500 font-bold')
+                                ui.label('红:上涨').classes('text-rose-500 font-bold')
                                 ui.label('绿:下跌').classes('text-emerald-500 font-bold')
 
                         df_scatter = df_sorted.head(50).copy() 
                         max_val_scatter = df_scatter[metric_col].max()
                         if max_val_scatter <= 0: max_val_scatter = 1.0
 
-                        bubble_sizes = (np.sqrt(df_scatter[metric_col].replace(0, 1)) / np.sqrt(max_val_scatter)) * 45 + 15
+                        bubble_sizes = (np.sqrt(df_scatter[metric_col].replace(0, 1)) / np.sqrt(max_val_scatter)) * 35 + 10
 
                         fig_scatter = go.Figure()
-                        min_x = (df_scatter[metric_col].min() if not df_scatter[metric_col].empty else 0) / 1e8
-                        max_x = (df_scatter[metric_col].max() if not df_scatter[metric_col].empty else 1) / 1e8
+                        min_x = (df_scatter[metric_col].min() if not df_scatter[metric_col].empty else 0)
+                        max_x = (df_scatter[metric_col].max() if not df_scatter[metric_col].empty else 1)
                         fig_scatter.add_shape(type="line", x0=min_x, y0=0, x1=max_x, y1=0, line=dict(color="gray", width=1, dash="dash"))
 
                         fig_scatter.add_trace(go.Scatter(
-                            x=df_scatter[metric_col] / 1e8, y=df_scatter['涨跌幅'], mode='markers+text',
+                            x=df_scatter[metric_col], y=df_scatter['涨跌幅'], mode='markers+text',
                             text=df_scatter['名称'], textposition="top center",
                             marker=dict(size=bubble_sizes, sizemode='diameter',
                                 color=np.where(df_scatter['涨跌幅'] > 0, '#ef4444', '#10b981'), 
@@ -997,7 +1114,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                             hovertemplate='<b>%{text}</b><br>成交: %{x:.1f}亿<br>涨跌幅: %{y:.2f}%<extra></extra>'
                         ))
                         fig_scatter.update_layout(
-                            height=500, margin=dict(l=60, r=20, t=30, b=50),
+                            height=400, margin=dict(l=60, r=20, t=10, b=40),
                             plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                             xaxis=dict(title=f"成交活跃度 (亿)", gridcolor='#F3F4F6', showgrid=True),
                             yaxis=dict(title="板块涨跌幅 (%)", gridcolor='#F3F4F6'), showlegend=False, autosize=True
@@ -1006,10 +1123,10 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
                     # Chart A: Bar Chart
                     with ui.card().classes('w-full p-0 rounded-xl shadow-md border-0 bg-white overflow-hidden'):
-                        with ui.row().classes('w-full p-4 border-b border-gray-200 items-center justify-between'):
+                        with ui.row().classes('w-full p-3 border-b border-gray-200 items-center justify-between px-3'):
                             with ui.row().classes('items-center gap-2'):
                                 ui.icon('bar_chart', color='indigo').classes('text-xl')
-                                ui.label(f'板块成交额热度 Top 20 (排行)').classes('font-bold text-gray-800')
+                                ui.label(f'板块成交额热度 Top 20').classes('font-bold text-gray-800 text-sm')
 
                         x_vals = top_20['名称'].astype(str).tolist()
                         y_vals = top_20[metric_col]
@@ -1017,16 +1134,17 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
                         fig_bar = go.Figure(go.Bar(
                             x=x_vals, y=y_vals, marker_color=colors,
-                            text=[f"{v/1e8:.1f}" for v in y_vals], textposition='auto',
-                            texttemplate='%{text}亿' if y_vals.abs().mean() > 1e8 else '%{text}',
-                            hovertemplate='%{x}<br>数值: %{y:.2f}<extra></extra>'
+                            text=[f"{v:.1f}亿" for v in y_vals], textposition='auto',
+                            hovertemplate='%{x}<br>数值: %{y:.2f}亿<extra></extra>'
                         ))
                         fig_bar.update_layout(
-                            height=400, margin=dict(l=40, r=20, t=20, b=80),
+                            height=350, margin=dict(l=40, r=20, t=10, b=60),
                             plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-                            yaxis=dict(gridcolor='#F3F4F6'), xaxis=dict(tickangle=-45), autosize=True, title=None
+                            yaxis=dict(gridcolor='#F3F4F6', tickfont=dict(size=11)), 
+                            xaxis=dict(tickangle=-45, tickfont=dict(size=11)), 
+                            autosize=True, title=None
                         )
-                        plot_func(fig_bar).classes('w-full h-full min-h-[400px]')
+                        plot_func(fig_bar).classes('w-full h-full min-h-[350px]')
 
     # --- Auto-load logic ---
     async def auto_load_logic():

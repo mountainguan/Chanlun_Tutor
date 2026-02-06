@@ -220,6 +220,21 @@ class FundRadar:
         df_ths = pd.DataFrame(cache_data.get('ths_sectors', []))
         market = cache_data.get('market')
         
+        # --- Normalize Units to "亿" (100 Million Yuan) ---
+        def normalize_df(df, cols):
+            if df.empty: return df
+            for col in cols:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                    # Heuristic: Akshare returns Yuan for these interfaces. 
+                    # If max value is large (>1e5), it's definitely Yuan.
+                    if df[col].abs().max() > 100000:
+                        df[col] = df[col] / 100000000.0
+            return df
+
+        df_sina = normalize_df(df_sina, ['成交额', '成交额(元)', '总成交额'])
+        df_ths = normalize_df(df_ths, ['净流入', '总成交额', '成交额'])
+
         return df_sina, df_ths, market
 
     def _check_throttle(self, key, cooldown=60):
@@ -259,10 +274,8 @@ class FundRadar:
         except ValueError:
             return pd.DataFrame(), []
 
-        start_idx = idx - days + 1
-        
-        if start_idx < 0:
-            return pd.DataFrame(), []
+        # Ensure we don't go out of bounds (handle large 'days' as 'all available history')
+        start_idx = max(0, idx - days + 1)
             
         target_dates = all_dates[start_idx : idx + 1]
         
@@ -279,9 +292,11 @@ class FundRadar:
                  
                  try: flow = float(item.get('净流入', 0))
                  except (ValueError, TypeError): flow = 0.0
+                 if abs(flow) > 100000: flow /= 100000000.0 # Normalize to Yi
                      
                  try: turnover = float(item.get('总成交额', 0)) 
                  except (ValueError, TypeError): turnover = 0.0
+                 if turnover > 100000: turnover /= 100000000.0 # Normalize to Yi
 
                  try: pct = float(item.get('涨跌幅', 0))
                  except (ValueError, TypeError): pct = 0.0
