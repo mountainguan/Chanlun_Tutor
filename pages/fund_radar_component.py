@@ -1,4 +1,4 @@
-from nicegui import ui
+from nicegui import ui, app
 import plotly.graph_objects as go
 from utils.fund_radar import FundRadar
 import pandas as pd
@@ -79,9 +79,11 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
             # Fetch data 
             # Returns: Sina DF (Amount), THS DF (Net Inflow), Market Snapshot
+            # Use 'FORCE_UPDATE' if force is True, else 'READ_CACHE'
+            mode = 'FORCE_UPDATE' if force else 'READ_CACHE'
             loop = asyncio.get_running_loop()
             df_flow, df_ths, market_snap_data = await loop.run_in_executor(
-                None, lambda: radar.get_sector_data_by_date(date_val, force_refresh=force)
+                None, lambda: radar.get_data(date_val, mode=mode)
             )
 
             # Update Last Updated Label
@@ -502,19 +504,37 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         )
                         plot_func(fig_bar).classes('w-full h-full min-h-[400px]')
 
-    # Auto-load today on init
-    ui.timer(0.1, lambda: update_dashboard(today_str), once=True)
+    # --- Auto-load logic ---
+    async def auto_load_logic():
+        # Determine if "First Open" of the day for this client session
+        client_key = f"fr_visited_{today_str}"
+        
+        # Read from localStorage via JS since app.storage.browser is problematic in callbacks
+        # and standardizing with Money Flow module's approach.
+        stored_val = await ui.run_javascript(f'return localStorage.getItem("{client_key}")')
+        is_first_visit = (stored_val != "true")
+        
+        mode_force = False
+        if is_first_visit:
+            # First time today: Force refresh as per requirement
+            print(f"[FundRadar] First visit detected for {today_str}. Force refreshing...")
+            # Write to localStorage
+            ui.run_javascript(f'localStorage.setItem("{client_key}", "true")')
+            mode_force = True
+        
+        await update_dashboard(today_str, force=mode_force)
 
-    # --- Background Auto-Refresh Logic (Every 30 minutes) ---
-    async def background_refresh():
-        # Only refresh if it's today and the element is still visible/mounted
-        # NiceGUI timer already handles destruction if the parent container is deleted
+    # Run init logic
+    ui.timer(0.1, auto_load_logic, once=True)
+
+    # --- Client-Side Poller (Reflect Background Updates) ---
+    async def poll_for_monitor():
+        # Poll cache to reflect backend updates (Monitor visual)
+        # Checks every minute. force=False ensures we ONLY read cache, never fetch.
         if date_input.value == today_str:
-            print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Fund Radar: Background Auto-refreshing today's data...")
-            await update_dashboard(today_str, force=True)
+            await update_dashboard(today_str, force=False)
 
-    # 1800 seconds = 30 minutes
-    ui.timer(1800, background_refresh)
+    ui.timer(60, poll_for_monitor)
 
 
 

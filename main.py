@@ -60,27 +60,26 @@ async def run_background_tasks():
             utc_now = datetime.datetime.now(datetime.timezone.utc)
             cn_now = utc_now + datetime.timedelta(hours=8)
             
-            # Check if trading time (Mon-Fri)
+            # Check if generally potentially trading time (Mon-Fri, 9:00 - 15:30)
+            # We keep this broad check to avoid waking up at midnight.
+            # Fine-grained checks (holidays, lunch break, etc) are handled inside FundRadar.
             if cn_now.weekday() < 5:  # 0=Monday, 4=Friday
                 current_time = cn_now.time()
-                # Morning: 09:25 - 11:35 | Afternoon: 12:55 - 15:05 (extend slightly to catch close)
-                is_trading = (
-                    (current_time >= datetime.time(9, 25) and current_time <= datetime.time(11, 35)) or
-                    (current_time >= datetime.time(12, 55) and current_time <= datetime.time(15, 10))
-                )
-                
-                if is_trading:
+                if datetime.time(9, 0) <= current_time <= datetime.time(15, 30):
                     today_str = cn_now.strftime('%Y-%m-%d')
-                    print(f"[Background] Updating Fund Radar for {today_str} at {cn_now.strftime('%H:%M:%S')}")
-                    # Run in executor to avoid blocking main thread
+                    
+                    # Call with BACKGROUND_AUTO mode
+                    # This will check cache age (>30min) and handle retry logic (5min delay on fail)
+                    # Running in executor to avoid blocking the event loop with file I/O or network
                     loop = asyncio.get_running_loop()
-                    await loop.run_in_executor(None, lambda: radar.get_sector_data_by_date(today_str, force_refresh=True))
+                    await loop.run_in_executor(None, lambda: radar.get_data(today_str, mode='BACKGROUND_AUTO'))
         
         except Exception as e:
             print(f"[Background] Task error: {e}")
             
-        # Update every 30 minutes (1800 seconds)
-        await asyncio.sleep(1800)
+        # Check frequency: Every 60 seconds
+        # This high frequency allows the "Retry after 5 mins" logic to work precisely
+        await asyncio.sleep(60)
 
 app.on_startup(run_background_tasks)
 

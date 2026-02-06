@@ -166,10 +166,10 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
                         columns = [
                             {'name': '月份', 'label': '月份', 'field': '月份', 'align': 'left'},
                             {'name': '交易日期', 'label': '对比日', 'field': '交易日期', 'align': 'center'},
-                            {'name': '总存款比例', 'label': '总存款 : 市值', 'field': '总存款比例', 'sortable': True, 'style': 'font-weight: bold'},
-                            {'name': '企业存款比例', 'label': '企业存款 : 市值', 'field': '企业存款比例', 'sortable': True},
-                            {'name': '储蓄存款比例', 'label': '储蓄存款 : 市值', 'field': '储蓄存款比例', 'sortable': True},
-                            {'name': 'A股总市值(亿)', 'label': 'A股总市值', 'field': 'A股总市值(亿)', 'sortable': True},
+                            {'name': '总存款比例', 'label': '总存款 : 市值', 'field': '总存款比例', 'sortable': True, 'align': 'center', 'style': 'font-weight: bold'},
+                            {'name': '企业存款比例', 'label': '企业存款 : 市值', 'field': '企业存款比例', 'sortable': True, 'align': 'center'},
+                            {'name': '储蓄存款比例', 'label': '储蓄存款 : 市值', 'field': '储蓄存款比例', 'sortable': True, 'align': 'center'},
+                            {'name': 'A股总市值(亿)', 'label': 'A股总市值', 'field': 'A股总市值(亿)', 'sortable': True, 'align': 'center'},
                         ]
                         
                         ui.table(columns=columns, rows=rows, pagination=15).classes('w-full shadow-none border-0')
@@ -468,16 +468,22 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
                         })
                     ui.aggrid({
                         'columnDefs': [
-                            {'headerName': '日期', 'field': 'date'},
-                            {'headerName': '温度', 'field': 'temp', 'cellStyle': {'fontWeight': 'bold', 'color': '#5C6BC0'}},
-                            {'headerName': '成交(万亿)', 'field': 'turnover'},
-                            {'headerName': '融资买入(亿)', 'field': 'margin_buy'},
-                            {'headerName': '融资占比(%)', 'field': 'margin_pct'},
+                            {'headerName': '日期', 'field': 'date', 'sortable': True},
+                            {'headerName': '温度', 'field': 'temp', 'sortable': True,
+                             'cellStyle': {'fontWeight': 'bold', 'color': '#5C6BC0', 'textAlign': 'center'}},
+                            {'headerName': '成交(万亿)', 'field': 'turnover', 'sortable': True, 'cellStyle': {'textAlign': 'center'}},
+                            {'headerName': '融资买入(亿)', 'field': 'margin_buy', 'sortable': True, 'cellStyle': {'textAlign': 'center'}},
+                            {'headerName': '融资占比(%)', 'field': 'margin_pct', 'sortable': True, 'cellStyle': {'textAlign': 'center'}},
                         ],
                         'rowData': rows,
                         'rowClassRules': {'ag-row-estimated': 'data.is_estimated === true'},
                         'pagination': True,
-                        'defaultColDef': {'sortable': True, 'filter': True}
+                        'defaultColDef': {
+                            'sortable': True, 
+                            'filter': True,
+                            'flex': 1,
+                            'resizable': True
+                        }
                     }).classes('w-full h-[500px]')
 
     # Initial Load

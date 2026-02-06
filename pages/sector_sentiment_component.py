@@ -338,20 +338,22 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
                         {'headerName': '板块名称', 'field': 'name', 'sortable': True, 'filter': True, 'pinned': 'left', 'width': 130},
                         {'headerName': '归属行业', 'field': 'group', 'sortable': True, 'filter': True, 'flex': 1, 'minWidth': 110} if 'group' in df_s.columns else None,
                         {'headerName': '情绪温度', 'field': 'temperature', 'sortable': True, 'filter': 'agNumberColumnFilter', 
-                         'cellStyle': {'fontWeight': 'bold', 'textAlign': 'center'}, 'flex': 1, 'minWidth': 100,
+                         'cellStyle': {'fontWeight': 'bold', 'textAlign': 'center'}, 'minWidth': 100,
                          'cellClassRules': {
                              'text-red-600': 'x > 90',
                              'text-red-400': 'x > 50 && x <= 90',
                              'text-blue-400': 'x < 0 && x >= -40',
                              'text-blue-700': 'x < -40',
                          }},
-                        {'headerName': '量能得分', 'field': 'score_vol', 'sortable': True, 'flex': 1, 'minWidth': 100,
+                        {'headerName': '量能得分', 'field': 'score_vol', 'sortable': True, 'minWidth': 100,
+                         'cellStyle': {'textAlign': 'center'},
                          'cellClassRules': {'text-red-500': 'x > 0', 'text-blue-500': 'x <= 0'}} if 'score_vol' in df_s.columns else None,
-                        {'headerName': '融资得分', 'field': 'score_margin', 'sortable': True, 'flex': 1, 'minWidth': 100,
+                        {'headerName': '融资得分', 'field': 'score_margin', 'sortable': True, 'minWidth': 100,
+                         'cellStyle': {'textAlign': 'center'},
                          'cellClassRules': {'text-red-500': 'x > 0', 'text-blue-500': 'x <= 0'}} if 'score_margin' in df_s.columns else None,
-                        {'headerName': '成交(亿)', 'field': 'turnover_yi', 'sortable': True, 'flex': 1, 'minWidth': 110},
-                        {'headerName': '数据状态', 'field': 'status', 'flex': 1, 'minWidth': 90} if 'is_mock' in df_s.columns else None,
-                        {'headerName': '更新日期', 'field': 'date', 'sortable': True, 'flex': 1, 'minWidth': 110},
+                        {'headerName': '成交(亿)', 'field': 'turnover_yi', 'sortable': True, 'minWidth': 110, 'cellStyle': {'textAlign': 'center'}},
+                        {'headerName': '数据状态', 'field': 'status', 'minWidth': 90, 'cellStyle': {'textAlign': 'center'}} if 'is_mock' in df_s.columns else None,
+                        {'headerName': '更新日期', 'field': 'date', 'sortable': True, 'minWidth': 110, 'cellStyle': {'textAlign': 'center'}},
                     ]
                     
                     # Prepare data records with extra status field
@@ -373,6 +375,7 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
                             'resizable': True,
                             'sortable': True,
                             'filter': True,
+                            'flex': 1
                         },
                         'rowClassRules': {
                             'bg-red-50': 'data.temperature > 90',

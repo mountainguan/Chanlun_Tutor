@@ -427,9 +427,10 @@ class MarketSentiment:
                 checkpoint_close = current_time.replace(hour=15, minute=30, second=0, microsecond=0)
                 
                 # Default: Fetch if we haven't fetched at all
-                need_fetch = True
+                # If force_refresh is True, always fetch
+                need_fetch = True if force_refresh else True
                 
-                if last_fetch_str:
+                if last_fetch_str and not force_refresh:
                     try:
                         last_fetch = datetime.datetime.strptime(last_fetch_str, '%Y-%m-%d %H:%M:%S')
                         
