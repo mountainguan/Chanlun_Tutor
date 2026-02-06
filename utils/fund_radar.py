@@ -230,6 +230,93 @@ class FundRadar:
             return True
         return False
 
+    def get_available_cache_dates(self):
+        """
+        Return sorted list of date strings (YYYY-MM-DD) available in cache.
+        """
+        if not os.path.exists(self.cache_dir):
+            return []
+        files = os.listdir(self.cache_dir)
+        dates = []
+        for f in files:
+            if f.startswith('sector_sina_') and f.endswith('.json'):
+                d_str = f[12:-5]
+                # Simple validation of format YYYY-MM-DD
+                if len(d_str) == 10 and d_str[4] == '-' and d_str[7] == '-':
+                    dates.append(d_str)
+        dates.sort()
+        return dates
+
+    def get_multi_day_data(self, end_date_str, days):
+        """
+        Aggregate data for N days ending on end_date_str.
+        Returns: (DataFrame, list_of_dates_used)
+        """
+        all_dates = self.get_available_cache_dates()
+        
+        try:
+            idx = all_dates.index(end_date_str)
+        except ValueError:
+            return pd.DataFrame(), []
+
+        start_idx = idx - days + 1
+        
+        if start_idx < 0:
+            return pd.DataFrame(), []
+            
+        target_dates = all_dates[start_idx : idx + 1]
+        
+        aggregated_stats = {} 
+        
+        for d_str in target_dates:
+             data, _, _ = self.load_from_cache(d_str)
+             if not data: continue
+             
+             ths_list = data.get('ths_sectors', [])
+             for item in ths_list:
+                 name = item.get('名称')
+                 if not name: continue
+                 
+                 try: flow = float(item.get('净流入', 0))
+                 except (ValueError, TypeError): flow = 0.0
+                     
+                 try: turnover = float(item.get('总成交额', 0)) 
+                 except (ValueError, TypeError): turnover = 0.0
+
+                 try: pct = float(item.get('涨跌幅', 0))
+                 except (ValueError, TypeError): pct = 0.0
+                 
+                 if name not in aggregated_stats:
+                     aggregated_stats[name] = {
+                         'net_inflow': 0.0, 'turnover': 0.0, 'count': 0, 
+                         'flows': [], 'turnovers': [], 'pcts': [], 'dates': []
+                     }
+                 
+                 stats = aggregated_stats[name]
+                 stats['net_inflow'] += flow
+                 stats['turnover'] += turnover
+                 stats['count'] += 1
+                 stats['flows'].append(flow)
+                 stats['turnovers'].append(turnover)
+                 stats['pcts'].append(pct)
+                 stats['dates'].append(d_str)
+                 
+        rows = []
+        for name, stats in aggregated_stats.items():
+            if stats['count'] > 0:
+                avg_pct = sum(stats['pcts']) / stats['count']
+                rows.append({
+                    '名称': name,
+                    '净流入': stats['net_inflow'],     
+                    '总成交额': stats['turnover'],    
+                    '活跃天数': stats['count'],
+                    '涨跌幅': avg_pct, # Average Daily Change for the period
+                    '日均趋势': stats['flows'] 
+                })
+                
+        df = pd.DataFrame(rows)
+        return df, target_dates
+
     # --- Fetch Implementations (Keep existing logic) ---
     def _fetch_sina_sector(self):
         try:

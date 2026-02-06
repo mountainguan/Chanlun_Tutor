@@ -27,55 +27,558 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
         # 1. Header & Controls Section
         with ui.card().classes('w-full rounded-xl shadow-sm border border-gray-200 bg-white p-3 md:p-4'):
              with ui.row().classes('w-full items-center justify-between wrap gap-y-3 gap-x-4'):
-                # Left: Title
+                # Left: Title & Duration Toggle
                 with ui.row().classes('items-center gap-3'):
                     with ui.element('div').classes('p-2 bg-indigo-50 rounded-lg'):
                         ui.icon('radar', color='indigo').classes('text-2xl')
                     with ui.column().classes('gap-0'):
-                        ui.label('主力资金雷达').classes('text-lg md:text-xl font-bold text-gray-800 tracking-tight')
+                        with ui.row().classes('items-center gap-3'):
+                            ui.label('主力资金雷达').classes('text-lg md:text-xl font-bold text-gray-800 tracking-tight')
+                            # Duration Toggle: Redesigned as flat/segmented
+                            duration_toggle = ui.toggle({1: '1天'}, value=1).props('dense no-caps unelevated color=transparent text-color=grey-7 toggle-color=indigo toggle-text-color=white').classes('text-xs bg-gray-100/50 rounded-lg p-0.5')
+                        
                         with ui.row().classes('items-center gap-2'):
-                            ui.label('Sector Heat Radar (Sina Source)').classes('text-xs text-gray-400 font-medium hidden md:block')
+                            ui.label('Sector Heat Radar (Multi-Day)').classes('text-xs text-gray-400 font-medium hidden md:block')
                             last_update_label = ui.label('').classes('text-[10px] text-indigo-400 bg-indigo-50 px-1.5 rounded-full font-mono')
 
                 # Right: Controls (Date Picker & Refresh)
                 with ui.row().classes('items-center gap-2 flex-wrap justify-end flex-1'):
 
                     # Date Picker Logic
-                    # We can't easily restrict min/max in q-date via standard element props for simple NiceGUI date,
-                    # but we can validate in logic.
-                    # Default value is Today.
                     date_input = ui.input('选择日期', value=today_str).props('outlined dense bg-white readonly').classes('w-32 md:w-40 text-sm')
                     with date_input.add_slot('append'):
                         ui.icon('event').classes('cursor-pointer') \
                             .on('click', lambda: date_menu.open())
                         with ui.menu() as date_menu:
-                            ui.date(value=today_str, on_change=lambda e: (date_input.set_value(e.value), date_menu.close(), update_dashboard(e.value))) \
+                            ui.date(value=today_str, on_change=lambda e: (date_input.set_value(e.value), date_menu.close())) \
                                 .props(f'mask="YYYY-MM-DD"') # Optional: limit navigation
 
                     refresh_btn = ui.button('强制刷新', icon='refresh', on_click=lambda: update_dashboard(date_input.value, force=True)) \
                         .props('flat color=red dense').classes('font-bold bg-red-50 hover:bg-red-100 text-xs md:text-sm')
 
-                    # Only show refresh if date is today (Client-side visibility toggle logic inside update?)
-                    # Simplified: We just check inside the button handler or disable it visually?
-                    # Let's bind visibility.
+                    # Visibility Logic
                     def check_refresh_visibility():
                         is_today = (date_input.value == today_str)
                         refresh_btn.set_visibility(is_today)
+                    
+                    # Update Duration Options based on Cache
+                    def update_duration_options(date_val):
+                        available_dates = radar.get_available_cache_dates()
+                        try:
+                            if date_val in available_dates:
+                                idx = available_dates.index(date_val)
+                                available_count = idx + 1
+                            elif date_val == today_str: 
+                                # Today might not be cached yet, but conceptually 1 day is available
+                                available_count = 1 if len(available_dates)==0 or available_dates[-1] != today_str else len(available_dates) + (1 if today_str not in available_dates else 0)
+                                # Simplified: If today, at least 1 day. Use actual cache for history.
+                                # If today is in cache, count is accurate. If not, maybe just 1.
+                                available_count = available_dates.index(date_val) + 1 if date_val in available_dates else 1
+                            else:
+                                available_count = 0 
+                        except:
+                            available_count = 0
 
-                    date_input.on_value_change(check_refresh_visibility)
+                        options = {1: '1天'}
+                        for d in [3, 5, 10, 20, 30]:
+                            if available_count >= d:
+                                options[d] = f'{d}天'
+                        
+                        duration_toggle.set_options(options)
+                        if duration_toggle.value not in options:
+                            duration_toggle.set_value(1)
+
+                    # Event Listeners
+                    async def on_date_change():
+                        check_refresh_visibility()
+                        update_duration_options(date_input.value)
+                        await update_dashboard(date_input.value)
+
+                    date_input.on_value_change(on_date_change)
+                    duration_toggle.on_value_change(lambda: update_dashboard(date_input.value))
+
+                    # Init
+                    check_refresh_visibility()
+                    update_duration_options(today_str)
 
         # 2. Status & Dashboard Area
         dashboard_content = ui.column().classes('w-full gap-6')
 
+        def render_multi_day_view(df, dates, plot_func):
+             """
+             Render multi-day aggregated view with enhanced tech-minimalist styling.
+             """
+             # Pre-calculations
+             df['资金强度'] = df.apply(lambda x: x['净流入'] / x['总成交额'] if x['总成交额'] > 0 else 0, axis=1)
+             
+             # Filter logic
+             df['abs_flow'] = df['净流入'].abs()
+             df_top_scatter = df.sort_values('abs_flow', ascending=False)
+             if len(df_top_scatter) > 50:
+                 df_top_scatter = df_top_scatter.head(50)
+             
+             # Stats
+             total_net = df['净流入'].sum()
+             pos_df = df[df['净流入'] > 0]
+             neg_df = df[df['净流入'] < 0]
+             pos_ratio = (len(pos_df) / len(df) * 100) if not df.empty else 0
+             avg_strength = df['资金强度'].mean()
+             
+             # Leaders
+             top_inflow_list = df.sort_values('净流入', ascending=False).head(5)
+             max_inflow = top_inflow_list.iloc[0] if not top_inflow_list.empty else None
+             max_strength = df.sort_values('资金强度', ascending=False).iloc[0] if not df.empty else None
+             
+             # Market Sentiment Color Mapping
+             if total_net > 0:
+                 status_color = "rose" # Tailwind color name for Indigo/Rose mix
+                 status_hex = "#f43f5e"
+                 insight_title = "多头主导"
+                 insight_sub = "BULLISH TREND"
+                 bg_gradient = "bg-gradient-to-br from-rose-50 to-white"
+                 border_color = "border-rose-100"
+             else:
+                 status_color = "emerald"
+                 status_hex = "#10b981"
+                 insight_title = "空头抑制"
+                 insight_sub = "BEARISH TREND"
+                 bg_gradient = "bg-gradient-to-br from-emerald-50 to-white"
+                 border_color = "border-emerald-100"
+
+             with ui.grid(columns=3 if not is_mobile else 1).classes('w-full gap-4'):
+
+                # Card 1: AI Insight Specialist (Glass/Gradient Tech Style)
+                with ui.card().classes(f'w-full p-4 rounded-xl shadow-sm border {border_color} {bg_gradient} relative overflow-hidden group hover:shadow-md transition-all duration-500'):
+                        # Tech background element
+                        ui.element('div').classes('absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white opacity-20 group-hover:scale-125 transition-transform duration-700')
+                        
+                        with ui.row().classes('items-center gap-2 mb-2'):
+                            ui.icon('hub', color=status_color).classes('text-lg animate-pulse')
+                            ui.label('智能态势洞察').classes('text-xs font-black hide-scrollbar tracking-widest text-gray-400')
+                        
+                        with ui.column().classes('gap-0'):
+                            ui.label(insight_title).classes(f'text-3xl md:text-4xl font-black {f"text-{status_color}-600"} tracking-tight')
+                            ui.label(insight_sub).classes('text-xs font-bold hide-scrollbar text-gray-400 tracking-widest -mt-1')
+                        
+                        flow_val_str = f"{abs(total_net):.1f} 亿"
+                        flow_dir = "净流入" if total_net > 0 else "净流出"
+                        
+                        with ui.column().classes('mt-4 gap-2'):
+                            with ui.row().classes('items-center gap-2'):
+                                ui.element('div').classes(f'w-1.5 h-1.5 rounded-full {f"bg-{status_color}-500"}')
+                                ui.label(f'多空共识：{flow_dir} {flow_val_str}').classes('text-sm font-bold text-gray-700')
+                            
+                            phase_text = "极度分化" if pos_ratio < 30 else ("普盘活跃" if pos_ratio > 60 else "结构性轮动")
+                            with ui.row().classes('items-center gap-2'):
+                                ui.element('div').classes(f'w-1.5 h-1.5 rounded-full {f"bg-{status_color}-500"}')
+                                ui.label(f'演化阶段：{phase_text} ({pos_ratio:.0f}% 板块参与)').classes('text-sm font-bold text-gray-700')
+
+                        ui.label('主力主要在象限右侧“高强度区”进行火力压制。').classes('text-[11px] text-gray-400 mt-4 border-t border-gray-100 pt-3 italic')
+
+                # Card 2: Market Pulse (Minimalist Tech Meter)
+                with ui.card().classes('w-full p-4 rounded-xl shadow-sm border border-gray-100 bg-white hover:border-indigo-200 transition-colors duration-300'):
+                    with ui.row().classes('items-center gap-2 mb-4'):
+                        ui.icon('sensors', color='indigo').classes('text-lg')
+                        ui.label('市场进攻脉搏').classes('text-xs font-black tracking-widest text-gray-400')
+                    
+                    with ui.row().classes('w-full items-end justify-between'):
+                        with ui.column().classes('gap-0'):
+                            ui.label(f'{avg_strength:+.3f}').classes(f'text-4xl font-black {"text-rose-500" if avg_strength > 0 else "text-emerald-500"}')
+                            with ui.row().classes('items-center gap-1'):
+                                ui.label('平均进攻强度').classes('text-xs font-bold text-gray-400')
+                                with ui.icon('help_outline', color='gray-400').classes('text-xs cursor-help'):
+                                    ui.tooltip('该指标衡量资金流入成交额的效率，正值越高代表进攻欲望越强。').classes('text-xs')
+                        
+                        # Distribution Visualizer
+                        with ui.column().classes('items-end gap-1'):
+                            total_cnt = len(df)
+                            with ui.row().classes('items-center gap-2'):
+                                ui.label(f'{len(pos_df)}').classes('text-xs font-bold text-rose-500')
+                                ui.element('div').classes(f'h-1 bg-rose-500 rounded-full').style(f'width: {(len(pos_df)/total_cnt)*40}px')
+                            with ui.row().classes('items-center gap-2'):
+                                ui.label(f'{len(neg_df)}').classes('text-xs font-bold text-emerald-500')
+                                ui.element('div').classes(f'h-1 bg-emerald-500 rounded-full').style(f'width: {(len(neg_df)/total_cnt)*40}px')
+
+                    with ui.grid(columns=2).classes('w-full mt-6 pt-4 border-t border-gray-50 gap-4'):
+                        with ui.column().classes('gap-0'):
+                            ui.label('统计规模').classes('text-xs text-gray-400 font-bold')
+                            ui.label(f'{len(df)} 个板块').classes('text-sm font-black text-gray-700')
+                        with ui.column().classes('gap-0 items-end'):
+                            ui.label('总成交量').classes('text-xs text-gray-400 font-bold')
+                            ui.label(f'{(df["总成交额"].sum()/10000):.1f} 万亿').classes('text-sm font-black text-gray-700')
+
+                # Card 3: Sector Alpha (Minimalist Leaderboard)
+                with ui.card().classes('w-full p-4 rounded-xl shadow-sm border border-gray-100 bg-white'):
+                    with ui.row().classes('items-center gap-2 mb-4'):
+                        ui.icon('military_tech', color='amber').classes('text-lg')
+                        ui.label('领跑板块榜单').classes('text-xs font-black tracking-widest text-gray-400')
+                    
+                    if max_inflow is not None:
+                        # Top 1 Section
+                        with ui.row().classes('w-full items-start justify-between'):
+                            with ui.column().classes('gap-0'):
+                                ui.label(max_inflow["名称"]).classes('text-2xl font-black text-gray-900')
+                                ui.label(f'累计流入: {max_inflow["净流入"]:.1f} 亿').classes('text-xs font-bold text-rose-500 tracking-tight')
+                            ui.icon('workspace_premium', color='amber-400').classes('text-3xl')
+
+                        # Top 2 & 3 List
+                        with ui.column().classes('w-full mt-3 space-y-1'):
+                            for i, row in enumerate(top_inflow_list.iloc[1:3].itertuples()):
+                                with ui.row().classes('w-full justify-between items-center bg-gray-50/50 px-2 py-1.5 rounded-lg'):
+                                    ui.label(f'NO.{i+2} {row.名称}').classes('text-xs font-bold text-gray-600')
+                                    ui.label(f'{row.净流入:+.1f} 亿').classes('text-xs font-mono text-gray-400')
+                        
+                        # Efficiency Badge
+                        if max_strength is not None:
+                            with ui.row().classes('w-full items-center gap-2 mt-3 pt-3 border-t border-dashed border-gray-100'):
+                                with ui.row().classes('items-center gap-1'):
+                                    ui.label('效率标杆:').classes('text-xs font-black text-gray-400')
+                                    with ui.icon('help_outline', color='gray-300').classes('text-[10px] cursor-help'):
+                                        ui.tooltip('指单位成交额吸纳净流入最多的板块，代表该板块资金承接力最强。').classes('text-xs')
+                                ui.label(max_strength["名称"]).classes('text-sm font-bold text-indigo-500')
+                                ui.label(f'强度 {max_strength["资金强度"]:.3f}').classes('text-xs bg-indigo-50 text-indigo-400 px-2 py-0.5 rounded font-bold')
+                    else:
+                        ui.label('等待数据同步...').classes('text-gray-300 text-sm italic py-8 text-center w-full')
+
+             # 2. Advanced Scatter Plot (Quadrant Analysis)
+             with ui.column().classes('w-full gap-6'):  
+                with ui.card().classes('w-full border border-gray-200 rounded-xl shadow-sm bg-white p-4 flex flex-col gap-0'):
+                      with ui.row().classes('w-full justify-between items-center mb-2 pb-2 border-b border-gray-200'):
+                           with ui.row().classes('items-center gap-2'):
+                                ui.icon('bubble_chart', color='indigo').classes('text-xl')
+                                ui.label('资金进攻象限 (气泡大小=成交额)').classes('text-base font-bold text-gray-800')
+                      
+                      plot_h = 'h-[500px]' 
+                      with ui.element('div').classes(f'w-full {plot_h}'):
+                          fig_scatter = go.Figure()
+                          
+                          # Hover template
+                          hover_text = [
+                              f"板块: {row.名称}<br>净流入: {row.净流入:.1f}亿<br>强度: {row.资金强度:.3f}<br>成交: {row.总成交额:.1f}亿<br>活跃: {row.活跃天数}天"
+                              for row in df_top_scatter.itertuples()
+                          ]
+                          
+                          # Determine colors based on Net Inflow (Red for positive, Green for negative)
+                          colors = ['#ef4444' if row.净流入 > 0 else '#10b981' for row in df_top_scatter.itertuples()]
+                          
+                          # Size calculation (Adjusted for better visuals)
+                          size_ref = df_top_scatter['总成交额'].max() if not df_top_scatter.empty else 1
+                          sizes = (np.sqrt(df_top_scatter['总成交额']) / np.sqrt(size_ref)) * 40 + 10
+
+                          fig_scatter.add_trace(go.Scatter(
+                              x=df_top_scatter['净流入'],
+                              y=df_top_scatter['资金强度'],
+                              mode='markers+text',
+                              text=df_top_scatter['名称'],
+                              textposition="top center",
+                              textfont=dict(size=11, color='rgba(0,0,0,0.7)', family="sans-serif"), 
+                              marker=dict(
+                                  size=sizes, 
+                                  sizemode='diameter',
+                                  color=colors,
+                                  line=dict(width=1, color='white'),
+                                  opacity=0.85
+                              ),
+                              hoverinfo='text',
+                              hovertext=hover_text
+                          ))
+                          
+                          # Quadrant Lines
+                          fig_scatter.add_vline(x=0, line_width=1, line_dash="solid", line_color="rgba(0,0,0,0.05)")
+                          fig_scatter.add_hline(y=0, line_width=1, line_dash="solid", line_color="rgba(0,0,0,0.05)")
+                          
+                          # Background Watermark Annotations (Matching Image 1 Style)
+                          quad_anns = [
+                              dict(x=1, y=1, xref='x domain', yref='y domain', text="🔥 主力抢筹", showarrow=False, 
+                                   font=dict(color='rgba(239, 68, 68, 0.15)', size=24, weight='bold'), xanchor='right', yanchor='top'),
+                              dict(x=0, y=0, xref='x domain', yref='y domain', text="❄️ 减仓出货", showarrow=False, 
+                                   font=dict(color='rgba(16, 185, 129, 0.15)', size=24, weight='bold'), xanchor='left', yanchor='bottom')
+                          ]
+                          for ann in quad_anns:
+                              fig_scatter.add_annotation(ann)
+
+                          fig_scatter.update_layout(
+                              margin=dict(l=40,r=40,t=30,b=40),
+                              paper_bgcolor='rgba(0,0,0,0)',
+                              plot_bgcolor='rgba(252, 252, 252, 1)', 
+                              xaxis_title='累积净流入 (亿)',
+                              yaxis_title='资金强度 (净流入/成交额)',
+                              xaxis=dict(zeroline=False, gridcolor='#F3F4F6'),
+                              yaxis=dict(zeroline=False, gridcolor='#F3F4F6'),
+                              showlegend=False
+                          )
+                          plot_func(fig_scatter).classes('w-full h-full')
+                 
+                # 3. Combined Analysis Chart (Divergence & Flow)
+                with ui.card().classes('w-full border border-gray-200 rounded-xl shadow-sm bg-white p-4 flex flex-col gap-0'):
+                     with ui.row().classes('w-full justify-between items-center mb-2 pb-2 border-b border-gray-200'):
+                           with ui.row().classes('items-center gap-2'):
+                                ui.icon('analytics', color='indigo').classes('text-xl')
+                                ui.label('资金流向与板块表现 (Top 20 Divergence Analysis)').classes('text-base font-bold text-gray-800')
+                           with ui.row().classes('items-center gap-4 text-xs text-gray-500 hidden md:flex'):
+                                with ui.row().classes('items-center gap-1'):
+                                    ui.element('div').classes('w-3 h-3 bg-red-500 rounded-sm opacity-60')
+                                    ui.label('净流入 (Bar)')
+                                with ui.row().classes('items-center gap-1'):
+                                    ui.element('div').classes('w-3 h-3 bg-emerald-500 rounded-sm opacity-60')
+                                    ui.label('净流出 (Bar)')
+                                with ui.row().classes('items-center gap-1'):
+                                    ui.icon('diamond', size='xs').classes('text-gray-600')
+                                    ui.label('平均涨跌 (Point)')
+                     
+                     # Data Prep
+                     # Ensure we have '涨跌幅'
+                     if '涨跌幅' not in df.columns:
+                         df['涨跌幅'] = 0.0
+                     
+                     df_in = df.sort_values('净流入', ascending=False).head(10)
+                     df_out = df.sort_values('净流入', ascending=True).head(10)
+                     df_combo = pd.concat([df_in, df_out]).drop_duplicates(subset=['名称']).sort_values('净流入', ascending=True)
+                     
+                     # Calculate visual separator position (between negative and positive)
+                     neg_count = len(df_combo[df_combo['净流入'] < 0])
+                     split_idx = neg_count - 0.5
+
+                     with ui.element('div').classes('w-full h-[500px]'):
+                         fig_combo = go.Figure()
+
+                         # Trace 1: Net Inflow (Bars)
+                         colors_bar = ['#ef4444' if x > 0 else '#10b981' for x in df_combo['净流入']]
+                         fig_combo.add_trace(go.Bar(
+                             y=df_combo['名称'],
+                             x=df_combo['净流入'],
+                             orientation='h',
+                             name='资金净流入',
+                             marker_color=colors_bar,
+                             opacity=0.6,
+                             text=[f"{x:.1f}" for x in df_combo['净流入']],
+                             textposition='outside',
+                             textfont=dict(size=12, color='black', weight='bold'),
+                             cliponaxis=False,
+                             hoverinfo='x+y'
+                         ))
+
+                         # Trace 2: Price Change (Markers)
+                         # Use secondary x-axis
+                         # Red diamond for Up, Green diamond for Down
+                         colors_dot = ['#b91c1c' if x > 0 else '#047857' for x in df_combo['涨跌幅']]
+                         fig_combo.add_trace(go.Scatter(
+                             y=df_combo['名称'],
+                             x=df_combo['涨跌幅'],
+                             xaxis='x2',
+                             mode='markers',
+                             name='平均涨跌幅',
+                             marker=dict(color=colors_dot, size=10, symbol='diamond', line=dict(width=1, color='white')), 
+                             hovertemplate='%{y}<br>平均涨跌: %{x:.2f}%<extra></extra>'
+                         ))
+
+                         # Add Separator Line & Annotations
+                         if 0 < neg_count < len(df_combo):
+                             fig_combo.add_shape(type="line", 
+                                x0=0, x1=1, xref="paper",
+                                y0=split_idx, y1=split_idx, yref="y",
+                                line=dict(color="rgba(0,0,0,0.2)", width=1, dash="longdash")
+                             )
+                             # Zone Labels
+                             fig_combo.add_annotation(x=1, y=len(df_combo)-1, xref="paper", yref="y",
+                                text="资金净流入 Top", showarrow=False, font=dict(color="#ef4444", size=12, weight="bold"), xanchor='right', yanchor='top',
+                                bgcolor="rgba(255,255,255,0.7)")
+                             fig_combo.add_annotation(x=1, y=0, xref="paper", yref="y",
+                                text="资金净流出 Top", showarrow=False, font=dict(color="#10b981", size=12, weight="bold"), xanchor='right', yanchor='bottom',
+                                bgcolor="rgba(255,255,255,0.7)")
+
+                         # Highlight Divergence (Optional Annotation)?
+                         # Keep it clean for now.
+
+                         fig_combo.update_layout(
+                             margin=dict(l=20,r=20,t=40,b=20),
+                             paper_bgcolor='rgba(0,0,0,0)',
+                             plot_bgcolor='rgba(0,0,0,0)',
+                             barmode='overlay',
+                             xaxis=dict(
+                                 title=dict(text='资金净流入 (亿)', standoff=0, font=dict(size=14)),
+                                 tickfont=dict(size=12),
+                                 showgrid=True, 
+                                 gridcolor='#f3f4f6', # Very light
+                                 zeroline=True, zerolinewidth=1, zerolinecolor='gray'
+                             ),
+                             xaxis2=dict(
+                                 title=dict(text='平均涨跌幅 (%)', font=dict(color='#6b7280', size=13)),
+                                 tickfont=dict(color='#6b7280', size=12),
+                                 overlaying='x', 
+                                 side='top',
+                                 showgrid=False,
+                                 zeroline=False
+                             ),
+                             yaxis=dict(
+                                 showgrid=False,
+                                 tickfont=dict(size=13, color='#374151', weight='bold') # Dark gray, bold-ish look
+                             ),
+                             showlegend=False,
+                             bargap=0.3
+                         )
+                         plot_func(fig_combo).classes('w-full h-full')
+
+                # 4. Detailed Data & Panorama (Treemap + Table)
+                with ui.card().classes('w-full border border-gray-200 rounded-xl shadow-sm bg-white p-0 flex flex-col gap-0'):
+                     # Header
+                     with ui.row().classes('w-full justify-between items-center p-4 border-b border-gray-200'):
+                           with ui.row().classes('items-center gap-2'):
+                                ui.icon('grid_view', color='indigo').classes('text-xl')
+                                ui.label('资金流向全景透视图 (Money Flow Heatmap)').classes('text-base font-bold text-gray-800')
+
+                     # Data Prep for Treemap
+                     df_tree = df.copy()
+                     df_tree['abs_turnover'] = df_tree['总成交额']
+                     
+                     # 1. Categorize Sectors
+                     offensive_list, defensive_list = radar.get_offensive_defensive_list()
+                     def get_category(name):
+                        if name in offensive_list: return "🚀 进攻阵营"
+                        if name in defensive_list: return "🛡️ 防守阵营"
+                        return "⚖️ 平衡/其他"
+
+                     df_tree['category'] = df_tree['名称'].apply(get_category)
+                     
+                     # 2. Build Hierarchy Nodes
+                     # Root
+                     root_id = "全市场板块资金概览"
+                     
+                     # Categories
+                     cats = df_tree['category'].unique().tolist()
+                     
+                     # Leaves (Sectors) - Parent is their Category
+                     ids = df_tree['名称'].tolist() + cats + [root_id]
+                     labels = df_tree['名称'].tolist() + cats + [root_id]
+                     parents = df_tree['category'].tolist() + [root_id]*len(cats) + [""]
+                     
+                     # Values (Turnover)
+                     # Leaves have real turnover. Groups/Root = 0 (Plotly sums children)
+                     values = df_tree['abs_turnover'].tolist() + [0]*len(cats) + [0]
+                     
+                     # Colors (Net Inflow)
+                     # Leaves have real inflow. Groups/Root = 0 (or let Plotly aggregate? Plotly Treemap implies color aggregation if unspecified? 
+                     # No, we must provide color for all nodes if we use array)
+                     colors = df_tree['净流入'].tolist() + [0]*len(cats) + [0]
+                     
+                     # Text/CustomData
+                     # Leaves
+                     texts_leaves = df_tree['净流入'].apply(lambda x: f"{x:+.1f}亿").tolist()
+                     custom_leaves = df_tree['涨跌幅'].tolist()
+                     
+                     # Branch/Root Text (Optional)
+                     texts_branches = [""] * (len(cats) + 1)
+                     custom_branches = [0] * (len(cats) + 1)
+                     
+                     all_text = texts_leaves + texts_branches
+                     all_custom = custom_leaves + custom_branches
+
+                     with ui.element('div').classes('w-full h-[800px] p-2'):
+                         fig_tree = go.Figure(go.Treemap(
+                            ids=ids,
+                            labels=labels,
+                            parents=parents,
+                            values=values,
+                            marker=dict(
+                                colors=colors,
+                                # Custom Red-White-Green scale
+                                colorscale=[
+                                    [0.0, 'rgb(34, 197, 94)'],   # Green (Outflow)
+                                    [0.5, 'rgb(255, 255, 255)'], # White
+                                    [1.0, 'rgb(239, 68, 68)']    # Red (Inflow)
+                                ],
+                                cmid=0,
+                                showscale=False
+                            ),
+                            text=all_text,
+                            texttemplate="<b>%{label}</b><br>%{text}",
+                            hovertemplate='<b>%{label}</b><br>成交额: %{value:.1f}亿<br>净流入: %{text}<br>涨跌幅: %{customdata:.2f}%<extra></extra>',
+                            customdata=all_custom,
+                            textposition="middle center",
+                            textfont=dict(size=14, color='black')
+                         ))
+                         
+                         fig_tree.update_layout(
+                            margin=dict(t=10, l=10, r=10, b=10),
+                            uniformtext=dict(minsize=10, mode='hide')
+                         )
+                         plot_func(fig_tree).classes('w-full h-full')
+
+                     # Collapsible Data Table
+                     with ui.expansion('查看详细数据报表 (Data Table)', icon='table_chart').classes('w-full border-t border-gray-100 bg-gray-50'):
+                        with ui.column().classes('w-full p-4 gap-4'):
+                             # Download Button
+                             def download_csv():
+                                 csv_str = df.to_csv(index=False)
+                                 ui.download(dict(content=csv_str, filename=f'fund_flow_{date_val}_{duration}days.csv').encode('utf-8'))
+                             
+                             with ui.row().classes('w-full justify-end'):
+                                 ui.button('下载 CSV 数据', icon='download', on_click=download_csv).props('outline rounded color=grey-8 size=sm')
+
+                             # Table
+                             df_table = df.sort_values('净流入', ascending=False)
+                             rows = []
+                             for i, row in enumerate(df_table.itertuples(), 1):
+                                 intensity = row.资金强度 * 100 
+                                 flows = row.日均趋势 if hasattr(row, '日均趋势') else []
+                                 
+                                 rows.append({
+                                     'rank': i,
+                                     'name': row.名称,
+                                     'flow': f'{row.净流入:.2f}',
+                                     'turnover': f'{row.总成交额:.2f}',
+                                     'pct': f'{row.涨跌幅:.2f}%',
+                                     'intensity': f'{intensity:.2f}%',
+                                     'days': row.活跃天数,
+                                 })
+                             
+                             cols = [
+                                 {'name': 'rank', 'label': '排名', 'field': 'rank', 'sortable': True, 'align': 'center'},
+                                 {'name': 'name', 'label': '板块名称', 'field': 'name', 'sortable': True, 'align': 'left'},
+                                 {'name': 'flow', 'label': '累计净流入 (亿)', 'field': 'flow', 'sortable': True, 'align': 'right'},
+                                 {'name': 'pct', 'label': '平均涨跌幅', 'field': 'pct', 'sortable': True, 'align': 'right'},
+                                 {'name': 'turnover', 'label': '累计成交额 (亿)', 'field': 'turnover', 'sortable': True, 'align': 'right'},
+                                 {'name': 'intensity', 'label': '资金强度', 'field': 'intensity', 'sortable': True, 'align': 'right'},
+                                 {'name': 'days', 'label': '统计天数', 'field': 'days', 'sortable': True, 'align': 'center'},
+                             ]
+                             
+                             ui.table(columns=cols, rows=rows, pagination=10).classes('w-full bg-white shadow-sm border border-gray-200')
+
+
         async def update_dashboard(date_val, force=False):
             check_refresh_visibility() # Update button state
             dashboard_content.clear()
+            
+            # Determine duration
+            duration = duration_toggle.value if duration_toggle.value else 1
 
             with dashboard_content:
                 # Loading State
                 with ui.column().classes('w-full items-center justify-center py-12'):
                     ui.spinner(type='dots', size='3rem', color='indigo')
-                    ui.label(f'正在加载 {date_val} 数据...').classes('text-gray-400 mt-4 animate-pulse')
+                    ui.label(f'正在加载 {date_val} (过去{duration}天) 数据...').classes('text-gray-400 mt-4 animate-pulse')
+            
+            loop = asyncio.get_running_loop()
+
+            # --- Multi Data Logic ---
+            if duration > 1:
+                df_agg, used_dates = await loop.run_in_executor(
+                    None, lambda: radar.get_multi_day_data(date_val, duration)
+                )
+                
+                dashboard_content.clear()
+                with dashboard_content:
+                    if df_agg.empty:
+                        with ui.card().classes('w-full p-8 items-center justify-center bg-white rounded-xl shadow-sm border border-gray-200'):
+                             ui.icon('history_edu', size='4rem', color='grey-4')
+                             ui.label(f'过去 {duration} 天数据不足').classes('text-xl text-gray-500 font-bold mt-4')
+                             ui.label('请尝试选择更近的日期或单日视图').classes('text-gray-400')
+                    else:
+                        render_multi_day_view(df_agg, used_dates, plot_func)
+                return
+
+            # --- Single Day Logic (Original) ---
+
 
             # Fetch data 
             # Returns: Sina DF (Amount), THS DF (Net Inflow), Market Snapshot
@@ -242,12 +745,14 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         df_flow['alpha'] = df_flow['涨跌幅'] - mkt_chg
                         df_off = df_flow[df_flow['名称'].isin(offensive)].sort_values(by='alpha', ascending=False).head(8).iloc[::-1]
                         df_def = df_flow[df_flow['名称'].isin(defensive)].sort_values(by='alpha', ascending=False).head(8).iloc[::-1]
+                        df_bal = df_flow[~df_flow['名称'].isin(offensive + defensive)].sort_values(by='alpha', ascending=False).head(8).iloc[::-1]
 
                         from plotly.subplots import make_subplots
-                        fig_battle = make_subplots(rows=1, cols=2, shared_yaxes=False, horizontal_spacing=0.12,
-                            subplot_titles=("🛡️ 防守阵营 (Defensive)", "🚀 进攻阵营 (Offensive)"))
+                        fig_battle = make_subplots(rows=1, cols=3, shared_yaxes=False, horizontal_spacing=0.08,
+                            subplot_titles=("🛡️ 防守阵营", "⚖️ 平衡/轮动", "🚀 进攻阵营"))
 
                         # Bar colors: Red for Positive Alpha, Green for Negative Alpha
+                        # 1. Defense (Left)
                         def_colors = ['#ef4444' if a > 0 else '#10b981' for a in df_def['alpha']]
                         def_text = [f"{n} ({v:+.2f}%)" for n, v in zip(df_def['名称'], df_def['涨跌幅'])]
                         fig_battle.add_trace(go.Bar(
@@ -256,41 +761,60 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                             text=def_text, textposition='auto', name='防守Alpha'
                         ), row=1, col=1)
 
+                        # 2. Balanced (Middle)
+                        bal_colors = ['#ef4444' if a > 0 else '#10b981' for a in df_bal['alpha']]
+                        bal_text = [f"{n} ({v:+.2f}%)" for n, v in zip(df_bal['名称'], df_bal['涨跌幅'])]
+                        fig_battle.add_trace(go.Bar(
+                            y=df_bal['名称'], x=df_bal['alpha'], orientation='h',
+                            marker_color=bal_colors,
+                            text=bal_text, textposition='auto', name='平衡Alpha'
+                        ), row=1, col=2)
+
+                        # 3. Offense (Right)
                         off_colors = ['#ef4444' if a > 0 else '#10b981' for a in df_off['alpha']]
                         off_text = [f"{n} ({v:+.2f}%)" for n, v in zip(df_off['名称'], df_off['涨跌幅'])]
                         fig_battle.add_trace(go.Bar(
                             y=df_off['名称'], x=df_off['alpha'], orientation='h',
                             marker_color=off_colors,
                             text=off_text, textposition='auto', name='进攻Alpha'
-                        ), row=1, col=2)
+                        ), row=1, col=3)
 
-                        max_alpha = max(df_off['alpha'].abs().max() if not df_off.empty else 0, df_def['alpha'].abs().max() if not df_def.empty else 0, 3.0)
+                        max_alpha = max(
+                            df_off['alpha'].abs().max() if not df_off.empty else 0, 
+                            df_def['alpha'].abs().max() if not df_def.empty else 0,
+                            df_bal['alpha'].abs().max() if not df_bal.empty else 0,
+                            3.0
+                        )
                         range_limit = max_alpha * 1.3
 
                         # Enhance sections with background colors
-                        # Using 'y domain' and 'y2 domain' correctly fills the subplot area vertically
+                        # Left: Greenish
                         fig_battle.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1,
-                                           fillcolor="rgba(16, 185, 129, 0.06)", layer="below", line_width=0, row=1, col=1)
-                        # Row 1 Col 2: Offensive (Light Rose bg)
+                                           fillcolor="rgba(16, 185, 129, 0.05)", layer="below", line_width=0, row=1, col=1)
+                        # Middle: Grayish/Yellowish
                         fig_battle.add_shape(type="rect", xref="x2 domain", yref="y2 domain", x0=0, y0=0, x1=1, y1=1,
-                                           fillcolor="rgba(239, 68, 68, 0.06)", layer="below", line_width=0, row=1, col=2)
+                                           fillcolor="rgba(245, 158, 11, 0.05)", layer="below", line_width=0, row=1, col=2)
+                        # Right: Reddish
+                        fig_battle.add_shape(type="rect", xref="x3 domain", yref="y3 domain", x0=0, y0=0, x1=1, y1=1,
+                                           fillcolor="rgba(239, 68, 68, 0.05)", layer="below", line_width=0, row=1, col=3)
 
                         fig_battle.update_layout(
-                            height=400, margin=dict(l=20, r=20, t=60, b=20), showlegend=False,
+                            height=420, margin=dict(l=10, r=10, t=60, b=20), showlegend=False,
                             plot_bgcolor='rgba(255,255,255,1)', paper_bgcolor='rgba(0,0,0,0)',
-                            font=dict(size=12)
+                            font=dict(size=11)
                         )
 
                         # Fix annotations (Titles) style
-                        if len(fig_battle.layout.annotations) >= 2:
-                            fig_battle.layout.annotations[0].update(font=dict(size=14, color='#10b981', weight='bold'))
-                            fig_battle.layout.annotations[1].update(font=dict(size=14, color='#ef4444', weight='bold'))
+                        if len(fig_battle.layout.annotations) >= 3:
+                            fig_battle.layout.annotations[0].update(font=dict(size=16, color='#10b981', weight='bold'))
+                            fig_battle.layout.annotations[1].update(font=dict(size=16, color='#f59e0b', weight='bold'))
+                            fig_battle.layout.annotations[2].update(font=dict(size=16, color='#ef4444', weight='bold'))
 
                         fig_battle.update_xaxes(title_text="Alpha (%)", range=[-range_limit, range_limit], 
                                               zeroline=True, zerolinewidth=1, zerolinecolor='rgba(0,0,0,0.2)',
                                               gridcolor='rgba(0,0,0,0.05)')
-                        fig_battle.update_yaxes(gridcolor='rgba(0,0,0,0.05)')
-                        plot_func(fig_battle).classes('w-full h-full min-h-[400px]')
+                        fig_battle.update_yaxes(gridcolor='rgba(0,0,0,0.05)', showticklabels=False)
+                        plot_func(fig_battle).classes('w-full h-full min-h-[420px]')
                 else:
                     # Message about missing history for Battlefield
                     with ui.row().classes('w-full justify-center p-4'):
