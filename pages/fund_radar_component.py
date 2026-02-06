@@ -28,7 +28,9 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         ui.icon('radar', color='indigo').classes('text-2xl')
                     with ui.column().classes('gap-0'):
                         ui.label('主力资金雷达').classes('text-xl font-bold text-gray-800 tracking-tight')
-                        ui.label('Sector Heat Radar (Sina Source)').classes('text-xs text-gray-400 font-medium')
+                        with ui.row().classes('items-center gap-2'):
+                            ui.label('Sector Heat Radar (Sina Source)').classes('text-xs text-gray-400 font-medium')
+                            last_update_label = ui.label('').classes('text-[10px] text-indigo-400 bg-indigo-50 px-1.5 rounded-full font-mono')
 
                 # Right: Controls (Date Picker & Refresh)
                 with ui.row().classes('items-center gap-3'):
@@ -76,6 +78,13 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
             df_flow, df_ths, market_snap_data = await loop.run_in_executor(
                 None, lambda: radar.get_sector_data_by_date(date_val, force_refresh=force)
             )
+
+            # Update Last Updated Label
+            if market_snap_data and 'update_time' in market_snap_data:
+                last_update_label.set_text(f"最后刷新: {market_snap_data['update_time']}")
+                last_update_label.set_visibility(True)
+            else:
+                last_update_label.set_visibility(False)
 
             dashboard_content.clear()
 
@@ -487,6 +496,17 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
     # Auto-load today on init
     ui.timer(0.1, lambda: update_dashboard(today_str), once=True)
+
+    # --- Background Auto-Refresh Logic (Every 30 minutes) ---
+    async def background_refresh():
+        # Only refresh if it's today and the element is still visible/mounted
+        # NiceGUI timer already handles destruction if the parent container is deleted
+        if date_input.value == today_str:
+            print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Fund Radar: Background Auto-refreshing today's data...")
+            await update_dashboard(today_str, force=True)
+
+    # 1800 seconds = 30 minutes
+    ui.timer(1800, background_refresh)
 
 
 

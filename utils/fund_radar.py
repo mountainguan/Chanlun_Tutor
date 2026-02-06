@@ -81,6 +81,11 @@ class FundRadar:
                             market_snap = self.get_market_snapshot()
                             data['market'] = market_snap
                             needs_update = True
+                        
+                        # Return update_time if present
+                        market_snap = market_snap or {}
+                        if 'update_time' in data:
+                            market_snap['update_time'] = data['update_time']
                             
                     elif isinstance(data, list):
                         # Very old structure: List of sectors
@@ -90,16 +95,23 @@ class FundRadar:
                             print(f"Migrating cache for {date_str} to new dictionary format...")
                             df_ths = self._fetch_ths_sector()
                             market_snap = self.get_market_snapshot()
+                            now_time = datetime.datetime.now().strftime('%H:%M:%S')
                             data = {
                                 "sina_sectors": data,
                                 "ths_sectors": df_ths.to_dict(orient='records') if not df_ths.empty else [],
-                                "market": market_snap
+                                "market": market_snap,
+                                "update_time": now_time
                             }
+                            if market_snap: market_snap['update_time'] = now_time
                             needs_update = True
                     
                     # Persist backfill changes
                     if needs_update:
                         try:
+                            # Ensure we have update_time on save
+                            if 'update_time' not in data and date_str == today_str:
+                                data['update_time'] = datetime.datetime.now().strftime('%H:%M:%S')
+
                             with open(cache_path, 'w', encoding='utf-8') as f:
                                 json.dump(data, f, ensure_ascii=False, indent=2)
                         except Exception as e:
@@ -115,14 +127,19 @@ class FundRadar:
             df_sina = self._fetch_sina_sector()
             df_ths = self._fetch_ths_sector()
             market_snap = self.get_market_snapshot()
+            now_time = datetime.datetime.now().strftime('%H:%M:%S')
             
             # Save to cache with market data
             try:
                 cache_data = {
                     "sina_sectors": df_sina.to_dict(orient='records') if not df_sina.empty else [],
                     "ths_sectors": df_ths.to_dict(orient='records') if not df_ths.empty else [],
-                    "market": market_snap
+                    "market": market_snap,
+                    "update_time": now_time
                 }
+                
+                if market_snap:
+                    market_snap['update_time'] = now_time
                 
                 # Validation: Only save if we got at least something
                 if not df_sina.empty or not df_ths.empty:
