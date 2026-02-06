@@ -200,13 +200,13 @@ def render_money_flow_panel(plotly_renderer=None):
     with ui.row().classes('w-full items-stretch gap-6'):
 
         # === Left Column: Subscription Management ===
-        with ui.card().classes('w-[320px] flex-none p-4 gap-4 no-inner-shadow h-[700px] flex flex-col'):
+        with ui.card().classes('w-[320px] flex-none p-4 gap-4 bg-white rounded-xl shadow-sm border border-gray-200 h-[700px] flex flex-col'):
             with ui.row().classes('w-full items-center justify-between'):
                 ui.label('我的自选股').classes('text-xl font-bold text-gray-800 tracking-tight')
                 ui.button(icon='settings', on_click=open_group_manager).props('flat round dense color=grey-7').tooltip('管理分组')
             
             # Input Area
-            with ui.column().classes('w-full gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100'):
+            with ui.column().classes('w-full gap-3 bg-gray-50 p-3 rounded-lg border border-gray-200'):
                 ui.label('添加新股票').classes('text-xs font-bold text-gray-500 uppercase tracking-wider')
                 code_input = ui.input(placeholder='代码 (如 600000)').props('outlined dense bg-white').classes('w-full')
                 name_input = ui.input(placeholder='名称 (可选)').props('outlined dense bg-white').classes('w-full')
@@ -266,7 +266,7 @@ def render_money_flow_panel(plotly_renderer=None):
         # === Right Column: Charts ===
         with ui.column().classes('flex-grow h-[700px] gap-4 min-w-0'):
             # Header
-            with ui.row().classes('w-full justify-between items-center bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex-none'):
+            with ui.row().classes('w-full justify-between items-center bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex-none'):
                 with ui.row().classes('items-center gap-3'):
                     ui.icon('analytics', color='primary').classes('text-3xl')
                     header_label = ui.label('请选择左侧股票查看资金流向').classes('text-2xl font-bold text-gray-800 tracking-tight')

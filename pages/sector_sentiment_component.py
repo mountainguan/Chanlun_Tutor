@@ -12,46 +12,47 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
     # UI Layout and Components
     
     # Redesigned: Left main column for explanations + right stats sidebar
-    with ui.row().classes('w-full max-w-6xl gap-6 items-stretch min-h-[220px] flex-col md:flex-row'):
-        # Left column (main content)
-        with ui.column().classes('flex-1 h-full hide-on-mobile'):
-            with ui.card().classes('w-full h-full flex flex-col bg-white p-4 rounded-lg shadow-md border-l-2 border-l-indigo-100 no-inner-shadow min-h-0 min-h-[450px]'):
-                with ui.row().classes('items-center gap-2 mb-4'):
+    with ui.row().classes('w-full gap-4 items-stretch flex-col md:flex-row'):
+        # Left column (main content) - 2/3 width on PC for better formula display
+        with ui.column().classes('w-full md:w-2/3 h-full hide-on-mobile'):
+            with ui.card().classes('w-full h-full flex flex-col bg-white p-4 rounded-xl shadow-sm border border-gray-200 no-inner-shadow min-h-[450px]'):
+                with ui.row().classes('items-center gap-2 mb-3'):
                     ui.icon('info', color='indigo').classes('text-2xl')
                     ui.label('板块情绪温度说明').classes('text-lg font-bold text-gray-800')
 
                 ui.html('''
-                <div class="bg-indigo-50 p-4 rounded-lg mb-4 text-sm text-indigo-900">
+                <div class="bg-indigo-50 p-3 rounded-lg mb-3 text-sm text-indigo-900 leading-normal">
                     <b>📐 计算公式：</b>板块温度 = <span class="font-bold text-red-600">量能项(资金活跃度)</span> + <span class="font-bold text-blue-600">融资项(杠杆意愿)</span>
                 </div>
                 ''', sanitize=False).classes('w-full')
 
-                with ui.card().classes('w-full p-4 bg-gray-50 rounded-lg flex-1 flex flex-col min-h-0'):
-                    with ui.row().classes('w-full gap-4 items-stretch flex-nowrap overflow-x-auto flex-1 min-h-0'):
-                        with ui.card().classes('flex-1 min-w-[320px] p-4 bg-white rounded-lg shadow-none border-0'):
-                            ui.label('量能项 (Volume)').classes('font-bold text-gray-700 text-sm mb-1')
-                            ui.label('反映资金相对大盘的活跃度。').classes('text-xs text-gray-500 mb-2')
-                            ui.html('<div class="text-xs w-full break-words">公式： (板块成交 / 均量) ÷ (大盘成交 / 均量)</div>', sanitize=False)
+                with ui.card().classes('w-full p-3 bg-gray-100/50 rounded-xl flex-1 flex flex-col min-h-0 border border-gray-200 shadow-none'):
+                    # Horizontal layout restored
+                    with ui.row().classes('w-full gap-4 items-stretch flex-1 min-h-0'):
+                        with ui.card().classes('flex-1 min-w-[180px] p-4 bg-white rounded-lg shadow-sm border border-gray-50 flex flex-col justify-center'):
+                            ui.label('量能项 (Volume活跃度)').classes('font-bold text-gray-700 text-sm mb-1')
+                            ui.label('反映板块相对大盘的资金聚集程度。').classes('text-xs text-gray-500 mb-2 leading-tight')
+                            ui.html('<div class="text-xs w-full break-words text-indigo-600 font-mono bg-indigo-50 p-2 rounded">公式： (板块成交 / 均量) ÷ (大盘成交 / 均量)</div>', sanitize=False)
 
-                        with ui.card().classes('flex-1 min-w-[320px] p-4 bg-white rounded-lg shadow-none border-0'):
-                            ui.label('融资项 (Margin)').classes('font-bold text-gray-700 text-sm mb-1')
-                            ui.label('反映杠杆资金相对大盘的激进程度。').classes('text-xs text-gray-500 mb-2')
-                            ui.html('<div class="text-xs w-full break-words">公式： (板块融资占比%) - (大盘融资占比%)</div>', sanitize=False)
+                        with ui.card().classes('flex-1 min-w-[180px] p-4 bg-white rounded-lg shadow-sm border border-gray-50 flex flex-col justify-center'):
+                            ui.label('融资项 (Margin杠杆意愿)').classes('font-bold text-gray-700 text-sm mb-1')
+                            ui.label('反映杠杆资金的积极性。').classes('text-xs text-gray-500 mb-2 leading-tight')
+                            ui.html('<div class="text-xs w-full break-words text-blue-600 font-mono bg-blue-50 p-2 rounded">公式： 板块融资占比% - 大盘融资占比%</div>', sanitize=False)
 
                     with ui.row().classes('w-full gap-2 mt-3 text-xs'):
-                        with ui.column().classes('flex-1 bg-red-100 p-2 rounded-lg border border-red-100 items-center justify-center'):
-                            ui.label('温度 > 90：过热').classes('font-bold text-red-600')
+                        with ui.column().classes('flex-1 bg-red-50 p-2 rounded border border-red-100 items-center justify-center gap-0'):
+                            ui.label('温度 > 90 (过热)').classes('font-bold text-red-600')
                             ui.label('风险聚集').classes('text-red-400')
-                        with ui.column().classes('flex-1 bg-indigo-50 p-2 rounded-lg border border-indigo-100 items-center justify-center'):
-                            ui.label('温度 在 -20 ~ -50：较冷').classes('font-bold text-indigo-700')
-                            ui.label('留意资金动向').classes('text-indigo-400')
-                        with ui.column().classes('flex-1 bg-purple-50 p-2 rounded-lg border border-purple-100 items-center justify-center'):
-                            ui.label('温度 < -50：过冷').classes('font-bold text-purple-700')
-                            ui.label('注意板块反弹').classes('text-purple-400')
+                        with ui.column().classes('flex-1 bg-indigo-50 p-2 rounded border border-indigo-100 items-center justify-center gap-0'):
+                            ui.label('温度 -20 ~ -50 (较冷)').classes('font-bold text-indigo-700')
+                            ui.label('留意转机').classes('text-indigo-400')
+                        with ui.column().classes('flex-1 bg-purple-50 p-2 rounded border border-purple-100 items-center justify-center gap-0'):
+                            ui.label('温度 < -50 (过冷)').classes('font-bold text-purple-700')
+                            ui.label('底部反弹').classes('text-purple-400')
 
-        # Right column (stats sidebar)
+        # Right column (stats sidebar) - 1/3 width
         with ui.column().classes('flex-1'):
-            with ui.card().classes('w-full h-full p-4 bg-white rounded-lg shadow-md border-0 flex flex-col no-inner-shadow min-h-[450px]') as right_stats_card:
+            with ui.card().classes('w-full h-full p-4 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col no-inner-shadow min-h-[450px]') as right_stats_card:
                 ui.label('今日板块统计').classes('font-bold text-gray-700 mb-0')
                 ui.label('显示当前缓存中按温度分组的板块数量与示例名称。').classes('text-xs text-gray-500 mb-1')
                 right_stats_container = ui.column().classes('w-full text-sm text-gray-700 flex-1 min-h-0')
@@ -64,7 +65,7 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
         sector_status_label = ui.label('准备就绪').classes('hidden')
 
     # Chart Area
-    sector_chart_container = ui.card().props('id="sector_panel_root"').classes('w-full h-auto p-4 bg-white rounded-xl shadow-md border-0 flex flex-col')
+    sector_chart_container = ui.card().props('id="sector_panel_root"').classes('w-full h-auto p-4 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col')
     
     # Table Area
     sector_table_container = ui.column().classes('w-full mt-4')
@@ -90,21 +91,23 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
     def load_sector_view(date=None):
         try:
             level = level_select.value
+            if level is None: level = 1
             ss = SectorSentiment(industry_level=level)
             data = ss.get_display_data()
             if data:
                 render_sector_view_internal(data, target_date=date)
             else:
-                ui.notify(f'无缓存数据 (Level {level})，请点击更新', type='warning')
+                ui.notify(f'未找到板块缓存 (Level {level})，请先点击更新数据', type='warning')
                 sector_chart_container.clear()
                 with sector_chart_container:
                     # Simplified empty state
                     ui.label(f'暂无缓存 (Level {level})').classes('text-2xl font-bold text-gray-700')
-                    with ui.row().classes('gap-4 mt-2'):
+                    with ui.row().classes('gap-4 mt-4'):
                         ui.button('加载缓存', on_click=lambda: load_sector_view()).props('unelevated color=indigo-6 icon=history')
                         ui.button('在线更新', on_click=lambda: update_sector_data()).props('outline color=indigo-6 icon=cloud_download')
-        except RuntimeError:
-            pass
+        except Exception as e:
+            print(f"Load Sector View Error: {e}")
+            ui.notify(f"加载板块数据失败: {e}", type='negative')
 
     async def update_sector_data():
         try:
@@ -179,7 +182,9 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
                 else: available_dates.add(rec.get('date'))
             
             sorted_dates = sorted([d for d in available_dates if d], reverse=True)
-            if not sorted_dates: return
+            if not sorted_dates: 
+                ui.notify('缓存中没有可用的日期数据', type='warning')
+                return
             if target_date is None or target_date not in sorted_dates: target_date = sorted_dates[0]
             
             display_records = []
@@ -188,16 +193,20 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
                 if 'history' in v:
                     matches = [h for h in v['history'] if h['date'] == target_date]
                     if matches: entry = matches[0]
-                elif 'latest' in v and v['latest']['date'] == target_date: entry = v['latest']
+                elif 'latest' in v and v['latest'].get('date') == target_date: entry = v['latest']
                 elif v.get('date') == target_date: entry = v
                 if entry:
                     row = entry.copy(); row['name'] = k
                     if 'group' in v: row['group'] = v['group']
                     display_records.append(row)
             
+            if not display_records:
+                ui.notify(f'日期 {target_date} 下无板块数据', type='warning')
+                return
+
             df_s = pd.DataFrame(display_records)
-            if df_s.empty: return
             if 'turnover' in df_s.columns: df_s['turnover_yi'] = (df_s['turnover'] / 1e8).round(2)
+            else: df_s['turnover_yi'] = 0.1 # Fallback for minimal size
 
             # Update sidebar stats
             try:
@@ -230,13 +239,14 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
 
             with sector_chart_container:
                 # Header
-                with ui.row().classes('w-full justify-between items-start mb-4 pb-2 border-b border-gray-100'):
+                with ui.row().classes('w-full justify-between items-start mb-4 pb-2 border-b border-gray-200'):
                     with ui.column().classes('gap-1'):
                         with ui.row().classes('items-center gap-3'):
                             ui.icon('grid_view', color='indigo').classes('text-xl')
                             ui.label('全市场板块情绪热度').classes('text-xl font-bold text-gray-800')
                             with ui.row().classes('bg-gray-100 rounded-lg p-1 gap-0'):
-                                cl = level_select.value
+                                cl = level_select.value if level_select.value else 1
+                                # Use direct assignment for better reactivity
                                 ui.button('一级专区', on_click=lambda: (setattr(level_select, 'value', 1), load_sector_view())).props('unelevated rounded shadow-sm color=indigo text-xs py-1 px-3' if cl==1 else 'flat rounded text-gray-500 text-xs py-1 px-3')
                                 ui.button('二级专区', on_click=lambda: (setattr(level_select, 'value', 2), load_sector_view())).props('unelevated rounded shadow-sm color=indigo text-xs py-1 px-3' if cl==2 else 'flat rounded text-gray-500 text-xs py-1 px-3')
                         
@@ -273,13 +283,19 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
                     marker=dict(colors=tm_colors, line=dict(width=1, color='white')), 
                     textfont=dict(color=tm_textcolors), 
                     texttemplate="<b>%{label}</b><br>%{text}",
-                    tiling=dict(pad=1),
+                    tiling=dict(pad=2),
                     hovertemplate='<b>%{label}</b><br>成交额: %{value:.1f}亿<br>%{text}<extra></extra>'
                 ))
                 
-                chart_height = 450 if is_mobile else 620
-                fig.update_layout(margin=dict(t=10, l=0, r=0, b=0), height=chart_height, paper_bgcolor='rgba(0,0,0,0)')
-                plotly_renderer(fig).classes('w-full')
+                chart_height = 450 if is_mobile else 650
+                fig.update_layout(margin=dict(t=0, l=0, r=0, b=0), height=chart_height, paper_bgcolor='rgba(0,0,0,0)')
+                
+                # Check if data exists
+                if not tm_ids or len(tm_ids) <= 1: # Only ROOT or empty
+                    ui.label('暂无足够的板块数据用于绘图').classes('text-gray-400 p-4')
+                else:
+                    # Use standard ui.plotly instead of custom renderer to ensure stability, unless custom provided is robust
+                    ui.plotly(fig).classes('w-full h-full').style(f'height: {chart_height}px')
 
             # Table (Now outside the chart container to prevent overflow)
             with sector_table_container:

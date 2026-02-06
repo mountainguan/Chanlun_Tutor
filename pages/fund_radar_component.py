@@ -4,6 +4,7 @@ from utils.fund_radar import FundRadar
 import pandas as pd
 import numpy as np
 import datetime
+import asyncio
 
 def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
     """
@@ -11,15 +12,15 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
     """
     radar = FundRadar()
     today_str = datetime.datetime.now().strftime('%Y-%m-%d')
-    
+
     # Use provided renderer or fallback to ui.plotly
     plot_func = plotly_renderer if plotly_renderer else ui.plotly
-    
+
     # Main Container
     with ui.column().classes('w-full px-4 md:px-6 py-0 gap-6 functionality-container'):
-        
+
         # 1. Header & Controls Section
-        with ui.card().classes('w-full rounded-xl shadow-sm border-0 bg-white p-4'):
+        with ui.card().classes('w-full rounded-xl shadow-sm border border-gray-200 bg-white p-4'):
              with ui.row().classes('w-full items-center justify-between wrap gap-4'):
                 # Left: Title
                 with ui.row().classes('items-center gap-3'):
@@ -28,10 +29,10 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                     with ui.column().classes('gap-0'):
                         ui.label('主力资金雷达').classes('text-xl font-bold text-gray-800 tracking-tight')
                         ui.label('Sector Heat Radar (Sina Source)').classes('text-xs text-gray-400 font-medium')
-                
+
                 # Right: Controls (Date Picker & Refresh)
                 with ui.row().classes('items-center gap-3'):
-                    
+
                     # Date Picker Logic
                     # We can't easily restrict min/max in q-date via standard element props for simple NiceGUI date,
                     # but we can validate in logic.
@@ -46,23 +47,23 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
                     refresh_btn = ui.button('强制刷新今日数据', icon='refresh', on_click=lambda: update_dashboard(date_input.value, force=True)) \
                         .props('flat color=red').classes('font-bold bg-red-50 hover:bg-red-100')
-                    
+
                     # Only show refresh if date is today (Client-side visibility toggle logic inside update?)
                     # Simplified: We just check inside the button handler or disable it visually?
                     # Let's bind visibility.
                     def check_refresh_visibility():
                         is_today = (date_input.value == today_str)
                         refresh_btn.set_visibility(is_today)
-                    
+
                     date_input.on_value_change(check_refresh_visibility)
 
         # 2. Status & Dashboard Area
         dashboard_content = ui.column().classes('w-full gap-6')
 
-        def update_dashboard(date_val, force=False):
+        async def update_dashboard(date_val, force=False):
             check_refresh_visibility() # Update button state
             dashboard_content.clear()
-            
+
             with dashboard_content:
                 # Loading State
                 with ui.column().classes('w-full items-center justify-center py-12'):
@@ -71,13 +72,16 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
             # Fetch data 
             # Returns: Sina DF (Amount), THS DF (Net Inflow), Market Snapshot
-            df_flow, df_ths, market_snap_data = radar.get_sector_data_by_date(date_val, force_refresh=force)
-            
+            loop = asyncio.get_running_loop()
+            df_flow, df_ths, market_snap_data = await loop.run_in_executor(
+                None, lambda: radar.get_sector_data_by_date(date_val, force_refresh=force)
+            )
+
             dashboard_content.clear()
-            
+
             with dashboard_content:
                 if df_flow.empty and df_ths.empty:
-                    with ui.card().classes('w-full p-8 items-center justify-center bg-white rounded-xl shadow-sm border border-gray-100'):
+                    with ui.card().classes('w-full p-8 items-center justify-center bg-white rounded-xl shadow-sm border border-gray-200'):
                         if date_val == today_str:
                              ui.icon('cloud_off', size='4rem', color='grey-4')
                              ui.label('今日暂无数据').classes('text-xl text-gray-500 font-bold mt-4')
@@ -87,10 +91,10 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                              ui.label('历史数据未缓存').classes('text-xl text-gray-500 font-bold mt-4')
                              ui.label('该日期没有本地缓存记录，无法回溯。').classes('text-gray-400')
                     return
-                
+
                 # --- Metric Logic (Sina / Default) ---
                 metric_col = '成交额'
-                
+
                 # Ensure Types for Sina DF
                 if not df_flow.empty:
                     df_flow[metric_col] = pd.to_numeric(df_flow[metric_col], errors='coerce').fillna(0)
@@ -98,7 +102,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         df_flow['涨跌幅'] = pd.to_numeric(df_flow['涨跌幅'], errors='coerce').fillna(0)
                     else:
                         df_flow['涨跌幅'] = 0.0
-                    
+
                     df_sorted = df_flow.sort_values(by=metric_col, ascending=False)
                     top_10 = df_sorted.head(10)
                     top_20 = df_sorted.head(20)
@@ -112,9 +116,9 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                 if not df_ths.empty:
                      df_ths['净流入'] = pd.to_numeric(df_ths['净流入'], errors='coerce').fillna(0)
                      df_ths['涨跌幅'] = pd.to_numeric(df_ths['涨跌幅'], errors='coerce').fillna(0)
-                
+
                 offensive, defensive = radar.get_offensive_defensive_list()
-                
+
                 # Turnover / Market Nature Analysis (Preferred Source: Sina for Money Flow)
                 analysis_df = top_10 if not top_10.empty else (df_ths.head(10) if not df_ths.empty else pd.DataFrame())
                 avg_chg_top10 = analysis_df['涨跌幅'].mean() if not analysis_df.empty else 0.0
@@ -156,7 +160,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         ui.label(f'正在回溯历史数据快照：{date_val}').classes('text-blue-800 text-sm font-medium')
 
                 with ui.grid(columns=3 if not is_mobile else 1).classes('w-full gap-6'):
-                    
+
                     # Card 1: Market Nature
                     with ui.card().classes(f'w-full p-4 rounded-xl shadow-sm border {border_theme} {bg_theme} relative overflow-hidden'):
                          ui.icon(icon_theme).classes('absolute -right-4 -bottom-4 text-8xl opacity-10')
@@ -180,12 +184,12 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         top_sector_name = "N/A"
                         val_str = "-"
                         label_sub = ""
-                    
-                    with ui.card().classes('w-full p-4 rounded-xl shadow-sm border border-gray-100 bg-white'):
+
+                    with ui.card().classes('w-full p-4 rounded-xl shadow-sm border border-gray-200 bg-white'):
                         with ui.row().classes('items-center justify-between w-full'):
                             ui.label('Top1 活跃板块').classes('text-gray-500 text-xs font-bold uppercase tracking-wider')
                             ui.icon('emoji_events', color='amber').classes('text-xl')
-                        
+
                         ui.label(top_sector_name).classes('text-2xl font-extrabold text-gray-800 mt-1')
                         with ui.row().classes('items-center gap-1 mt-1'):
                             ui.label(val_str).classes('text-lg font-bold text-indigo-600')
@@ -195,22 +199,22 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                     avg_change = top_10['涨跌幅'].mean()
                     chg_color = "red-500" if avg_change > 0 else "emerald-500"
                     sign = "+" if avg_change > 0 else ""
-                    
-                    with ui.card().classes('w-full p-4 rounded-xl shadow-sm border border-gray-100 bg-white'):
+
+                    with ui.card().classes('w-full p-4 rounded-xl shadow-sm border border-gray-200 bg-white'):
                         ui.label('Top10平均涨幅').classes('text-gray-500 text-xs font-bold uppercase tracking-wider')
                         with ui.row().classes('items-baseline gap-1 mt-1'):
                             ui.label(f"{sign}{avg_change:.2f}").classes(f'text-3xl font-extrabold text-{chg_color}')
                             ui.label('%').classes(f'text-lg font-bold text-{chg_color}')
-                        
+
                         ui.label('头部板块整体表现').classes('text-gray-400 text-sm mt-1')
 
                 # --- 4. Confrontation (Battlefield) Section (Moved to Top) ---
                 # Uses market_snap_data from tuple (Fetched or Cached)
-                
+
                 if market_snap_data:
                     mkt_chg = market_snap_data.get('change_pct', 0.0)
-                    with ui.card().classes('w-full p-0 rounded-xl shadow-md border-0 bg-white overflow-hidden mt-0'):
-                        with ui.row().classes('w-full p-4 border-b border-gray-100 items-center justify-between'):
+                    with ui.card().classes('w-full p-0 rounded-xl shadow-sm border border-gray-200 bg-white overflow-hidden mt-0'):
+                        with ui.row().classes('w-full p-4 border-b border-gray-200 items-center justify-between'):
                             with ui.row().classes('items-center gap-2'):
                                 ui.icon('compare_arrows', color='indigo').classes('text-xl')
                                 ui.label('多空阵营博弈 (Offense vs Defense)').classes('font-bold text-gray-800')
@@ -223,7 +227,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         from plotly.subplots import make_subplots
                         fig_battle = make_subplots(rows=1, cols=2, shared_yaxes=False, horizontal_spacing=0.12,
                             subplot_titles=("🛡️ 防守阵营 (Defensive)", "🚀 进攻阵营 (Offensive)"))
-                        
+
                         # Bar colors: Red for Positive Alpha, Green for Negative Alpha
                         def_colors = ['#ef4444' if a > 0 else '#10b981' for a in df_def['alpha']]
                         def_text = [f"{n} ({v:+.2f}%)" for n, v in zip(df_def['名称'], df_def['涨跌幅'])]
@@ -240,10 +244,10 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                             marker_color=off_colors,
                             text=off_text, textposition='auto', name='进攻Alpha'
                         ), row=1, col=2)
-                        
+
                         max_alpha = max(df_off['alpha'].abs().max() if not df_off.empty else 0, df_def['alpha'].abs().max() if not df_def.empty else 0, 3.0)
                         range_limit = max_alpha * 1.3
-                        
+
                         # Enhance sections with background colors
                         # Using 'y domain' and 'y2 domain' correctly fills the subplot area vertically
                         fig_battle.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1,
@@ -257,7 +261,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                             plot_bgcolor='rgba(255,255,255,1)', paper_bgcolor='rgba(0,0,0,0)',
                             font=dict(size=12)
                         )
-                        
+
                         # Fix annotations (Titles) style
                         if len(fig_battle.layout.annotations) >= 2:
                             fig_battle.layout.annotations[0].update(font=dict(size=14, color='#10b981', weight='bold'))
@@ -282,24 +286,24 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                          if df_ths[col].dtype == object:
                              df_ths[col] = df_ths[col].astype(str).str.replace('亿','').str.replace('万','').replace('nan', '0')
                          df_ths[col] = pd.to_numeric(df_ths[col], errors='coerce').fillna(0)
-                    
+
                     # Calculate "Main Force Net Inflow Ratio" (主力净占比)
                     # Filter out noise: Ignore sectors with very low volume (e.g., < 5% of max turnover)
                     max_turnover = df_ths['总成交额'].max()
                     # Copy to avoid SettingWithCopy warning on the original slice if filtered later, but here we derivate first
                     df_ths_clean = df_ths.copy()
-                    
+
                     # Avoid division by zero
                     df_ths_clean['净占比'] = (df_ths_clean['净流入'] / (df_ths_clean['总成交额'].replace(0, 1))) * 100
-                    
+
                     # Sort by absolute inflow impact for bubble size
                     df_ths_clean['abs_inflow'] = df_ths_clean['净流入'].abs()
-                    
+
                     # Filter for visualization noise reduction (keep top 80% by volume or just all non-tiny)
                     # df_ths_viz = df_ths_clean[df_ths_clean['总成交额'] > (max_turnover * 0.02)] 
 
-                    with ui.card().classes('w-full p-0 rounded-xl shadow-md border-0 bg-white overflow-hidden'):
-                         with ui.row().classes('w-full p-4 border-b border-gray-100 items-center justify-between'):
+                    with ui.card().classes('w-full p-0 rounded-xl shadow-sm border border-gray-200 bg-white overflow-hidden'):
+                        with ui.row().classes('w-full p-4 border-b border-gray-200 items-center justify-between'):
                             with ui.row().classes('items-center gap-2'):
                                 ui.icon('psychology', color='indigo').classes('text-xl')
                                 ui.label('主力动向四象限 (Main Force Intent Map)').classes('font-bold text-gray-800')
@@ -310,72 +314,72 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                     ui.icon('info', size='14px')
                                     ui.tooltip('主力净占比 = (主力净流入 / 总成交额) * 100%。反映单位成交量中主力介入的“密度”，比单纯的金额更能剔除盘子大小的影响。').classes('text-xs')
 
-                         # Prepare Quadrant Data
-                         # Q1: Up + Inflow (Bullish Consensus)
-                         # Q2: Down + Inflow (Hidden Accumulation)
-                         # Q3: Down + Outflow (Panic/Bearish)
-                         # Q4: Up + Outflow (Divergence/Distribution)
-                         
-                         fig_map = go.Figure()
-                         
-                         # Add Quadrant Backgrounds/Lines
-                         fig_map.add_hline(y=0, line_width=1, line_dash="solid", line_color="rgba(0,0,0,0.1)")
-                         fig_map.add_vline(x=0, line_width=1, line_dash="solid", line_color="rgba(0,0,0,0.1)")
-                         
-                         # Plot Scatter
-                         # Color: Red for Inflow, Green for Outflow
-                         colors = ['#ef4444' if x > 0 else '#10b981' for x in df_ths_clean['净流入']]
-                         
-                         # Size: Based on 'abs_inflow' (Actual money amount impact)
-                         # Normalize check
-                         size_ref = df_ths_clean['abs_inflow'].max() if df_ths_clean['abs_inflow'].max() > 0 else 1
-                         sizes = (np.sqrt(df_ths_clean['abs_inflow']) / np.sqrt(size_ref)) * 30 + 8
+                        # Prepare Quadrant Data
+                        # Q1: Up + Inflow (Bullish Consensus)
+                        # Q2: Down + Inflow (Hidden Accumulation)
+                        # Q3: Down + Outflow (Panic/Bearish)
+                        # Q4: Up + Outflow (Divergence/Distribution)
 
-                         fig_map.add_trace(go.Scatter(
-                             x=df_ths_clean['涨跌幅'],
-                             y=df_ths_clean['净占比'],
-                             mode='markers+text',
-                             text=df_ths_clean['名称'],
-                             textposition='top center',
-                             textfont=dict(size=10, color='rgba(0,0,0,0.6)'),
-                             marker=dict(
-                                 size=sizes,
-                                 color=colors,
-                                 opacity=0.7,
-                                 line=dict(width=1, color='white')
-                             ),
-                             hovertemplate='<b>%{text}</b><br>涨跌: %{x:.2f}%<br>主力净占比: %{y:.2f}%<br>净流入额: %{customdata:.2f}亿<extra></extra>',
-                             customdata=df_ths_clean['净流入']
-                         ))
+                        fig_map = go.Figure()
 
-                         # Annotations for Quadrants (Generic)
-                         quad_anns = [
-                             dict(x=1, y=1, xref='x domain', yref='y domain', text="🔥 强力做多", showarrow=False, font=dict(color='rgba(239, 68, 68, 0.2)', size=20, weight='bold'), xanchor='right', yanchor='top'),
-                             dict(x=0, y=1, xref='x domain', yref='y domain', text="🛡️ 逆势吸筹", showarrow=False, font=dict(color='rgba(245, 158, 11, 0.2)', size=20, weight='bold'), xanchor='left', yanchor='top'),
-                             dict(x=1, y=0, xref='x domain', yref='y domain', text="⚠️ 拉高出货", showarrow=False, font=dict(color='rgba(16, 185, 129, 0.2)', size=20, weight='bold'), xanchor='right', yanchor='bottom'),
-                             dict(x=0, y=0, xref='x domain', yref='y domain', text="❄️ 合力做空", showarrow=False, font=dict(color='rgba(107, 114, 128, 0.2)', size=20, weight='bold'), xanchor='left', yanchor='bottom')
-                         ]
-                         for ann in quad_anns:
-                             fig_map.add_annotation(ann)
-                         
-                         fig_map.update_layout(
+                        # Add Quadrant Backgrounds/Lines
+                        fig_map.add_hline(y=0, line_width=1, line_dash="solid", line_color="rgba(0,0,0,0.1)")
+                        fig_map.add_vline(x=0, line_width=1, line_dash="solid", line_color="rgba(0,0,0,0.1)")
+
+                        # Plot Scatter
+                        # Color: Red for Inflow, Green for Outflow
+                        colors = ['#ef4444' if x > 0 else '#10b981' for x in df_ths_clean['净流入']]
+
+                        # Size: Based on 'abs_inflow' (Actual money amount impact)
+                        # Normalize check
+                        size_ref = df_ths_clean['abs_inflow'].max() if df_ths_clean['abs_inflow'].max() > 0 else 1
+                        sizes = (np.sqrt(df_ths_clean['abs_inflow']) / np.sqrt(size_ref)) * 30 + 8
+
+                        fig_map.add_trace(go.Scatter(
+                            x=df_ths_clean['涨跌幅'],
+                            y=df_ths_clean['净占比'],
+                            mode='markers+text',
+                            text=df_ths_clean['名称'],
+                            textposition='top center',
+                            textfont=dict(size=10, color='rgba(0,0,0,0.6)'),
+                            marker=dict(
+                                size=sizes,
+                                color=colors,
+                                opacity=0.7,
+                                line=dict(width=1, color='white')
+                            ),
+                            hovertemplate='<b>%{text}</b><br>涨跌: %{x:.2f}%<br>主力净占比: %{y:.2f}%<br>净流入额: %{customdata:.2f}亿<extra></extra>',
+                            customdata=df_ths_clean['净流入']
+                        ))
+
+                        # Annotations for Quadrants (Generic)
+                        quad_anns = [
+                            dict(x=1, y=1, xref='x domain', yref='y domain', text="🔥 强力做多", showarrow=False, font=dict(color='rgba(239, 68, 68, 0.2)', size=20, weight='bold'), xanchor='right', yanchor='top'),
+                            dict(x=0, y=1, xref='x domain', yref='y domain', text="🛡️ 逆势吸筹", showarrow=False, font=dict(color='rgba(245, 158, 11, 0.2)', size=20, weight='bold'), xanchor='left', yanchor='top'),
+                            dict(x=1, y=0, xref='x domain', yref='y domain', text="⚠️ 拉高出货", showarrow=False, font=dict(color='rgba(16, 185, 129, 0.2)', size=20, weight='bold'), xanchor='right', yanchor='bottom'),
+                            dict(x=0, y=0, xref='x domain', yref='y domain', text="❄️ 合力做空", showarrow=False, font=dict(color='rgba(107, 114, 128, 0.2)', size=20, weight='bold'), xanchor='left', yanchor='bottom')
+                        ]
+                        for ann in quad_anns:
+                            fig_map.add_annotation(ann)
+
+                        fig_map.update_layout(
                             height=550, margin=dict(l=40, r=40, t=20, b=40),
                             plot_bgcolor='rgba(252,252,252,1)', paper_bgcolor='rgba(0,0,0,0)',
                             xaxis=dict(title="板块涨跌幅 (%)", zeroline=False, gridcolor='#F3F4F6'),
                             yaxis=dict(title="主力资金净占比 (%)", zeroline=False, gridcolor='#F3F4F6'),
                             showlegend=False
-                         )
-                         plot_func(fig_map).classes('w-full h-full min-h-[550px]')
-                    
+                        )
+                        plot_func(fig_map).classes('w-full h-full min-h-[550px]')
+
                     # 2. Insight Cards (Divergence & Accumulation)
                     # Accumulation: Down > 0 (or just negative) AND Inflow > 0
                     # Rank by Inflow Ratio (Density of buying)
                     accumulating = df_ths_clean[ (df_ths_clean['涨跌幅'] < 0) & (df_ths_clean['净流入'] > 0) ].sort_values('净占比', ascending=False).head(5)
-                    
+
                     # Distribution: Up > 0 AND Inflow < 0
                     # Rank by Outflow Intensity
                     distributing = df_ths_clean[ (df_ths_clean['涨跌幅'] > 0) & (df_ths_clean['净流入'] < 0) ].sort_values('净占比', ascending=True).head(5)
-                    
+
                     if not accumulating.empty or not distributing.empty:
                         with ui.grid(columns=2 if not is_mobile else 1).classes('w-full gap-6 mt-0'):
                             # Accumulation List
@@ -385,7 +389,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                     with ui.column().classes('gap-0'):
                                         ui.label('隐形吸筹榜 (Hidden Accumulation)').classes('font-bold text-gray-800 text-sm')
                                         ui.label('下跌但主力净流入').classes('text-xs text-gray-500')
-                                
+
                                 if not accumulating.empty:
                                     for _, row in accumulating.iterrows():
                                         with ui.row().classes('w-full items-center justify-between text-sm py-2 border-b border-amber-200 border-opacity-50 last:border-0'):
@@ -405,7 +409,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                     with ui.column().classes('gap-0'):
                                         ui.label('背离警示榜 (Divergence Warning)').classes('font-bold text-gray-800 text-sm')
                                         ui.label('上涨但主力净流出').classes('text-xs text-gray-500')
-                                
+
                                 if not distributing.empty:
                                     for _, row in distributing.iterrows():
                                         with ui.row().classes('w-full items-center justify-between text-sm py-2 border-b border-emerald-200 border-opacity-50 last:border-0'):
@@ -417,13 +421,12 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                                     ui.label(f"占比 {row['净占比']:.1f}%").classes('text-gray-500 text-[10px]')
                                 else:
                                     ui.label('暂无明显数据').classes('text-gray-400 text-xs italic')
-                
                 # --- 3. Main Charts Section ---
                 with ui.column().classes('w-full gap-6'):
-                    
+
                     # Chart B: Bubble / Scatter 
-                    with ui.card().classes('w-full p-0 rounded-xl shadow-md border-0 bg-white overflow-hidden'):
-                        with ui.row().classes('w-full p-4 border-b border-gray-100 items-center justify-between'):
+                    with ui.card().classes('w-full p-0 rounded-xl shadow-sm border border-gray-200 bg-white overflow-hidden'):
+                        with ui.row().classes('w-full p-4 border-b border-gray-200 items-center justify-between'):
                             with ui.row().classes('items-center gap-2'):
                                 ui.icon('bubble_chart', color='indigo').classes('text-xl')
                                 ui.label('板块全景透视 (Panorama - Top 50)').classes('font-bold text-gray-800')
@@ -434,7 +437,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         df_scatter = df_sorted.head(50).copy() 
                         max_val_scatter = df_scatter[metric_col].max()
                         if max_val_scatter <= 0: max_val_scatter = 1.0
-                        
+
                         bubble_sizes = (np.sqrt(df_scatter[metric_col].replace(0, 1)) / np.sqrt(max_val_scatter)) * 45 + 15
 
                         fig_scatter = go.Figure()
@@ -460,11 +463,11 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
                     # Chart A: Bar Chart
                     with ui.card().classes('w-full p-0 rounded-xl shadow-md border-0 bg-white overflow-hidden'):
-                        with ui.row().classes('w-full p-4 border-b border-gray-100 items-center justify-between'):
+                        with ui.row().classes('w-full p-4 border-b border-gray-200 items-center justify-between'):
                             with ui.row().classes('items-center gap-2'):
                                 ui.icon('bar_chart', color='indigo').classes('text-xl')
                                 ui.label(f'板块成交额热度 Top 20 (排行)').classes('font-bold text-gray-800')
-                        
+
                         x_vals = top_20['名称'].astype(str).tolist()
                         y_vals = top_20[metric_col]
                         colors = ['#ef4444' if r > 0 else '#22c55e' for r in top_20['涨跌幅'].tolist()]

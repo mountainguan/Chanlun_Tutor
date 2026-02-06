@@ -16,9 +16,9 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
     # Top Layout: Info + Gauge
     with ui.row().classes('w-full gap-4 items-stretch'):
         # Info Card
-        with ui.card().classes('flex-1 min-w-[300px] bg-white p-4 rounded-xl shadow-md border-0 relative overflow-hidden'):
+        with ui.card().classes('flex-1 min-w-[300px] bg-white p-4 rounded-xl shadow-sm border border-gray-200 relative overflow-hidden'):
             # 装饰性背景
-            ui.element('div').classes('absolute -right-6 -top-6 w-24 h-24 rounded-full bg-blue-50 opacity-50')
+            ui.element('div').classes('absolute -right-6 -top-6 w-24 h-24 rounded-full bg-blue-50 opacity-40')
             
             with ui.row().classes('items-center mb-3'):
                 ui.icon('psychology', color='indigo').classes('text-2xl')
@@ -28,13 +28,13 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
             ui.html('<div class="text-gray-600 text-sm mb-3"><b>核心逻辑：</b>情绪由<span class="text-indigo-600 font-bold">杠杆力度</span>与<span class="text-blue-600 font-bold">成交活跃度</span>共同驱动。</div>', sanitize=False).classes('hide-on-mobile')
         
             # 公式说明（隐藏于移动端）
-            ui.html('<div class="text-xs w-full mb-3 text-gray-600 bg-gray-50 p-2 rounded border border-gray-200 font-mono hide-on-mobile">模型公式：[(融资占比% - 4.5) &times; 7.5] + [(成交额(万亿) - 0.65) &times; 17]</div>', sanitize=False)
+            ui.html('<div class="text-xs w-full mb-3 text-gray-600 bg-gray-100 p-2 rounded border border-gray-200 font-mono hide-on-mobile">模型公式：[(融资占比% - 4.5) &times; 7.5] + [(成交额(万亿) - 0.65) &times; 17]</div>', sanitize=False)
             
             with ui.row().classes('w-full gap-2 text-xs'):
                 with ui.column().classes('flex-1 bg-red-50 p-2 rounded-lg border border-red-100 items-center justify-center'):
                     ui.label('>100 (高温)').classes('font-bold text-red-700')
                     ui.label('风险聚集').classes('text-red-400 scale-90')
-                with ui.column().classes('flex-1 bg-gray-50 p-2 rounded-lg border border-gray-100 items-center justify-center'):
+                with ui.column().classes('flex-1 bg-gray-100 p-2 rounded-lg border border-gray-200 items-center justify-center'):
                     ui.label('0~100 (震荡)').classes('font-bold text-gray-700')
                     ui.label('正常波动').classes('text-gray-400 scale-90')
                 with ui.column().classes('flex-1 bg-green-50 p-2 rounded-lg border border-green-100 items-center justify-center'):
@@ -44,7 +44,7 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
             ui.label('数据来源：交易所/金十数据').classes('text-xs text-gray-400 mt-auto pt-2')
 
         # Gauge Container
-        gauge_container = ui.card().classes('flex-1 min-w-[300px] items-center justify-center p-0 gap-0 bg-white rounded-xl shadow-md border-0 relative')
+        gauge_container = ui.card().classes('flex-1 min-w-[300px] items-center justify-center p-0 gap-0 bg-white rounded-xl shadow-sm border border-gray-200 relative')
         with gauge_container:
                 ui.spinner(type='dots', size='lg', color='primary')
                 ui.label('计算数据中...').classes('text-gray-400 text-sm mt-2')
@@ -54,7 +54,7 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
     
     # Chart Container (Card with Header)
     chart_height_class = 'h-[440px]' if is_mobile else 'h-[520px]'
-    chart_container = ui.card().classes(f'w-full max-w-6xl {chart_height_class} border-0 rounded-xl shadow-md bg-white p-4 flex flex-col gap-0')
+    chart_container = ui.card().classes(f'w-full {chart_height_class} border border-gray-200 rounded-xl shadow-sm bg-white p-4 flex flex-col gap-0')
     
     # Define controls ahead of time to capture reference, but place them inside card
     index_select = None
@@ -62,7 +62,7 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
     
     with chart_container:
         # Header Row
-        with ui.row().classes('w-full justify-between items-center mb-2 pb-2 border-b border-gray-100'):
+        with ui.row().classes('w-full justify-between items-center mb-2 pb-2 border-b border-gray-200'):
                 # Title Group
                 with ui.row().classes('items-center gap-2'):
                     ui.icon('show_chart', color='indigo').classes('text-2xl')
@@ -91,10 +91,10 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
         chart_plot_area = ui.column().classes('w-full flex-1 min-h-0 relative p-0 m-0')
 
     # Data Table Container
-    data_container = ui.column().classes('w-full max-w-6xl mt-4 hidden')
+    data_container = ui.column().classes('w-full mt-4 hidden')
     
     # Savings Ratio Table Container
-    savings_container = ui.column().classes('w-full max-w-6xl mt-4')
+    savings_container = ui.column().classes('w-full mt-4')
 
     async def fetch_and_update_savings_ratio(force=False):
         if savings_container.is_deleted:
@@ -108,7 +108,7 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
             if savings_df is not None and not savings_df.empty and not savings_container.is_deleted:
                 savings_container.clear()
                 with savings_container:
-                    with ui.card().classes('w-full p-6 rounded-xl border-0 shadow-md bg-white'):
+                    with ui.card().classes('w-full p-6 rounded-xl border border-gray-200 shadow-sm bg-white'):
                         with ui.row().classes('w-full items-center justify-between mb-4'):
                             with ui.row().classes('items-center gap-2'):
                                 ui.icon('account_balance', color='teal').classes('text-2xl')
@@ -228,20 +228,32 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
             fig_gauge = go.Figure(go.Indicator(
                 mode = "gauge+number",
                 value = current_temp,
+                domain = {'x': [0.05, 0.95], 'y': [0.15, 0.85]},  # 显式控制显示区域，避免与文字重叠
+                number = {
+                    'font': {'size': 64, 'family': "Impact, Roboto, sans-serif"},
+                    'valueformat': ".1f"
+                },
                 gauge = {
-                    'axis': {'range': [-30, 130]},
-                    'bar': {'color': "#1976D2"},
+                    'axis': {'range': [-30, 130], 'tickwidth': 1, 'tickcolor': "#757575"},
+                    'bar': {'color': "#1976D2", 'thickness': 0.6},
+                    'bgcolor': "white",
+                    'borderwidth': 2,
+                    'bordercolor': "#EEEEEE",
                     'steps': [
                         {'range': [-30, 0], 'color': "#E0F7FA"}, 
                         {'range': [0, 100], 'color': "#F5F5F5"}, 
                         {'range': [100, 130], 'color': "#FFEBEE"} 
                     ],
-                    'threshold': {'line': {'color': "#D32F2F", 'width': 4}, 'thickness': 0.75, 'value': current_temp}
+                    'threshold': {
+                        'line': {'color': "#D32F2F", 'width': 4}, 
+                        'thickness': 0.8, 
+                        'value': current_temp
+                    }
                 }
             ))
             fig_gauge.update_layout(
-                margin=dict(l=30, r=30, t=10, b=10),
-                height=240,
+                margin=dict(l=20, r=20, t=20, b=20),
+                height=260,  # 稍微增加高度
                 autosize=True,
                 paper_bgcolor = "rgba(0,0,0,0)",
                 font = dict(family="Roboto, sans-serif")
