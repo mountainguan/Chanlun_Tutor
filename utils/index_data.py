@@ -13,6 +13,7 @@ class IndexDataManager:
         if not os.path.exists(self.data_dir):
             os.makedirs(self.data_dir)
         self.cache_file = os.path.join(self.data_dir, 'index_history_cache.csv')
+        self.fetch_log_file = os.path.join(self.data_dir, 'index_fetch_log.json')
         
         # 核心指数代码映射 (Sina 格式)
         self.index_map = {
@@ -39,6 +40,25 @@ class IndexDataManager:
             df.to_csv(self.cache_file, index=False)
         except Exception as e:
             print(f"Index cache save failed: {e}")
+
+    def _get_fetch_log(self):
+        if os.path.exists(self.fetch_log_file):
+            try:
+                with open(self.fetch_log_file, 'r') as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
+
+    def _update_fetch_log_time(self, code):
+        """Record the fetch time for specific index code"""
+        try:
+            log = self._get_fetch_log()
+            log[code] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            with open(self.fetch_log_file, 'w') as f:
+                json.dump(log, f)
+        except Exception as e:
+            print(f"Failed to update fetch log: {e}")
 
     def fetch_sina_kline(self, code, scale=240, datalen=1200):
         """
@@ -91,22 +111,62 @@ class IndexDataManager:
             latest_date = curr_cache.iloc[-1]['date'].date()
             
         # Determine if we need to fetch
-        need_fetch = True
+        need_fetch = False
         
-        # 如果缓存是最新的，且没强制刷新，就不取
-        if latest_date:
-            if latest_date >= today:
-                 # Check close time? Normally daily data updates after close. 
-                 # But if we have 'today' in cache, we assume it's good unless force_refresh
-                 if force_refresh:
-                     pass
-                 else:
-                     need_fetch = False
+        # 1. Check if we have data for 'today' (or at least recent) in raw cache
+        # If cache is empty for this code, we definitely need fetch
+        if curr_cache.empty:
+            need_fetch = True
+        else:
+            # 2. Advanced Cache Strategy
+            # Requirement: Read cache if available. Don't refresh unless:
+            #   - New Day (First access today)
+            #   - Time is > 09:10 (Morning update)
+            #   - Time is > 15:30 (Close update)
+            
+            try:
+                log = self._get_fetch_log()
+                last_fetch_str = log.get(code)
+                now = datetime.datetime.now()
+                
+                if not last_fetch_str:
+                    # Never fetched this code recorded -> Fetch
+                    need_fetch = True
+                else:
+                    last_fetch = datetime.datetime.strptime(last_fetch_str, '%Y-%m-%d %H:%M:%S')
+                    
+                    # Define Checkpoints for Today
+                    checkpoint_new_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                    checkpoint_morning = now.replace(hour=9, minute=10, second=0, microsecond=0)
+                    checkpoint_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+                    
+                    # Determine key target time based on current time
+                    target_time = checkpoint_new_day # Default: must have fetched today
+                    
+                    if now > checkpoint_close:
+                        target_time = checkpoint_close
+                    elif now > checkpoint_morning:
+                        target_time = checkpoint_morning
+                        
+                    # If our last fetch was before the target checkpoint -> REFRESH
+                    if last_fetch < target_time:
+                        need_fetch = True
+                        print(f"Index fetch trigger for {index_name}: Now={now.strftime('%H:%M')}, Last={last_fetch.strftime('%H:%M')}, Target={target_time.strftime('%H:%M')}")
+                    else:
+                        need_fetch = False
+                        
+            except Exception as e:
+                print(f"Cache check logic failed: {e}, forcing fetch.")
+                need_fetch = True
+
         
         if need_fetch or force_refresh:
             print(f"Fetching index data for {index_name} ({code})...")
             new_df = self.fetch_sina_kline(code, datalen=days)
             if new_df is not None and not new_df.empty:
+                # Update Fetch Log Logic
+                self._update_fetch_log_time(code)
+
                 # Merge logic
                 if not curr_cache.empty:
                     # Filter new data that is NOT in cache or just replace overlap?

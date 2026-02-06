@@ -12,6 +12,7 @@ class FundRadar:
         self.cache_dir = os.path.join(self.data_dir, 'fund_radar_cache')
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
+        self.fetch_log = {} # Runtime cache for throttles
             
     def _get_cache_file_path(self, date_str):
         """
@@ -19,6 +20,18 @@ class FundRadar:
         Format: sector_sina_YYYY-MM-DD.json
         """
         return os.path.join(self.cache_dir, f"sector_sina_{date_str}.json")
+
+    def _should_fetch(self, key, cooldown=300):
+        """
+        Determine if we allowed to fetch based on cooldown (in seconds).
+        Prevent spamming APIs when retrying incomplete data.
+        """
+        now = time.time()
+        last_time = self.fetch_log.get(key, 0)
+        if now - last_time > cooldown:
+            self.fetch_log[key] = now
+            return True
+        return False
 
     def get_sector_data_by_date(self, date_str, force_refresh=False):
         """
@@ -63,19 +76,34 @@ class FundRadar:
                         # --- Backfill Logic ---
                         if 'ths_sectors' in data:
                             df_ths = pd.DataFrame(data['ths_sectors'])
+                            
+                            # RETRY LOGIC: If THS empty & Today & Throttled -> Retry
+                            if df_ths.empty and date_str == today_str:
+                                if self._should_fetch('ths_retry'):
+                                    print(f"Retrying incomplete THS data for {date_str}...")
+                                    ths_new = self._fetch_ths_sector()
+                                    if not ths_new.empty:
+                                        df_ths = ths_new
+                                        data['ths_sectors'] = df_ths.to_dict(orient='records')
+                                        needs_update = True
+                                    else:
+                                        print("THS retry failed (still empty).")
+                        
                         elif date_str == today_str:
-                            # Cache exists but missing THS (e.g. created by old version). 
-                            # Update it now for convenience.
-                            print(f"Backfilling THS data to cache for {date_str}...")
-                            df_ths = self._fetch_ths_sector()
-                            if not df_ths.empty:
-                                data['ths_sectors'] = df_ths.to_dict(orient='records')
-                                needs_update = True
+                            # Cache exists but missing THS key entirely
+                            if self._should_fetch('ths_backfill'):
+                                print(f"Backfilling THS data to cache for {date_str}...")
+                                df_ths = self._fetch_ths_sector()
+                                if not df_ths.empty:
+                                    data['ths_sectors'] = df_ths.to_dict(orient='records')
+                                    needs_update = True
                         
                         if market_snap is None and date_str == today_str:
-                            market_snap = self.get_market_snapshot()
-                            data['market'] = market_snap
-                            needs_update = True
+                            if self._should_fetch('market_retry'):
+                                market_snap = self.get_market_snapshot()
+                                if market_snap:
+                                    data['market'] = market_snap
+                                    needs_update = True
                         
                         # Return update_time if present
                         market_snap = market_snap or {}

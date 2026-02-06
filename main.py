@@ -79,8 +79,8 @@ async def run_background_tasks():
         except Exception as e:
             print(f"[Background] Task error: {e}")
             
-        # Update every 5 minutes (300 seconds)
-        await asyncio.sleep(300)
+        # Update every 30 minutes (1800 seconds)
+        await asyncio.sleep(1800)
 
 app.on_startup(run_background_tasks)
 

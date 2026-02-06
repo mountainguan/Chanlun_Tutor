@@ -4,6 +4,7 @@ import datetime
 import time
 import urllib3
 import os
+import json
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -16,6 +17,34 @@ class MarketSentiment:
         if not os.path.exists(self.data_dir):
             os.makedirs(self.data_dir)
         self.cache_file = os.path.join(self.data_dir, 'market_sentiment_cache.csv')
+        self.fetch_log_file = os.path.join(self.data_dir, 'market_fetch_log.json')
+    
+    def _get_fetch_log_time(self):
+        if os.path.exists(self.fetch_log_file):
+            try:
+                with open(self.fetch_log_file, 'r') as f:
+                    log = json.load(f)
+                    return log.get('last_market_sentiment_fetch')
+            except:
+                return None
+        return None
+
+    def _update_fetch_log_time(self):
+        try:
+            log = {}
+            if os.path.exists(self.fetch_log_file):
+                try:
+                     with open(self.fetch_log_file, 'r') as f:
+                        log = json.load(f)
+                except:
+                    pass
+            
+            log['last_market_sentiment_fetch'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            with open(self.fetch_log_file, 'w') as f:
+                json.dump(log, f)
+        except Exception as e:
+            print(f"Failed to update market fetch log: {e}")
 
     def load_cache(self):
         if os.path.exists(self.cache_file):
@@ -388,10 +417,76 @@ class MarketSentiment:
                 else:
                     print(f"Cache up to date ({latest_date}), skipping API fetch.")
                     need_fetch = False
+            else:
+                # Latest date is OLDER than today.
+                # However, we should also check if we recently tried fetching (Fetch Throttling)
+                last_fetch_str = self._get_fetch_log_time()
+                current_time = datetime.datetime.now()
+                checkpoint_morning = current_time.replace(hour=9, minute=10, second=0, microsecond=0)
+                checkpoint_midday = current_time.replace(hour=11, minute=30, second=0, microsecond=0)
+                checkpoint_close = current_time.replace(hour=15, minute=30, second=0, microsecond=0)
+                
+                # Default: Fetch if we haven't fetched at all
+                need_fetch = True
+                
+                if last_fetch_str:
+                    try:
+                        last_fetch = datetime.datetime.strptime(last_fetch_str, '%Y-%m-%d %H:%M:%S')
+                        
+                        # Logic:
+                        # If last fetch was TODAY
+                        if last_fetch.date() == current_time.date():
+                            
+                            target_time = None
+                            if current_time > checkpoint_close:
+                                target_time = checkpoint_close
+                            elif current_time > checkpoint_morning: # Covers trading day
+                                target_time = checkpoint_morning
+                            
+                            # If we fetched AFTER the latest target time, we are good.
+                            # Exception: If we are in trading hours (9:30 - 15:00), maybe we want more frequent updates?
+                            # User said: "Unless ... 9:10am ... 3:30pm" implies ONLY those times or new day.
+                            # So even if trading, we don't spam fetch unless we hit those marks?
+                            # Actually, "新的一天打开" implies first open today.
+                            
+                            # Let's simplify:
+                            # If we have fetched today...
+                            
+                            # Case 1: Before 9:10
+                            if current_time < checkpoint_morning:
+                                # Data unlikely to change from yesterday close, wait.
+                                if last_fetch >= current_time.replace(hour=0, minute=0):
+                                    need_fetch = False
+                                    
+                            # Case 2: After 9:10 but before 15:30
+                            elif current_time < checkpoint_close:
+                                # We want at least one fetch after 9:10
+                                if last_fetch >= checkpoint_morning:
+                                    need_fetch = False
+                                    
+                            # Case 3: After 15:30
+                            else:
+                                # We want at least one fetch after 15:30
+                                if last_fetch >= checkpoint_close:
+                                    need_fetch = False
+                        
+                        else:
+                            # Last fetch was NOT today -> Must fetch
+                            need_fetch = True
+                            
+                    except Exception as e:
+                        print(f"Date parse error in strategies, defaulting to fetch: {e}")
+                        need_fetch = True
+                
+                if not need_fetch:
+                     print(f"Skipping market data fetch. Last attempt ({last_fetch_str}) is sufficient for now.")
+
         
         # 2. Fetch New Data if needed
         if need_fetch:
             print("Fetching new market data...")
+            self._update_fetch_log_time()
+            
             start_date_str = "0"
             if latest_date:
                 # Fetch from next day
