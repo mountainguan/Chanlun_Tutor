@@ -197,10 +197,12 @@ def render_money_flow_panel(plotly_renderer=None):
 
     # -- UI Containers --
     # We create the structure first
-    with ui.row().classes('w-full items-stretch gap-6'):
+    # Modified for Mobile: Stack vertically
+    with ui.row().classes('w-full items-stretch gap-6 flex-col md:flex-row'):
 
         # === Left Column: Subscription Management ===
-        with ui.card().classes('w-[320px] flex-none p-4 gap-4 bg-white rounded-xl shadow-sm border border-gray-200 h-[700px] flex flex-col'):
+        # Modified: Full width on mobile, fixed width on PC. Height auto on mobile (scrollable list inside limitation?), fixed on PC.
+        with ui.card().classes('w-full md:w-[320px] flex-none p-4 gap-4 bg-white rounded-xl shadow-sm border border-gray-200 h-auto md:h-[700px] flex flex-col'):
             with ui.row().classes('w-full items-center justify-between'):
                 ui.label('我的自选股').classes('text-xl font-bold text-gray-800 tracking-tight')
                 ui.button(icon='settings', on_click=open_group_manager).props('flat round dense color=grey-7').tooltip('管理分组')
@@ -261,10 +263,12 @@ def render_money_flow_panel(plotly_renderer=None):
             ui.separator().classes('bg-gray-100')
             
             # List Area
-            list_container = ui.column().classes('w-full gap-1 flex-1 overflow-y-auto pr-2 custom-scrollbar')
+            # Mobile: Limit max height to avoid being too long
+            list_container = ui.column().classes('w-full gap-1 flex-1 overflow-y-auto pr-2 custom-scrollbar max-h-[300px] md:max-h-full')
         
         # === Right Column: Charts ===
-        with ui.column().classes('flex-grow h-[700px] gap-4 min-w-0'):
+        # Mobile: Lower height or auto
+        with ui.column().classes('flex-grow h-[500px] md:h-[700px] gap-4 min-w-0'):
             # Header
             with ui.row().classes('w-full justify-between items-center bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex-none'):
                 with ui.row().classes('items-center gap-3'):
@@ -320,6 +324,7 @@ def render_money_flow_panel(plotly_renderer=None):
     # -- Logic Functions --
     
     async def render_chart(code, name, force=False):
+        if chart_container.is_deleted or header_label.is_deleted: return
         chart_container.clear()
         header_label.text = f'{name} ({code}) 资金流向趋势'
         
@@ -349,6 +354,7 @@ def render_money_flow_panel(plotly_renderer=None):
             if start_date:
                 df = df[df.index >= start_date]
         
+        if chart_container.is_deleted: return
         chart_container.clear()
         if df is None or df.empty:
             with chart_container:

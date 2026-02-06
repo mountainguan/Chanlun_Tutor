@@ -81,41 +81,50 @@ def load_questions(chapter_id):
 def landing_page():
     ui.page_title('缠论量化分析系统')
     
-    with ui.column().classes('w-full h-screen items-center justify-center bg-gray-50 p-4'):
-        # 标题区域
-        with ui.column().classes('items-center mb-10'):
-            ui.icon('ssid_chart', size='64px').classes('text-primary mb-4')
-            ui.label('缠论量化分析系统').classes('text-4xl font-bold text-gray-800 tracking-wider mb-2 text-center')
-            ui.label('Chanlun Quantitative Analysis System').classes('text-lg text-gray-500 font-light text-center')
-
-        # 卡片链接区域
-        with ui.row().classes('gap-8 justify-center flex-wrap'):
-            
-            # 卡片 1: 学习系统
-            with ui.card().classes('w-72 h-80 items-center justify-center p-6 hover:shadow-xl transition-shadow cursor-pointer border-t-4 border-indigo-500 gap-4') \
-                .on('click', lambda: ui.navigate.to('/learn')):
-                
-                with ui.element('div').classes('w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center mb-2'):
-                    ui.icon('school', size='40px').classes('text-indigo-600')
-                
-                ui.label('学习与训练').classes('text-2xl font-bold text-gray-800')
-                ui.label('系统化学习缠论知识，通过模拟交易进行实战训练').classes('text-center text-gray-500 leading-relaxed text-sm')
-                ui.button('进入系统', on_click=lambda: ui.navigate.to('/learn')).props('flat color=indigo')
-
-            # 卡片 2: 市场工具
-            with ui.card().classes('w-72 h-80 items-center justify-center p-6 hover:shadow-xl transition-shadow cursor-pointer border-t-4 border-red-500 gap-4') \
-                .on('click', lambda: ui.navigate.to('/mood')):
-                
-                with ui.element('div').classes('w-20 h-20 rounded-full bg-red-50 flex items-center justify-center mb-2'):
-                    ui.icon('insights', size='40px').classes('text-red-600')
-                
-                ui.label('市场情绪与资金').classes('text-2xl font-bold text-gray-800')
-                ui.label('实时监控大盘情绪，板块热度追踪及资金流向分析').classes('text-center text-gray-500 leading-relaxed text-sm')
-                ui.button('进入工具', on_click=lambda: ui.navigate.to('/mood')).props('flat color=red')
+    # 容器：使用 min-h-screen 配合 flex 布局，确保垂直居中和 Footer 沉底
+    with ui.column().classes('w-full min-h-screen bg-gray-50 p-4'):
         
-    # Footer 必须是顶层元素
-    with ui.footer(fixed=False).classes('bg-transparent text-gray-400 justify-center mt-auto py-8 text-xs'):
-        ui.label('© 2026 关山AI实验室')
+        # 上部占位，把内容推到中间 (flex-grow)
+        ui.space()
+        
+        # 中间内容区域
+        with ui.column().classes('w-full items-center justify-center'):
+            # 标题区域
+            with ui.column().classes('items-center mb-10'):
+                ui.icon('ssid_chart', size='64px').classes('text-primary mb-4')
+                ui.label('缠论量化分析系统').classes('text-4xl font-bold text-gray-800 tracking-wider mb-2 text-center')
+                ui.label('Chanlun Quantitative Analysis System').classes('text-lg text-gray-500 font-light text-center')
+
+            # 卡片链接区域
+            with ui.row().classes('gap-8 justify-center flex-wrap'):
+                
+                # 卡片 1: 学习系统
+                with ui.card().classes('w-72 h-80 items-center justify-center p-6 hover:shadow-xl transition-shadow cursor-pointer border-t-4 border-indigo-500 gap-4 bg-white') \
+                    .on('click', lambda: ui.navigate.to('/learn')):
+                    
+                    with ui.element('div').classes('w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center mb-2'):
+                        ui.icon('school', size='40px').classes('text-indigo-600')
+                    
+                    ui.label('学习与训练').classes('text-2xl font-bold text-gray-800')
+                    ui.label('系统化学习缠论知识，通过模拟交易进行实战训练').classes('text-center text-gray-500 leading-relaxed text-sm')
+                    ui.button('进入系统', on_click=lambda: ui.navigate.to('/learn')).props('flat color=indigo')
+
+                # 卡片 2: 市场工具
+                with ui.card().classes('w-72 h-80 items-center justify-center p-6 hover:shadow-xl transition-shadow cursor-pointer border-t-4 border-red-500 gap-4 bg-white') \
+                    .on('click', lambda: ui.navigate.to('/mood')):
+                    
+                    with ui.element('div').classes('w-20 h-20 rounded-full bg-red-50 flex items-center justify-center mb-2'):
+                        ui.icon('insights', size='40px').classes('text-red-600')
+                    
+                    ui.label('市场情绪与资金').classes('text-2xl font-bold text-gray-800')
+                    ui.label('实时监控大盘情绪，板块热度追踪及资金流向分析').classes('text-center text-gray-500 leading-relaxed text-sm')
+                    ui.button('进入工具', on_click=lambda: ui.navigate.to('/mood')).props('flat color=red')
+        
+        # 下部占位 (flex-grow) + Footer 位于最底
+        ui.space()
+        
+        with ui.row().classes('w-full justify-center py-8'):
+            ui.label('© 2026 关山AI实验室').classes('text-gray-400 text-xs')
 
 # --- 2. 缠论学习应用 ---
 class LearnState:
@@ -440,14 +449,16 @@ def mood_page():
             content_container.clear()
             # 彻底清理可能残留的类和样式
             # 使用 classes(replace='...') 对类进行全量替换
+            # 必须清除残留的 inline style (如 max-width), 否则它会覆盖 CSS 类
+            content_container.style(replace='')
+
             if state.current_mood_tab == 'money':
-                # 资金流向：全屏宽屏模式
-                content_container.classes(replace='w-full px-4 md:px-8 mt-4')
-                content_container.style('max-width: 100% !important; margin: 0 auto;')
+                # 资金流向：全屏宽屏模式，不使用 .mood-content-area
+                # 移动端 px-[2px], PC端 px-8
+                content_container.classes(replace='w-full px-[2px] md:px-8 mt-4')
             else:
-                # 其他模块：受限宽度居中模式
-                content_container.classes(replace='w-full mood-content-area mt-4')
-                content_container.style('max-width: 66.67vw; margin: 0 auto;') 
+                # 其他模块：受限宽度居中模式，使用 .mood-content-area
+                content_container.classes(replace='w-full mood-content-area mt-4') 
                 
             with content_container:
                 is_mob = False

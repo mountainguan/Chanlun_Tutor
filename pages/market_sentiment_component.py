@@ -14,23 +14,42 @@ executor = ThreadPoolExecutor(max_workers=2)
 
 def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
     # Top Layout: Info + Gauge
-    with ui.row().classes('w-full gap-4 items-stretch'):
+    # Modified for Mobile: Stack vertically on mobile (flex-col), row on PC (md:flex-row)
+    # Reduced gap on mobile (gap-2 vs gap-4)
+    with ui.row().classes('w-full gap-2 md:gap-4 items-stretch flex-col md:flex-row'):
         # Info Card
-        with ui.card().classes('flex-1 min-w-[300px] bg-white p-4 rounded-xl shadow-sm border border-gray-200 relative overflow-hidden'):
+        # Mobile: Compact padding (p-3), full width. PC: p-4, min-w-300
+        with ui.card().classes('flex-1 w-full md:min-w-[300px] bg-white p-3 md:p-4 rounded-xl shadow-sm border border-gray-200 relative overflow-hidden'):
             # 装饰性背景
             ui.element('div').classes('absolute -right-6 -top-6 w-24 h-24 rounded-full bg-blue-50 opacity-40')
             
-            with ui.row().classes('items-center mb-3'):
-                ui.icon('psychology', color='indigo').classes('text-2xl')
-                ui.label('情绪温度模型').classes('text-lg font-bold text-gray-800')
+            with ui.row().classes('items-center mb-2 md:mb-3 justify-between'):
+                with ui.row().classes('items-center scale-90 md:scale-100 origin-left'):
+                    ui.icon('psychology', color='indigo').classes('text-2xl')
+                    ui.label('情绪温度模型').classes('text-lg font-bold text-gray-800')
+                
+                # Mobile only: Toggle description
+                if is_mobile:
+                    with ui.button(icon='help_outline', on_click=lambda: desc_container.toggle()).props('flat round dense color=grey'):
+                        pass
+
+            # Container for description (Collapsible on mobile)
+            desc_classes = 'w-full'
+            if is_mobile:
+                 desc_wrapper = ui.column().classes('w-full hidden transition-all duration-300')
+                 desc_container = desc_wrapper
+            else:
+                 desc_wrapper = ui.column().classes('w-full')
+                 desc_container = desc_wrapper # No toggle needed on PC usually, but let's keep logic simple
+
+            with desc_wrapper:
+                 # 核心逻辑与公式
+                 ui.html('<div class="text-gray-600 text-sm mb-3"><b>核心逻辑：</b>情绪由<span class="text-indigo-600 font-bold">杠杆力度</span>与<span class="text-blue-600 font-bold">成交活跃度</span>共同驱动。</div>', sanitize=False)
+                 # 公式说明
+                 ui.html('<div class="text-xs w-full mb-3 text-gray-600 bg-gray-100 p-2 rounded border border-gray-200 font-mono">模型公式：[(融资占比% - 4.5) &times; 7.5] + [(成交额(万亿) - 0.65) &times; 17]</div>', sanitize=False)
             
-            # 核心逻辑与公式：在移动端隐藏以节省空间
-            ui.html('<div class="text-gray-600 text-sm mb-3"><b>核心逻辑：</b>情绪由<span class="text-indigo-600 font-bold">杠杆力度</span>与<span class="text-blue-600 font-bold">成交活跃度</span>共同驱动。</div>', sanitize=False).classes('hide-on-mobile')
-        
-            # 公式说明（隐藏于移动端）
-            ui.html('<div class="text-xs w-full mb-3 text-gray-600 bg-gray-100 p-2 rounded border border-gray-200 font-mono hide-on-mobile">模型公式：[(融资占比% - 4.5) &times; 7.5] + [(成交额(万亿) - 0.65) &times; 17]</div>', sanitize=False)
-            
-            with ui.row().classes('w-full gap-2 text-xs'):
+            # Legend stays visible
+            with ui.row().classes('w-full gap-2 text-xs mt-2'):
                 with ui.column().classes('flex-1 bg-red-50 p-2 rounded-lg border border-red-100 items-center justify-center'):
                     ui.label('>100 (高温)').classes('font-bold text-red-700')
                     ui.label('风险聚集').classes('text-red-400 scale-90')
@@ -44,7 +63,8 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
             ui.label('数据来源：交易所/金十数据').classes('text-xs text-gray-400 mt-auto pt-2')
 
         # Gauge Container
-        gauge_container = ui.card().classes('flex-1 min-w-[300px] items-center justify-center p-0 gap-0 bg-white rounded-xl shadow-sm border border-gray-200 relative')
+        # Mobile: w-full, min-h-[280px] to ensure visibility. PC: flex-1 (share width), height stretched by sibling.
+        gauge_container = ui.card().classes('flex-1 w-full md:min-w-[300px] min-h-[280px] items-center justify-center p-0 gap-0 bg-white rounded-xl shadow-sm border border-gray-200 relative')
         with gauge_container:
                 ui.spinner(type='dots', size='lg', color='primary')
                 ui.label('计算数据中...').classes('text-gray-400 text-sm mt-2')
@@ -62,30 +82,31 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
     
     with chart_container:
         # Header Row
-        with ui.row().classes('w-full justify-between items-center mb-2 pb-2 border-b border-gray-200'):
+        # Mobile optimization: Allow wrapping
+        with ui.row().classes('w-full justify-between items-center mb-2 pb-2 border-b border-gray-200 flex-wrap gap-y-2'):
                 # Title Group
                 with ui.row().classes('items-center gap-2'):
                     ui.icon('show_chart', color='indigo').classes('text-2xl')
-                    ui.label('情绪温度趋势 (近三年)').classes('text-xl font-bold text-gray-800')
+                    ui.label('情绪温度趋势 (近三年)').classes('text-lg md:text-xl font-bold text-gray-800')
                 
                 # Actions Group
-                with ui.row().classes('items-center gap-4'):
+                with ui.row().classes('items-center gap-2 md:gap-4 flex-wrap justify-end flex-1'):
                     index_select = ui.select(
                         options=["上证指数", "深证成指", "创业板指", "上证50", "沪深300", "中证500"],
                         value="上证指数",
                         label="对比指数",
                         on_change=lambda e: fetch_and_draw_market()
-                    ).props('dense outlined options-dense bg-white behavior=menu').classes('w-32')
+                    ).props('dense outlined options-dense bg-white behavior=menu').classes('w-28 md:w-32 text-xs')
 
                     data_type_select = ui.select(
                         options=["收盘价", "指数振幅"],
                         value="收盘价",
                         label="数据类型",
                         on_change=lambda e: fetch_and_draw_market()
-                    ).props('dense outlined options-dense bg-white behavior=menu').classes('w-32')
+                    ).props('dense outlined options-dense bg-white behavior=menu').classes('w-28 md:w-32 text-xs')
                     
-                    ui.button('重新加载', icon='refresh', on_click=lambda: fetch_and_draw_market(force=True)) \
-                        .props('flat color=indigo icon-right').classes('text-indigo-600 font-bold')
+                    ui.button('刷新', icon='refresh', on_click=lambda: fetch_and_draw_market(force=True)) \
+                        .props('flat color=indigo icon-right dense').classes('text-indigo-600 font-bold text-xs md:text-sm')
 
         # Plot Area
         chart_plot_area = ui.column().classes('w-full flex-1 min-h-0 relative p-0 m-0')
@@ -199,8 +220,9 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
             status_label.delete()
         
         if df is None or df.empty:
-            if hasattr(ui.context.client, 'layout'):
-                ui.label('无法获取大盘数据。').classes('text-red-500 font-bold')
+            if hasattr(ui.context.client, 'layout') and not chart_plot_area.is_deleted:
+                 with chart_plot_area:
+                     ui.label('无法获取大盘数据。').classes('text-red-500 font-bold')
             return
         
         # Limit data for mobile
@@ -259,16 +281,18 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
                 font = dict(family="Roboto, sans-serif")
             )
             
-            gauge_container.clear()
-            with gauge_container:
-                title_text = f"情绪温度 ({last_date_str})"
-                title_class = 'text-sm font-bold absolute top-2 text-gray-700 z-10'
-                if is_simulated:
-                    title_text += " (预估)"
-                    title_class = 'text-sm font-bold absolute top-2 text-yellow-800 bg-yellow-100 px-2 rounded z-10'
-                    
-                ui.label(title_text).classes(title_class)
-                plotly_renderer(fig_gauge).classes('w-full h-full')
+            if not gauge_container.is_deleted:
+                gauge_container.clear()
+                with gauge_container:
+                    title_text = f"情绪温度 ({last_date_str})"
+                    title_class = 'text-sm font-bold absolute top-2 text-gray-700 z-10'
+                    if is_simulated:
+                        title_text += " (预估)"
+                        title_class = 'text-sm font-bold absolute top-2 text-yellow-800 bg-yellow-100 px-2 rounded z-10'
+                        
+                    ui.label(title_text).classes(title_class)
+                    # Ensure chart takes full available space in the container
+                    plotly_renderer(fig_gauge).classes('w-full h-full absolute inset-0')
 
         # Line Chart
         fig = go.Figure()
@@ -389,10 +413,12 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
 
         fig.update_traces(hovertemplate='%{y:.2f}°', selector=dict(type='scatter'))
         
+        if chart_plot_area.is_deleted: return
         chart_plot_area.clear()
         with chart_plot_area:
             plotly_renderer(fig).classes('w-full h-full')
         
+        if data_container.is_deleted: return
         data_container.classes(remove='hidden')
         data_container.clear()
         with data_container:

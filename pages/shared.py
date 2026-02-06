@@ -13,7 +13,10 @@ def setup_common_ui():
             .q-drawer { background-color: #f8f9fa; }
             .content-area { max-width: 900px; margin: 0 auto; padding: 20px; }
             /* mood-content-area: PC端占据 2/3 宽度 (66.67vw)，移动端及小屏保持全宽 */
-            .mood-content-area { width: 100%; margin: 0 auto; padding: 16px; }
+            .mood-content-area { width: 100%; margin: 0 auto; padding: 2px; }
+            @media (min-width: 768px) {
+                .mood-content-area { padding: 16px; }
+            }
             @media (min-width: 1024px) {
                 .mood-content-area { max-width: 66.67vw; }
             }
@@ -62,6 +65,9 @@ def setup_common_ui():
             },
             options: {
                 enableMenu: false,
+                sre: {
+                    speech: 'none'
+                },
                 renderActions: {
                     assistiveMml: [], 
                     explorer: []

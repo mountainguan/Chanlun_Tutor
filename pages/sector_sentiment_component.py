@@ -14,41 +14,61 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
     # Redesigned: Left main column for explanations + right stats sidebar
     with ui.row().classes('w-full gap-4 items-stretch flex-col md:flex-row'):
         # Left column (main content) - 2/3 width on PC for better formula display
-        with ui.column().classes('w-full md:w-2/3 h-full hide-on-mobile'):
-            with ui.card().classes('w-full h-full flex flex-col bg-white p-4 rounded-xl shadow-sm border border-gray-200 no-inner-shadow min-h-[450px]'):
-                with ui.row().classes('items-center gap-2 mb-3'):
-                    ui.icon('info', color='indigo').classes('text-2xl')
-                    ui.label('板块情绪温度说明').classes('text-lg font-bold text-gray-800')
+        # Changed: Remove hide-on-mobile, handle visibility internally
+        with ui.column().classes('w-full md:w-2/3 h-full'):
+            with ui.card().classes('w-full h-full flex flex-col bg-white p-4 rounded-xl shadow-sm border border-gray-200 no-inner-shadow min-h-0 md:min-h-[450px]'):
+                
+                # Mobile Header with Toggle
+                with ui.row().classes('items-center justify-between w-full mb-2'):
+                    with ui.row().classes('items-center gap-2'):
+                        ui.icon('info', color='indigo').classes('text-2xl')
+                        ui.label('板块情绪温度说明').classes('text-lg font-bold text-gray-800')
+                    
+                    if is_mobile:
+                         def toggle_tips():
+                             # Toggle the 'hidden' class to show/hide content
+                             if 'hidden' in mobile_content._classes:
+                                 mobile_content.classes(remove='hidden')
+                             else:
+                                 mobile_content.classes(add='hidden')
+                         ui.button(icon='expand_more', on_click=toggle_tips).props('flat round dense')
 
-                ui.html('''
-                <div class="bg-indigo-50 p-3 rounded-lg mb-3 text-sm text-indigo-900 leading-normal">
-                    <b>📐 计算公式：</b>板块温度 = <span class="font-bold text-red-600">量能项(资金活跃度)</span> + <span class="font-bold text-blue-600">融资项(杠杆意愿)</span>
-                </div>
-                ''', sanitize=False).classes('w-full')
+                # Content Container
+                # Mobile: Default hidden (toggleable). PC: Default visible.
+                content_classes = 'w-full flex flex-col gap-3 hidden md:flex' if is_mobile else 'w-full flex flex-col gap-3'
+                
+                # We need a reference to toggle
+                with ui.column().classes(content_classes) as mobile_content:
 
-                with ui.card().classes('w-full p-3 bg-gray-100/50 rounded-xl flex-1 flex flex-col min-h-0 border border-gray-200 shadow-none'):
-                    # Horizontal layout restored
-                    with ui.row().classes('w-full gap-4 items-stretch flex-1 min-h-0'):
-                        with ui.card().classes('flex-1 min-w-[180px] p-4 bg-white rounded-lg shadow-sm border border-gray-50 flex flex-col justify-center'):
-                            ui.label('量能项 (Volume活跃度)').classes('font-bold text-gray-700 text-sm mb-1')
-                            ui.label('反映板块相对大盘的资金聚集程度。').classes('text-xs text-gray-500 mb-2 leading-tight')
-                            ui.html('<div class="text-xs w-full break-words text-indigo-600 font-mono bg-indigo-50 p-2 rounded">公式： (板块成交 / 均量) ÷ (大盘成交 / 均量)</div>', sanitize=False)
+                    ui.html('''
+                    <div class="bg-indigo-50 p-3 rounded-lg text-sm text-indigo-900 leading-normal">
+                        <b>📐 计算公式：</b>板块温度 = <span class="font-bold text-red-600">量能项(资金活跃度)</span> + <span class="font-bold text-blue-600">融资项(杠杆意愿)</span>
+                    </div>
+                    ''', sanitize=False).classes('w-full')
 
-                        with ui.card().classes('flex-1 min-w-[180px] p-4 bg-white rounded-lg shadow-sm border border-gray-50 flex flex-col justify-center'):
-                            ui.label('融资项 (Margin杠杆意愿)').classes('font-bold text-gray-700 text-sm mb-1')
-                            ui.label('反映杠杆资金的积极性。').classes('text-xs text-gray-500 mb-2 leading-tight')
-                            ui.html('<div class="text-xs w-full break-words text-blue-600 font-mono bg-blue-50 p-2 rounded">公式： 板块融资占比% - 大盘融资占比%</div>', sanitize=False)
+                    with ui.card().classes('w-full p-3 bg-gray-100/50 rounded-xl flex-1 flex flex-col min-h-0 border border-gray-200 shadow-none'):
+                        # Horizontal layout restored (responsive)
+                        with ui.row().classes('w-full gap-4 items-stretch flex-1 min-h-0 flex-col md:flex-row'):
+                            with ui.card().classes('flex-1 min-w-[180px] p-4 bg-white rounded-lg shadow-sm border border-gray-50 flex flex-col justify-center'):
+                                ui.label('量能项 (Volume活跃度)').classes('font-bold text-gray-700 text-sm mb-1')
+                                ui.label('反映板块相对大盘的资金聚集程度。').classes('text-xs text-gray-500 mb-2 leading-tight')
+                                ui.html('<div class="text-xs w-full break-words text-indigo-600 font-mono bg-indigo-50 p-2 rounded">公式： (板块成交 / 均量) ÷ (大盘成交 / 均量)</div>', sanitize=False)
 
-                    with ui.row().classes('w-full gap-2 mt-3 text-xs'):
-                        with ui.column().classes('flex-1 bg-red-50 p-2 rounded border border-red-100 items-center justify-center gap-0'):
-                            ui.label('温度 > 90 (过热)').classes('font-bold text-red-600')
-                            ui.label('风险聚集').classes('text-red-400')
-                        with ui.column().classes('flex-1 bg-indigo-50 p-2 rounded border border-indigo-100 items-center justify-center gap-0'):
-                            ui.label('温度 -20 ~ -50 (较冷)').classes('font-bold text-indigo-700')
-                            ui.label('留意转机').classes('text-indigo-400')
-                        with ui.column().classes('flex-1 bg-purple-50 p-2 rounded border border-purple-100 items-center justify-center gap-0'):
-                            ui.label('温度 < -50 (过冷)').classes('font-bold text-purple-700')
-                            ui.label('底部反弹').classes('text-purple-400')
+                            with ui.card().classes('flex-1 min-w-[180px] p-4 bg-white rounded-lg shadow-sm border border-gray-50 flex flex-col justify-center'):
+                                ui.label('融资项 (Margin杠杆意愿)').classes('font-bold text-gray-700 text-sm mb-1')
+                                ui.label('反映杠杆资金的积极性。').classes('text-xs text-gray-500 mb-2 leading-tight')
+                                ui.html('<div class="text-xs w-full break-words text-blue-600 font-mono bg-blue-50 p-2 rounded">公式： 板块融资占比% - 大盘融资占比%</div>', sanitize=False)
+
+                        with ui.row().classes('w-full gap-2 mt-3 text-xs'):
+                            with ui.column().classes('flex-1 bg-red-50 p-2 rounded border border-red-100 items-center justify-center gap-0'):
+                                ui.label('> 90 (过热)').classes('font-bold text-red-600 text-center')
+                                ui.label('风险聚集').classes('text-red-400 text-[10px] scale-90')
+                            with ui.column().classes('flex-1 bg-indigo-50 p-2 rounded border border-indigo-100 items-center justify-center gap-0'):
+                                ui.label('-20 ~ -50 (较冷)').classes('font-bold text-indigo-700 text-center')
+                                ui.label('留意转机').classes('text-indigo-400 text-[10px] scale-90')
+                            with ui.column().classes('flex-1 bg-purple-50 p-2 rounded border border-purple-100 items-center justify-center gap-0'):
+                                ui.label('< -50 (过冷)').classes('font-bold text-purple-700 text-center')
+                                ui.label('底部反弹').classes('text-purple-400 text-[10px] scale-90')
 
         # Right column (stats sidebar) - 1/3 width
         with ui.column().classes('flex-1'):
@@ -172,6 +192,7 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
 
     def render_sector_view_internal(data, target_date=None):
         try:
+            if sector_chart_container.is_deleted or sector_table_container.is_deleted: return
             sector_chart_container.clear()
             sector_table_container.clear()
             available_dates = set()

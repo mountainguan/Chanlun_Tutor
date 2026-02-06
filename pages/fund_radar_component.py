@@ -11,44 +11,49 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
     Render the Fund Radar Panel with Daily Cache Mechanism.
     """
     radar = FundRadar()
-    today_str = datetime.datetime.now().strftime('%Y-%m-%d')
+    
+    # Ensure Today is based on China Time (UTC+8)
+    utc_now = datetime.datetime.now(datetime.timezone.utc)
+    cn_now = utc_now + datetime.timedelta(hours=8)
+    today_str = cn_now.strftime('%Y-%m-%d')
 
     # Use provided renderer or fallback to ui.plotly
     plot_func = plotly_renderer if plotly_renderer else ui.plotly
 
     # Main Container
-    with ui.column().classes('w-full px-4 md:px-6 py-0 gap-6 functionality-container'):
+    # Modified: px-0 on mobile (was px-2), gap-4 on mobile
+    with ui.column().classes('w-full px-0 md:px-6 py-0 gap-4 md:gap-6 functionality-container'):
 
         # 1. Header & Controls Section
-        with ui.card().classes('w-full rounded-xl shadow-sm border border-gray-200 bg-white p-4'):
-             with ui.row().classes('w-full items-center justify-between wrap gap-4'):
+        with ui.card().classes('w-full rounded-xl shadow-sm border border-gray-200 bg-white p-3 md:p-4'):
+             with ui.row().classes('w-full items-center justify-between wrap gap-y-3 gap-x-4'):
                 # Left: Title
                 with ui.row().classes('items-center gap-3'):
                     with ui.element('div').classes('p-2 bg-indigo-50 rounded-lg'):
                         ui.icon('radar', color='indigo').classes('text-2xl')
                     with ui.column().classes('gap-0'):
-                        ui.label('主力资金雷达').classes('text-xl font-bold text-gray-800 tracking-tight')
+                        ui.label('主力资金雷达').classes('text-lg md:text-xl font-bold text-gray-800 tracking-tight')
                         with ui.row().classes('items-center gap-2'):
-                            ui.label('Sector Heat Radar (Sina Source)').classes('text-xs text-gray-400 font-medium')
+                            ui.label('Sector Heat Radar (Sina Source)').classes('text-xs text-gray-400 font-medium hidden md:block')
                             last_update_label = ui.label('').classes('text-[10px] text-indigo-400 bg-indigo-50 px-1.5 rounded-full font-mono')
 
                 # Right: Controls (Date Picker & Refresh)
-                with ui.row().classes('items-center gap-3'):
+                with ui.row().classes('items-center gap-2 flex-wrap justify-end flex-1'):
 
                     # Date Picker Logic
                     # We can't easily restrict min/max in q-date via standard element props for simple NiceGUI date,
                     # but we can validate in logic.
                     # Default value is Today.
-                    date_input = ui.input('选择日期 (Date)', value=today_str).props('outlined dense bg-white readonly').classes('w-40')
+                    date_input = ui.input('选择日期', value=today_str).props('outlined dense bg-white readonly').classes('w-32 md:w-40 text-sm')
                     with date_input.add_slot('append'):
                         ui.icon('event').classes('cursor-pointer') \
                             .on('click', lambda: date_menu.open())
                         with ui.menu() as date_menu:
-                            ui.date(on_change=lambda e: (date_input.set_value(e.value), date_menu.close(), update_dashboard(e.value))) \
+                            ui.date(value=today_str, on_change=lambda e: (date_input.set_value(e.value), date_menu.close(), update_dashboard(e.value))) \
                                 .props(f'mask="YYYY-MM-DD"') # Optional: limit navigation
 
-                    refresh_btn = ui.button('强制刷新今日数据', icon='refresh', on_click=lambda: update_dashboard(date_input.value, force=True)) \
-                        .props('flat color=red').classes('font-bold bg-red-50 hover:bg-red-100')
+                    refresh_btn = ui.button('强制刷新', icon='refresh', on_click=lambda: update_dashboard(date_input.value, force=True)) \
+                        .props('flat color=red dense').classes('font-bold bg-red-50 hover:bg-red-100 text-xs md:text-sm')
 
                     # Only show refresh if date is today (Client-side visibility toggle logic inside update?)
                     # Simplified: We just check inside the button handler or disable it visually?
@@ -81,11 +86,14 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
             # Update Last Updated Label
             if market_snap_data and 'update_time' in market_snap_data:
-                last_update_label.set_text(f"最后刷新: {market_snap_data['update_time']}")
-                last_update_label.set_visibility(True)
+                if not last_update_label.is_deleted:
+                    last_update_label.set_text(f"最后刷新: {market_snap_data['update_time']}")
+                    last_update_label.set_visibility(True)
             else:
-                last_update_label.set_visibility(False)
+                if not last_update_label.is_deleted:
+                    last_update_label.set_visibility(False)
 
+            if dashboard_content.is_deleted: return
             dashboard_content.clear()
 
             with dashboard_content:

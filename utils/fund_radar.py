@@ -32,7 +32,11 @@ class FundRadar:
         Returns:
             tuple: (DataFrame (Sina Sectors), DataFrame (THS Sectors), dict (Market Snapshot or None))
         """
-        today_str = datetime.datetime.now().strftime('%Y-%m-%d')
+        # Ensure Today is based on China Time (UTC+8)
+        utc_now = datetime.datetime.now(datetime.timezone.utc)
+        cn_now = utc_now + datetime.timedelta(hours=8)
+        today_str = cn_now.strftime('%Y-%m-%d')
+        
         cache_path = self._get_cache_file_path(date_str)
         
         # 1. Handle Force Refresh
@@ -95,7 +99,11 @@ class FundRadar:
                             print(f"Migrating cache for {date_str} to new dictionary format...")
                             df_ths = self._fetch_ths_sector()
                             market_snap = self.get_market_snapshot()
-                            now_time = datetime.datetime.now().strftime('%H:%M:%S')
+                            # Use China Time (UTC+8)
+                            utc_now = datetime.datetime.now(datetime.timezone.utc)
+                            cn_now = utc_now + datetime.timedelta(hours=8)
+                            now_time = cn_now.strftime('%H:%M:%S')
+                            
                             data = {
                                 "sina_sectors": data,
                                 "ths_sectors": df_ths.to_dict(orient='records') if not df_ths.empty else [],
@@ -110,7 +118,10 @@ class FundRadar:
                         try:
                             # Ensure we have update_time on save
                             if 'update_time' not in data and date_str == today_str:
-                                data['update_time'] = datetime.datetime.now().strftime('%H:%M:%S')
+                                # Use China Time (UTC+8)
+                                utc_now = datetime.datetime.now(datetime.timezone.utc)
+                                cn_now = utc_now + datetime.timedelta(hours=8)
+                                data['update_time'] = cn_now.strftime('%H:%M:%S')
 
                             with open(cache_path, 'w', encoding='utf-8') as f:
                                 json.dump(data, f, ensure_ascii=False, indent=2)
@@ -127,7 +138,11 @@ class FundRadar:
             df_sina = self._fetch_sina_sector()
             df_ths = self._fetch_ths_sector()
             market_snap = self.get_market_snapshot()
-            now_time = datetime.datetime.now().strftime('%H:%M:%S')
+            
+            # Use China Time (UTC+8)
+            utc_now = datetime.datetime.now(datetime.timezone.utc)
+            cn_now = utc_now + datetime.timedelta(hours=8)
+            now_time = cn_now.strftime('%H:%M:%S')
             
             # Save to cache with market data
             try:
