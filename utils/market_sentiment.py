@@ -521,9 +521,13 @@ class MarketSentiment:
                         # 使用 UTC+8 (北京时间) 进行判断
                         utc_now = datetime.datetime.now(datetime.timezone.utc)
                         cst_now = utc_now + datetime.timedelta(hours=8)
-                        is_after_close = cst_now.hour >= 15
                         
-                        if pd.notna(df_new.at[last_idx, 'turnover_trillion']) and pd.isna(df_new.at[last_idx, 'margin_buy']) and is_after_close:
+                        # 只有当今天已经是收盘后，或者要估算的数据日期实际上是过去（比如假期时看前一个交易日），才允许估算
+                        is_past_date = last_idx.date() < cst_now.date()
+                        is_after_close_today = (last_idx.date() == cst_now.date()) and (cst_now.hour >= 15)
+                        allow_estimation = is_past_date or is_after_close_today
+                        
+                        if pd.notna(df_new.at[last_idx, 'turnover_trillion']) and pd.isna(df_new.at[last_idx, 'margin_buy']) and allow_estimation:
                             print(f"Detected missing margin data for {last_idx.date()}, attempting estimation (After close CST {cst_now.strftime('%H:%M')})...")
                             prev_ratio = 8.5 # 默认兜底值
                             

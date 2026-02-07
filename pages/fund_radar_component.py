@@ -20,6 +20,49 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
     cn_now = utc_now + datetime.timedelta(hours=8)
     today_str = cn_now.strftime('%Y-%m-%d')
 
+    # Define 2026 Trading Days Logic
+    def get_2026_trading_days():
+        # Closed weekdays (public holidays)
+        holidays_2026 = {
+            (1, 1), (1, 2),                          # 元旦
+            (2, 16), (2, 17), (2, 18), (2, 19), (2, 20), (2, 23), # 春节
+            (4, 6),                                  # 清明
+            (5, 1), (5, 4), (5, 5),                  # 劳动节
+            (6, 19),                                 # 端午
+            (9, 25),                                 # 中秋
+            (10, 1), (10, 2), (10, 5), (10, 6), (10, 7) # 国庆
+        }
+        
+        start_date = datetime.date(2026, 1, 1)
+        end_date = datetime.date(2026, 12, 31)
+        valid_days = set() # Use set for O(1) lookup
+        valid_days_list = [] # For return
+        
+        curr = start_date
+        while curr <= end_date:
+            # Keep weekday if not in holidays
+            # 0=Mon, 4=Fri, 5=Sat, 6=Sun
+            if curr.weekday() < 5 and (curr.month, curr.day) not in holidays_2026:
+                date_str = curr.strftime('%Y/%m/%d')
+                valid_days.add(date_str)
+                valid_days_list.append(date_str)
+            curr += datetime.timedelta(days=1)
+        return valid_days, valid_days_list
+
+    trading_days_set, trading_days_2026 = get_2026_trading_days()
+
+    # Determine default selected date (find latest valid trading day)
+    check_date = cn_now.date()
+    # Limit check loop to avoid infinite loops, check max 30 days back
+    for _ in range(30):
+        if check_date.strftime('%Y/%m/%d') in trading_days_set:
+            break
+        check_date -= datetime.timedelta(days=1)
+    
+    today_str = check_date.strftime('%Y-%m-%d')
+    # Update cn_now to reflect the selected date roughly (though cn_now usage below might just be for 'is today' checks)
+    # Actually logic below uses today_str for initial state
+
     # Use provided renderer or fallback to ui.plotly
     plot_func = plotly_renderer if plotly_renderer else ui.plotly
 
@@ -54,15 +97,24 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                             .on('click', lambda: date_menu.open())
                         with ui.menu() as date_menu:
                             ui.date(value=today_str, on_change=lambda e: (date_input.set_value(e.value), date_menu.close())) \
-                                .props(f'mask="YYYY-MM-DD"') # Optional: limit navigation
+                                .props(f'mask="YYYY-MM-DD" :options="{trading_days_2026}"')
 
                     refresh_btn = ui.button('强制刷新', icon='refresh', on_click=lambda: update_dashboard(date_input.value, force=True)) \
                         .props('flat color=red dense').classes('font-bold bg-red-50 hover:bg-red-100 text-xs md:text-sm')
 
                     # Visibility Logic
                     def check_refresh_visibility():
-                        is_today = (date_input.value == today_str)
-                        refresh_btn.set_visibility(is_today)
+                        # Allow refresh if it is "today" OR the latest available trading day
+                        # A simple logic is: allow refresh if date is today (logic might need adjust for holidays)
+                        # Actually original logic: is_today = (date_input.value == today_str) 
+                        # Now today_str is the 'latest trading day'. 
+                        # But wait, 'today_str' is just the initial value. 
+                        # We want to allow refresh if the selected date IS essentially the real today (or last trading day).
+                        # Let's keep it simple: enable refresh button if date equals our auto-calculated 'today_str'
+                        # which is the "latest trading day relative to real time".
+                        
+                        is_current_target = (date_input.value == today_str)
+                        refresh_btn.set_visibility(is_current_target)
                     
                     # Update Duration Options based on Cache
                     def update_duration_options(date_val):
