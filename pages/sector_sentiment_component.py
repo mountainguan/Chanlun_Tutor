@@ -377,4 +377,4 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
             state['load_btn'] = ui.button('加载缓存', on_click=lambda: load_sector_view()).props('unelevated color=indigo-6 icon=history')
             state['update_btn'] = ui.button('在线更新', on_click=lambda: update_sector_data()).props('outline color=indigo-6 icon=cloud_download')
     
-    ui.timer(0.1, lambda: load_sector_view(), once=True)
+    ui.timer(0, lambda: load_sector_view(), once=True)

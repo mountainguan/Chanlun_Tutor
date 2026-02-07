@@ -163,7 +163,7 @@ def custom_plotly(fig):
     js = f'window.addToChartQueue("{chart_id}", {j_data}, {j_layout}, {j_config});'
 
     try:
-        ui.timer(0.05, lambda: ui.run_javascript(js), once=True)
+        ui.timer(0, lambda: ui.run_javascript(js), once=True)
     except Exception:
         ui.run_javascript(js)
     

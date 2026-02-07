@@ -1225,7 +1225,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
         await update_dashboard(today_str, force=mode_force)
 
     # Run init logic
-    ui.timer(0.1, auto_load_logic, once=True)
+    ui.timer(0, auto_load_logic, once=True)
 
     # --- Client-Side Poller (Reflect Background Updates) ---
     async def poll_for_monitor():

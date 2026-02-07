@@ -30,13 +30,14 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
                 
                 # Mobile only: Toggle description
                 if is_mobile:
-                    with ui.button(icon='help_outline', on_click=lambda: desc_container.toggle()).props('flat round dense color=grey'):
+                    with ui.button(icon='help_outline', on_click=lambda: desc_container.set_visibility(not desc_container.visible)).props('flat round dense color=grey'):
                         pass
 
             # Container for description (Collapsible on mobile)
             desc_classes = 'w-full'
             if is_mobile:
-                 desc_wrapper = ui.column().classes('w-full hidden transition-all duration-300')
+                 desc_wrapper = ui.column().classes('w-full transition-all duration-300')
+                 desc_wrapper.set_visibility(False)
                  desc_container = desc_wrapper
             else:
                  desc_wrapper = ui.column().classes('w-full')
@@ -488,6 +489,11 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
 
     # Initial Load
     async def initial_load():
-        await asyncio.gather(fetch_and_draw_market(), fetch_and_update_savings_ratio())
+        try:
+            await asyncio.gather(fetch_and_draw_market(), fetch_and_update_savings_ratio())
+        except Exception as e:
+            # Avoid errors if component is destroyed during load
+            pass
     
-    ui.timer(0.1, lambda: asyncio.create_task(initial_load()), once=True)
+    # Use timer(0) to run immediately but allow UI to render first, minimizing 'parent deleted' window
+    ui.timer(0, lambda: asyncio.create_task(initial_load()), once=True)

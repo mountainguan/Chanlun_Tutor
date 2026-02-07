@@ -528,4 +528,4 @@ def render_money_flow_panel(plotly_renderer=None):
     refresh_list()
     
     # Trigger load from client local storage
-    ui.timer(0.1, load_subs_from_browser, once=True)
+    ui.timer(0, load_subs_from_browser, once=True)
