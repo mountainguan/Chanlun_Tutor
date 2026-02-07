@@ -1205,9 +1205,15 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
         
         # Read from localStorage via JS since app.storage.browser is problematic in callbacks
         # and standardizing with Money Flow module's approach.
-        stored_val = await ui.run_javascript(f'return localStorage.getItem("{client_key}")')
-        is_first_visit = (stored_val != "true")
-        
+        is_first_visit = False
+        try:
+            # 增加超时时间并捕获异常，防止因网络不稳定导致的崩溃
+            stored_val = await ui.run_javascript(f'return localStorage.getItem("{client_key}")', timeout=10.0)
+            is_first_visit = (stored_val != "true")
+        except Exception as e:
+            print(f"[FundRadar] Warning: localStorage check timeout or error: {e}. Defaulting to cached data.")
+            is_first_visit = False
+
         mode_force = False
         if is_first_visit:
             # First time today: Force refresh as per requirement
