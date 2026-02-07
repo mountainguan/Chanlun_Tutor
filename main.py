@@ -4,19 +4,13 @@ import os
 os.environ['MPLCONFIGDIR'] = '/tmp'
 os.environ['XDG_CONFIG_HOME'] = '/tmp'
 
-from nicegui import ui, app, core
+from nicegui import ui, app
 import json
 import re
 import uuid
 import urllib.request
 import asyncio
 import datetime
-
-# 强制使用轮询，解决 Zeabur 等平台 WebSocket 超时导致页面刷新的问题
-core.sio.eio.transports = ['polling']
-core.sio.eio.allow_upgrades = False
-app.config.socket_io_js_transports = ['polling']
-
 from utils.fund_radar import FundRadar
 from plotly.utils import PlotlyJSONEncoder
 from utils.charts import create_candlestick_chart, get_demo_fenxing_data, get_chart_data
