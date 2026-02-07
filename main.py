@@ -509,4 +509,14 @@ def mood_page():
 if __name__ in {"__main__", "__mp_main__"}:
     try: port = int(os.environ.get('PORT', 8080))
     except: port = 8080
-    ui.run(title='缠论 quant', port=port, host='0.0.0.0', reload=False, storage_secret='chanlun-secret')
+    ui.run(
+        title='缠论 quant',
+        port=port,
+        host='0.0.0.0',
+        reload=False,
+        storage_secret='chanlun-secret',
+        favicon='📈',            # 设置网站图标
+        reconnect_timeout=60.0,  # 增加重连容忍时间到60秒（默认3秒），减少移动端因网络波动导致的强制刷新
+        ws_ping_interval=10.0,   # 缩短心跳间隔（默认20秒），防止 Zeabur 的负载均衡器因连接空闲而断开
+        ws_ping_timeout=30.0     # 增加心跳等待超时（默认20秒），适应高延迟的移动网络
+    )
