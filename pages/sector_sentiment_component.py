@@ -4,8 +4,6 @@ import plotly.graph_objects as go
 import pandas as pd
 import asyncio
 import os
-import sys
-import subprocess
 import io
 
 def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
@@ -148,31 +146,15 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
                         ui.spinner('dots', size='xl', color='indigo')
                         ui.label(f'正在获取【{level_name}】板块数据...').classes('text-indigo-500 font-bold mt-4')
 
-            script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'utils', 'sector_sentiment.py')
-            def run_script():
-                # 使用 -u 参数确保输出不被缓冲
-                cmd = [sys.executable, '-u', script_path, '--level', str(level)]
-                # 不捕获输出，让其直接打印到控制台，以便用户实时查看进度
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    bufsize=1,
-                    cwd=os.path.dirname(os.path.dirname(__file__))
-                )
-                
-                print(f"\n--- 开始更新【{level_name}】板块数据 ---", flush=True)
-                for line in process.stdout:
-                    print(line, end='', flush=True)
-                
-                process.wait()
-                if process.returncode != 0:
-                    raise Exception(f"板块更新脚本执行失败，退出码: {process.returncode}")
-                print(f"--- 【{level_name}】板块数据更新完成 ---\n", flush=True)
+            
+            def run_update():
+                print(f"--- 开始更新【{level_name}】板块数据 ---")
+                ss = SectorSentiment(industry_level=level)
+                ss.update_data()
+                print(f"--- 【{level_name}】板块数据更新完成 ---")
                 return ""
 
-            await loop.run_in_executor(None, run_script)
+            await loop.run_in_executor(None, run_update)
             load_sector_view() 
             ui.notify('板块数据更新成功', type='positive')
         except RuntimeError:

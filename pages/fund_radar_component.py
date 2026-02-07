@@ -584,7 +584,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                              # Download Button
                              def download_csv():
                                  csv_str = df.to_csv(index=False)
-                                 ui.download(dict(content=csv_str, filename=f'fund_flow_{date_val}_{duration}days.csv').encode('utf-8'))
+                                 ui.download(csv_str.encode('utf-8-sig'), filename=f'fund_flow_{date_input.value}_{radar_state["duration"]}days.csv')
                              
                              with ui.row().classes('w-full justify-end'):
                                  ui.button('下载 CSV 数据', icon='download', on_click=download_csv).props('outline rounded color=grey-8 size=sm')
