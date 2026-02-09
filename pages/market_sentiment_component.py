@@ -2,6 +2,7 @@ from nicegui import ui
 from utils.market_sentiment import MarketSentiment
 from utils.index_data import IndexDataManager
 from utils.macro_data import get_savings_mv_ratio_data
+from pages.shibor_component import render_shibor_panel
 import plotly.graph_objects as go
 import pandas as pd
 import asyncio
@@ -115,6 +116,9 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
     # Data Table Container
     data_container = ui.column().classes('w-full mt-4 hidden')
     
+    # Shibor Chart Container
+    render_shibor_panel(plotly_renderer=plotly_renderer, is_mobile=is_mobile)
+
     # Savings Ratio Table Container
     savings_container = ui.column().classes('w-full mt-4')
 
