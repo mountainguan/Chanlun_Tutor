@@ -20,19 +20,8 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
     cn_now = utc_now + datetime.timedelta(hours=8)
     today_str = cn_now.strftime('%Y-%m-%d')
 
-    # Define 2026 Trading Days Logic
+    # Define 2026 Trading Days Logic (复用 FundRadar 的节假日表)
     def get_2026_trading_days():
-        # Closed weekdays (public holidays)
-        holidays_2026 = {
-            (1, 1), (1, 2),                          # 元旦
-            (2, 16), (2, 17), (2, 18), (2, 19), (2, 20), (2, 23), # 春节
-            (4, 6),                                  # 清明
-            (5, 1), (5, 4), (5, 5),                  # 劳动节
-            (6, 19),                                 # 端午
-            (9, 25),                                 # 中秋
-            (10, 1), (10, 2), (10, 5), (10, 6), (10, 7) # 国庆
-        }
-        
         start_date = datetime.date(2026, 1, 1)
         end_date = datetime.date(2026, 12, 31)
         valid_days = set() # Use set for O(1) lookup
@@ -40,9 +29,8 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
         
         curr = start_date
         while curr <= end_date:
-            # Keep weekday if not in holidays
-            # 0=Mon, 4=Fri, 5=Sat, 6=Sun
-            if curr.weekday() < 5 and (curr.month, curr.day) not in holidays_2026:
+            # 非周末 + 非节假日 = 交易日
+            if curr.weekday() < 5 and not FundRadar.is_holiday(curr):
                 date_str = curr.strftime('%Y/%m/%d')
                 valid_days.add(date_str)
                 valid_days_list.append(date_str)
@@ -618,6 +606,13 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
             check_refresh_visibility() # Update button state
             dashboard_content.clear()
             
+            # 判断是否为过去的日期（非当前最新交易日）
+            is_past_date = (date_val != today_str)
+            
+            # 过去日期不触发在线数据获取，仅查询本地缓存
+            if is_past_date and force:
+                force = False  # 过去日期强制取消强制刷新
+            
             # Determine duration
             duration = radar_state['duration']
 
@@ -625,7 +620,9 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                 # Loading State
                 with ui.column().classes('w-full items-center justify-center py-12'):
                     ui.spinner(type='dots', size='3rem', color='indigo')
-                    if duration > 1:
+                    if is_past_date:
+                        ui.label(f'正在查询 {date_val} 本地缓存数据...').classes('text-gray-400 mt-4 animate-pulse')
+                    elif duration > 1:
                         ui.label(f'正在从同花顺获取 {duration} 天累计数据...').classes('text-gray-400 mt-4 animate-pulse')
                         ui.label('首次加载需约10秒（并行获取90个行业历史成交额）').classes('text-xs text-gray-300 mt-1')
                     else:
@@ -636,17 +633,23 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
             # --- Multi Data Logic ---
             if duration > 1:
                 df_agg, used_dates = await loop.run_in_executor(
-                    None, lambda: radar.get_multi_day_data(date_val, duration)
+                    None, lambda: radar.get_multi_day_data(date_val, duration, cache_only=is_past_date)
                 )
                 
                 dashboard_content.clear()
                 with dashboard_content:
                     if df_agg.empty:
                         with ui.card().classes('w-full p-8 items-center justify-center bg-white rounded-xl shadow-sm border border-gray-200'):
-                             ui.icon('cloud_off', size='4rem', color='grey-4')
-                             ui.label('数据源暂时不可用').classes('text-xl text-gray-500 font-bold mt-4')
-                             ui.label('同花顺API解析异常，可能是网站结构变更。请稍后重试或联系开发者。').classes('text-gray-400 text-sm mt-2')
-                             ui.label('建议：尝试单日数据，或等待数据源修复。').classes('text-gray-400 text-xs mt-1')
+                             if is_past_date:
+                                 ui.icon('history', size='4rem', color='amber-4')
+                                 ui.label('回溯日期未缓存任何数据').classes('text-xl text-gray-500 font-bold mt-4')
+                                 ui.label(f'{date_val} 无本地缓存数据，历史日期仅支持查看已缓存的数据。').classes('text-gray-400 text-sm mt-2')
+                                 ui.label('提示：只有在当天盘中/收盘后加载过的日期才会有缓存数据。').classes('text-gray-400 text-xs mt-1')
+                             else:
+                                 ui.icon('cloud_off', size='4rem', color='grey-4')
+                                 ui.label('数据源暂时不可用').classes('text-xl text-gray-500 font-bold mt-4')
+                                 ui.label('同花顺API解析异常，可能是网站结构变更。请稍后重试或联系开发者。').classes('text-gray-400 text-sm mt-2')
+                                 ui.label('建议：尝试单日数据，或等待数据源修复。').classes('text-gray-400 text-xs mt-1')
                     else:
                         render_multi_day_view(df_agg, used_dates, plot_func)
                 return
@@ -657,8 +660,11 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
             # Fetch data 
             # Returns: Sina DF (Amount), THS DF (Net Inflow), Market Snapshot
-            # Use 'FORCE_UPDATE' if force is True, else 'READ_CACHE'
-            mode = 'FORCE_UPDATE' if force else 'READ_CACHE'
+            # 过去日期仅读缓存，当天日期根据force决定模式
+            if is_past_date:
+                mode = 'READ_CACHE'
+            else:
+                mode = 'FORCE_UPDATE' if force else 'READ_CACHE'
             loop = asyncio.get_running_loop()
             
             # Request data (Ignore Sina/Flow data, only use THS)
@@ -682,10 +688,16 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                 # Strictly check THS data
                 if df_ths.empty:
                     with ui.card().classes('w-full p-8 items-center justify-center bg-white rounded-xl shadow-sm border border-gray-200'):
-                         ui.icon('cloud_off', size='4rem', color='grey-4')
-                         ui.label('数据源暂时不可用').classes('text-xl text-gray-500 font-bold mt-4')
-                         ui.label('同花顺API解析异常，可能是网站结构变更。请稍后重试或联系开发者。').classes('text-gray-400 text-sm mt-2')
-                         ui.label('建议：尝试强制刷新，或等待数据源修复。').classes('text-gray-400 text-xs mt-1')
+                         if is_past_date:
+                             ui.icon('history', size='4rem', color='amber-4')
+                             ui.label('回溯日期未缓存任何数据').classes('text-xl text-gray-500 font-bold mt-4')
+                             ui.label(f'{date_val} 无本地缓存数据，历史日期仅支持查看已缓存的数据。').classes('text-gray-400 text-sm mt-2')
+                             ui.label('提示：只有在当天盘中/收盘后加载过的日期才会有缓存数据。').classes('text-gray-400 text-xs mt-1')
+                         else:
+                             ui.icon('cloud_off', size='4rem', color='grey-4')
+                             ui.label('数据源暂时不可用').classes('text-xl text-gray-500 font-bold mt-4')
+                             ui.label('同花顺API解析异常，可能是网站结构变更。请稍后重试或联系开发者。').classes('text-gray-400 text-sm mt-2')
+                             ui.label('建议：尝试强制刷新，或等待数据源修复。').classes('text-gray-400 text-xs mt-1')
                     return
 
                 # --- Metric Logic (THS Only) ---

@@ -18,6 +18,19 @@ class FundRadar:
     - No "Force Refresh" via UI unless button clicked.
     """
     
+    # ── A股节假日休市日历 (工作日但休市的日期) ──
+    # 仅需维护非周末的休市日，周末自动排除
+    # 格式: {(month, day), ...}
+    HOLIDAYS_2026 = {
+        (1, 1), (1, 2),                                          # 元旦
+        (2, 16), (2, 17), (2, 18), (2, 19), (2, 20), (2, 23),   # 春节
+        (4, 6),                                                  # 清明
+        (5, 1), (5, 4), (5, 5),                                  # 劳动节
+        (6, 19),                                                 # 端午
+        (9, 25),                                                 # 中秋
+        (10, 1), (10, 2), (10, 5), (10, 6), (10, 7),            # 国庆
+    }
+
     # Class-level Global Throttle (shared across all instances)
     _fetch_log = {} 
     
@@ -30,11 +43,14 @@ class FundRadar:
     # ── Anti-Crawl Rate Limiter (shared across all threads) ──
     _api_lock = threading.Lock()
     _api_last_call_ts = 0            # timestamp of last API call
-    _api_min_interval = 0.20         # min seconds between any two API calls
+    _api_min_interval = 1.5          # min seconds between any two API calls (THS needs ≥1s)
     _api_error_count = 0             # consecutive error counter
     _api_backoff_until = 0           # global pause timestamp (adaptive backoff)
-    _API_MAX_WORKERS = 4             # max parallel threads (down from 8)
-    _API_JITTER_RANGE = (0.05, 0.15) # random jitter added per request (seconds)
+    _API_MAX_WORKERS = 2             # max parallel threads (conservative for THS)
+    _API_JITTER_RANGE = (0.3, 1.0)   # random jitter added per request (seconds)
+    _ths_flow_cache = {}             # short-lived cache for stock_fund_flow_industry results
+    _ths_flow_cache_lock = threading.Lock()
+    _ths_flow_blocked_until = 0      # timestamp: skip fund_flow_industry calls until this time
 
     def __init__(self):
         self.data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
@@ -47,7 +63,7 @@ class FundRadar:
     # ── Anti-Crawl: Rate-Limited API Wrapper ──────────────────────
 
     @classmethod
-    def _rate_limited_call(cls, api_func, *args, _retry_max=2, _label="API", **kwargs):
+    def _rate_limited_call(cls, api_func, *args, _retry_max=3, _label="API", **kwargs):
         """
         Thread-safe, rate-limited wrapper for any akshare API call.
         Features:
@@ -84,25 +100,26 @@ class FundRadar:
                 return result
             except Exception as e:
                 err_msg = str(e).lower()
-                # Special handling for known Akshare/Requests parsing error (often due to 401/403 or empty response)
-                if "'nonetype' object has no attribute 'text'" in err_msg:
-                    # This is a data source issue, not rate limiting. Fail immediately without backoff.
-                    print(f"[DataSource] {_label} failed due to data parsing error: {e}")
-                    return None
-                else:
-                    is_rate_limit = any(kw in err_msg for kw in [
-                        '403', '429', 'too many', 'rate limit', 'frequent',
-                        'banned', 'block', 'access denied', 'timeout',
-                        'timed out', 'connection', 'reset by peer'
-                    ])
+                # NoneType parsing error = THS anti-crawl blocked the response
+                # (server returns a CAPTCHA/empty page instead of data)
+                is_anticrawl_parse = "'nonetype' object has no attribute 'text'" in err_msg
+                is_rate_limit = is_anticrawl_parse or any(kw in err_msg for kw in [
+                    '403', '429', 'too many', 'rate limit', 'frequent',
+                    'banned', 'block', 'access denied', 'timeout',
+                    'timed out', 'connection', 'reset by peer'
+                ])
+                if is_anticrawl_parse:
+                    print(f"[AntiCrawl] {_label} blocked by THS (NoneType parse error), attempt {attempt}/{_retry_max}")
                 
                 with cls._api_lock:
                     cls._api_error_count += 1
                     ec = cls._api_error_count
                 
                 if is_rate_limit or ec >= 5:
-                    # Adaptive backoff: exponential with cap
-                    backoff = min(2 ** min(ec, 6), 120)  # 2s → 4s → 8s … max 120s
+                    # Anti-crawl backoff: longer base delay (5s minimum) with exponential growth
+                    base = 5 if is_anticrawl_parse else 2
+                    backoff = min(base * (2 ** min(attempt - 1, 4)), 120)  # 5→10→20→40→80 or 2→4→8→16→32
+                    backoff += random.uniform(1, 3)  # extra jitter
                     print(f"[RateLimit] {_label} attempt {attempt} failed (errors={ec}): {e}")
                     print(f"[RateLimit] Triggering adaptive backoff: {backoff:.0f}s")
                     with cls._api_lock:
@@ -110,7 +127,7 @@ class FundRadar:
                     time.sleep(backoff)
                 else:
                     # Normal error → small delay before retry
-                    delay = attempt * 1.0 + random.uniform(0.3, 1.0)
+                    delay = attempt * 2.0 + random.uniform(1.0, 3.0)
                     if attempt < _retry_max:
                         print(f"[RateLimit] {_label} attempt {attempt} error: {e}, retrying in {delay:.1f}s")
                         time.sleep(delay)
@@ -181,16 +198,42 @@ class FundRadar:
     def _get_cache_path(self, date_str):
         return os.path.join(self.cache_dir, f"sector_sina_{date_str}.json")
 
+    @classmethod
+    def is_holiday(cls, dt):
+        """判断指定日期是否为A股节假日休市（仅判断非周末的特殊休市日）"""
+        if isinstance(dt, datetime.datetime):
+            dt = dt.date() if hasattr(dt, 'date') else dt
+        return (dt.month, dt.day) in cls.HOLIDAYS_2026
+
+    @classmethod
+    def is_trading_day(cls, cn_now=None):
+        """
+        判断是否为A股交易日（非周末 且 非节假日）。
+        传入中国时间 datetime，或默认取当前中国时间。
+        """
+        if cn_now is None:
+            utc_now = datetime.datetime.now(datetime.timezone.utc)
+            cn_now = utc_now + datetime.timedelta(hours=8)
+        # Weekend
+        if cn_now.weekday() >= 5:
+            return False
+        # Holiday
+        if cls.is_holiday(cn_now):
+            return False
+        return True
+
     def is_trading_time(self, cn_now=None):
+        """判断当前是否在A股盘中时段（交易日 + 开盘时间段）"""
         if cn_now is None:
             cn_now = self._get_china_now()
         
-        # Weekends
-        if cn_now.weekday() >= 5: return False
+        # 非交易日直接返回 False
+        if not self.is_trading_day(cn_now):
+            return False
         
         t = cn_now.time()
         # 09:30 - 11:30, 13:00 - 15:00
-        # Add slight buffer unique to data availability
+        # Add slight buffer for data availability
         # Morning: 9:25 to 11:35
         if datetime.time(9, 25) <= t <= datetime.time(11, 35): return True
         # Afternoon: 12:55 to 15:05
@@ -415,13 +458,21 @@ class FundRadar:
         dates.sort()
         return dates
 
-    def get_multi_day_data(self, end_date_str, days):
+    def get_multi_day_data(self, end_date_str, days, cache_only=False):
         """
         Aggregate multi-day data. Now uses DIRECT THS API for 3/5/10/20 day periods,
         no daily cache accumulation needed.
         Falls back to cache aggregation only when direct API fails.
+        
+        cache_only: If True, only use local cache (no online fetching).
+                    Used when viewing historical dates to avoid unnecessary API calls.
         Returns: (DataFrame, list_of_dates_used_or_period_label)
         """
+        # If cache_only, skip all online APIs and go straight to local cache
+        if cache_only:
+            print(f"[FundRadar] Multi-day {days}d: cache_only mode, using local cache for {end_date_str}")
+            return self._get_multi_day_from_cache(end_date_str, days)
+
         # Map days to THS multi-day ranking API periods
         ths_period_map = {3: '3日排行', 5: '5日排行', 10: '10日排行', 20: '20日排行'}
         
@@ -431,7 +482,12 @@ class FundRadar:
             if df_direct is not None and not df_direct.empty:
                 return df_direct, [f"THS {days}日直取"]
         
-        # For unsupported periods (e.g. 60 days) or API failure, 
+        # Fallback 2: summary + history combo (when fund_flow_industry is blocked)
+        df_summary = self._fetch_multi_day_via_summary(days, end_date_str)
+        if df_summary is not None and not df_summary.empty:
+            return df_summary, [f"THS {days}日(概览+历史)"]
+        
+        # Fallback 3: For unsupported periods (e.g. 60 days) or API failure, 
         # try direct history fetch for arbitrary period
         df_hist = self._fetch_multi_day_history_direct(days, end_date_str)
         if df_hist is not None and not df_hist.empty:
@@ -439,6 +495,49 @@ class FundRadar:
 
         # Final fallback: legacy cache aggregation
         return self._get_multi_day_from_cache(end_date_str, days)
+
+    def _get_ths_flow_cached(self, symbol):
+        """
+        Fetch stock_fund_flow_industry with short-lived in-memory cache (10 min).
+        Avoids hammering THS when multiple periods are requested simultaneously.
+        Failed results are cached for 2 min (to avoid immediate re-hammering).
+        If the endpoint is known to be blocked, skip entirely for 10 min.
+        Returns DataFrame or None.
+        """
+        # Fast-skip if endpoint is known to be blocked
+        now = time.time()
+        if now < FundRadar._ths_flow_blocked_until:
+            remaining = (FundRadar._ths_flow_blocked_until - now) / 60
+            print(f"[FundRadar] stock_fund_flow_industry({symbol}): SKIPPED (endpoint blocked, retry in {remaining:.0f}m)")
+            return None
+
+        cache_key = symbol
+        with FundRadar._ths_flow_cache_lock:
+            cached = FundRadar._ths_flow_cache.get(cache_key)
+            if cached:
+                ts, df, success = cached
+                ttl = 600 if success else 120  # 10 min for success, 2 min for failure
+                if time.time() - ts < ttl:
+                    status = "cache hit" if success else "cached failure"
+                    print(f"[FundRadar] stock_fund_flow_industry({symbol}): {status} ({(time.time()-ts)/60:.0f}m old)")
+                    return df.copy() if df is not None else None
+
+        # Not cached or expired → fetch with rate limiting
+        df = self._rate_limited_call(
+            ak.stock_fund_flow_industry, symbol=symbol,
+            _retry_max=3, _label=f"fund_flow_industry({symbol})"
+        )
+        success = df is not None and not df.empty
+        with FundRadar._ths_flow_cache_lock:
+            FundRadar._ths_flow_cache[cache_key] = (time.time(), df, success)
+        
+        # If failed, mark this endpoint as blocked for 10 minutes
+        # to prevent wasting time on retries for other period queries
+        if not success:
+            FundRadar._ths_flow_blocked_until = time.time() + 600
+            print(f"[FundRadar] stock_fund_flow_industry blocked → skipping all calls for 10 min")
+        
+        return df
 
     def _fetch_multi_day_ths_direct(self, days, date_str):
         """
@@ -465,11 +564,8 @@ class FundRadar:
         print(f"[FundRadar] Multi-day {days}d: Fetching from THS directly...")
         
         try:
-            # Step 1: Fetch multi-day fund flow ranking (single rate-limited call)
-            df_flow = self._rate_limited_call(
-                ak.stock_fund_flow_industry, symbol=period_label,
-                _label=f"fund_flow_industry({period_label})"
-            )
+            # Step 1: Fetch multi-day fund flow ranking (with short-lived cache)
+            df_flow = self._get_ths_flow_cached(period_label)
             if df_flow is None or df_flow.empty:
                 print(f"[FundRadar] stock_fund_flow_industry({period_label}) returned empty")
                 return None
@@ -542,6 +638,80 @@ class FundRadar:
             print(f"[FundRadar] Multi-day {days}d direct fetch failed: {e}")
             return None
 
+    def _fetch_multi_day_via_summary(self, days, date_str):
+        """
+        Fallback: When stock_fund_flow_industry is blocked by anti-crawl,
+        use stock_board_industry_summary_ths (today's snapshot with 净流入) 
+        + stock_board_industry_index_ths (history) to construct multi-day data.
+        
+        Limitation: 净流入 is today-only (not N-day cumulative), but combined with
+        history-derived 涨跌幅 and 总成交额, it still provides useful ranking data.
+        """
+        cache_key = f"summary_{days}_{date_str}"
+        cached = FundRadar._multi_day_cache.get(cache_key)
+        if cached:
+            ts, df_cached = cached
+            if time.time() - ts < 1800:
+                print(f"[FundRadar] Multi-day {days}d (summary fallback): Using memory cache")
+                return df_cached
+
+        print(f"[FundRadar] Multi-day {days}d: Trying summary+history fallback...")
+        
+        try:
+            # Step 1: Get sector list + today's net flow from summary API
+            df_summary = self._rate_limited_call(
+                ak.stock_board_industry_summary_ths,
+                _retry_max=3, _label="ths_summary_fallback"
+            )
+            if df_summary is None or df_summary.empty:
+                print(f"[FundRadar] Summary fallback also failed")
+                return None
+            
+            # Step 2: Parallel fetch N-day history for turnover + pct
+            end_dt = datetime.datetime.strptime(date_str, '%Y-%m-%d')
+            start_dt = end_dt - datetime.timedelta(days=days + 15)
+            start_str = start_dt.strftime('%Y%m%d')
+            end_str = end_dt.strftime('%Y%m%d')
+            
+            sector_names = df_summary['板块'].tolist()
+            hist_map = self._parallel_fetch_sector_history(sector_names, start_str, end_str, days)
+            
+            # Step 3: Merge
+            rows = []
+            for _, row in df_summary.iterrows():
+                name = row['板块']
+                try:
+                    # 净流入 from summary (today only, unit varies)
+                    net_flow = float(row.get('净流入', 0))
+                except (ValueError, TypeError):
+                    net_flow = 0.0
+                
+                hist_info = hist_map.get(name, {})
+                turnover_yi = hist_info.get('turnover', 0.0)
+                pct = hist_info.get('pct', 0.0)
+                
+                # Normalize net flow to 亿 if needed
+                if abs(net_flow) > 100000:
+                    net_flow /= 100000000.0
+                
+                rows.append({
+                    '名称': name,
+                    '净流入': net_flow,
+                    '总成交额': turnover_yi,
+                    '活跃天数': days,
+                    '涨跌幅': pct,
+                    '日均趋势': []
+                })
+            
+            df_result = pd.DataFrame(rows)
+            FundRadar._multi_day_cache[cache_key] = (time.time(), df_result)
+            print(f"[FundRadar] Multi-day {days}d (summary fallback): Got {len(df_result)} sectors")
+            return df_result
+            
+        except Exception as e:
+            print(f"[FundRadar] Multi-day {days}d summary fallback failed: {e}")
+            return None
+
     def _fetch_multi_day_history_direct(self, days, date_str):
         """
         For arbitrary periods (e.g. 60 days) not covered by THS ranking API.
@@ -558,11 +728,8 @@ class FundRadar:
         print(f"[FundRadar] Multi-day {days}d (history): Fetching from THS...")
         
         try:
-            # Rate-limited call for the ranking API
-            df_flow_20 = self._rate_limited_call(
-                ak.stock_fund_flow_industry, symbol='20日排行',
-                _label="fund_flow_industry(20d)"
-            )
+            # Rate-limited call for the ranking API (with short-lived cache)
+            df_flow_20 = self._get_ths_flow_cached('20日排行')
             if df_flow_20 is None or df_flow_20.empty:
                 return None
             

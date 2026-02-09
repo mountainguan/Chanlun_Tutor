@@ -50,7 +50,7 @@ ensure_static_assets()
 
 # --- 后台任务 ---
 async def run_background_tasks():
-    """后台定时任务：在交易时间段自动刷新数据"""
+    """后台定时任务：仅在A股交易日的开盘时段自动刷新数据，节假日/非盘中时段不执行"""
     print("Starting background tasks...")
     radar = FundRadar()
     
@@ -60,19 +60,17 @@ async def run_background_tasks():
             utc_now = datetime.datetime.now(datetime.timezone.utc)
             cn_now = utc_now + datetime.timedelta(hours=8)
             
-            # Check if generally potentially trading time (Mon-Fri, 9:00 - 15:30)
-            # We keep this broad check to avoid waking up at midnight.
-            # Fine-grained checks (holidays, lunch break, etc) are handled inside FundRadar.
-            if cn_now.weekday() < 5:  # 0=Monday, 4=Friday
-                current_time = cn_now.time()
-                if datetime.time(9, 0) <= current_time <= datetime.time(15, 30):
-                    today_str = cn_now.strftime('%Y-%m-%d')
-                    
-                    # Call with BACKGROUND_AUTO mode
-                    # This will check cache age (>30min) and handle retry logic (5min delay on fail)
-                    # Running in executor to avoid blocking the event loop with file I/O or network
-                    loop = asyncio.get_running_loop()
-                    await loop.run_in_executor(None, lambda: radar.get_data(today_str, mode='BACKGROUND_AUTO'))
+            # 严格判断：必须是交易日（非周末 + 非节假日）且在盘中时段
+            # 节假日判断由 FundRadar.is_trading_day() 处理
+            # 盘中时段判断由 FundRadar.is_trading_time() 处理
+            if radar.is_trading_time(cn_now):
+                today_str = cn_now.strftime('%Y-%m-%d')
+                
+                # Call with BACKGROUND_AUTO mode
+                # This will check cache age (>30min) and handle retry logic (5min delay on fail)
+                # Running in executor to avoid blocking the event loop with file I/O or network
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, lambda: radar.get_data(today_str, mode='BACKGROUND_AUTO'))
         
         except Exception as e:
             print(f"[Background] Task error: {e}")
