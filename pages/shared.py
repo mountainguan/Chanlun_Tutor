@@ -56,6 +56,74 @@ def setup_common_ui():
             .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         </style>
         <script>
+        (function(){
+            // Create Loading UI
+            var spinCss = document.createElement('style');
+            spinCss.innerHTML = '@keyframes spin{to{transform:rotate(360deg)}}';
+            document.head.appendChild(spinCss);
+            
+            var box = document.createElement('div');
+            box.id = 'res-loader';
+            box.style.cssText = 'position:fixed;bottom:20px;right:20px;background:rgba(30,30,30,0.95);color:#fff;padding:12px 20px;border-radius:30px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-family:system-ui,sans-serif;font-size:13px;display:flex;align-items:center;gap:10px;backdrop-filter:blur(4px);transition:all 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);transform:translateY(100px);opacity:0;';
+            box.innerHTML = '<div style="width:18px;height:18px;border:3px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></div><div><div style="font-weight:600;margin-bottom:2px;">资源加载中...</div><div style="font-size:11px;opacity:0.75;" id="res-timer">等待连接 0.0s</div></div>';
+            
+            function showBox() {
+                if(document.body) { 
+                    document.body.appendChild(box);
+                    // Force reflow
+                    void box.offsetWidth;
+                    box.style.transform = 'translateY(0)';
+                    box.style.opacity = '1';
+                } else {
+                    document.addEventListener('DOMContentLoaded', showBox);
+                }
+            }
+            showBox();
+
+            var start = Date.now();
+            window._resStatus = { 'MathJax': false, 'Plotly': false };
+            
+            var timer = setInterval(function(){
+                var t = ((Date.now()-start)/1000).toFixed(1);
+                var el = document.getElementById('res-timer');
+                if(el) el.innerText = '已耗时 ' + t + 's';
+                
+                // 简单的超时提示
+                if(parseFloat(t) > 5.0 && document.querySelector('#res-loader div div:first-child').innerText === '资源加载中...') {
+                     document.querySelector('#res-loader div div:first-child').innerText = '资源加载较慢，请耐心等待...';
+                }
+            }, 100);
+            
+            window._resLoad = function(name) {
+                window._resStatus[name] = true;
+                if(window._resStatus['MathJax'] && window._resStatus['Plotly']) {
+                    clearInterval(timer);
+                    if(box) {
+                        box.style.background = 'rgba(46, 125, 50, 0.95)';
+                        box.innerHTML = '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">✓</span><span style="font-weight:600">加载完成</span></div>';
+                        setTimeout(function(){ 
+                            box.style.opacity = '0'; 
+                            box.style.transform = 'translateY(20px)';
+                        }, 1500);
+                        setTimeout(function(){ if(box.parentNode) box.remove(); }, 2000);
+                    }
+                }
+            };
+            
+            window._resErr = function(name, fallbackSrc) {
+                console.warn(name + ' CDN failed, fallback to local...');
+                var el = document.getElementById('res-timer');
+                if(el) el.innerText = '网络超时，切换本地源...';
+                
+                var s = document.createElement('script');
+                s.src = fallbackSrc;
+                s.onload = function() { window._resLoad(name); };
+                document.head.appendChild(s);
+            };
+        })();
+        </script>
+        
+        <script>
         window.MathJax = {
             tex: {
                 inlineMath: [['$', '$'], ['\\\\(', '\\\\)']]
@@ -75,13 +143,17 @@ def setup_common_ui():
             }
         };
         </script>
-        <script src="/static/tex-chtml.min.js" id="MathJax-script" async onerror="this.onerror=null;this.src='https://cdn.bootcdn.net/ajax/libs/mathjax/4.0.0/tex-chtml.min.js';"></script>
+        <script src="https://cdn.jsdmirror.com/npm/mathjax@4.0.0/tex-chtml.js" id="MathJax-script" async 
+             onload="window._resLoad('MathJax')" 
+             onerror="window._resErr('MathJax', '/static/tex-chtml.min.js')">
+        </script>
         
-        <script src="/static/plotly.min.js"></script>
+        <script src="https://cdn.jsdmirror.com/npm/plotly.js-dist-min@3.1.1/plotly.min.js" async 
+             onload="window._resLoad('Plotly')" 
+             onerror="window._resErr('Plotly', '/static/plotly.min.js')">
+        </script>
         <script>
-            if (typeof Plotly === 'undefined') {
-                document.write('<script src="https://cdn.bootcdn.net/ajax/libs/plotly.js/3.1.1/plotly.min.js"><\/script>');
-            }            
+            // Plotly loader removed, handled by async events above            
             
             window._chartQueue = window._chartQueue || [];
             window._chartQueueRunning = false;

@@ -31,8 +31,8 @@ def ensure_static_assets():
     
     # 资源配置: 文件名 -> 下载地址
     assets = [
-        ('plotly.min.js', "https://cdn.bootcdn.net/ajax/libs/plotly.js/3.1.1/plotly.min.js"),
-        ('tex-chtml.min.js', "https://cdn.bootcdn.net/ajax/libs/mathjax/4.0.0/tex-chtml.min.js")
+        ('plotly.min.js', "https://cdn.jsdmirror.com/npm/plotly.js-dist-min@3.1.1/plotly.min.js"),
+        ('tex-chtml.min.js', "https://cdn.jsdelivr.net/npm/mathjax@4.0.0/tex-chtml.js")
     ]
     
     for filename, url in assets:
