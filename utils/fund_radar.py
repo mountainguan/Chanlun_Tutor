@@ -86,7 +86,9 @@ class FundRadar:
                 err_msg = str(e).lower()
                 # Special handling for known Akshare/Requests parsing error (often due to 401/403 or empty response)
                 if "'nonetype' object has no attribute 'text'" in err_msg:
-                    is_rate_limit = True
+                    # This is a data source issue, not rate limiting. Fail immediately without backoff.
+                    print(f"[DataSource] {_label} failed due to data parsing error: {e}")
+                    return None
                 else:
                     is_rate_limit = any(kw in err_msg for kw in [
                         '403', '429', 'too many', 'rate limit', 'frequent',

@@ -644,8 +644,9 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                     if df_agg.empty:
                         with ui.card().classes('w-full p-8 items-center justify-center bg-white rounded-xl shadow-sm border border-gray-200'):
                              ui.icon('cloud_off', size='4rem', color='grey-4')
-                             ui.label('数据加载异常').classes('text-xl text-gray-500 font-bold mt-4')
-                             ui.label('暂无法获取该周期数据，请稍后再试。').classes('text-gray-400')
+                             ui.label('数据源暂时不可用').classes('text-xl text-gray-500 font-bold mt-4')
+                             ui.label('同花顺API解析异常，可能是网站结构变更。请稍后重试或联系开发者。').classes('text-gray-400 text-sm mt-2')
+                             ui.label('建议：尝试单日数据，或等待数据源修复。').classes('text-gray-400 text-xs mt-1')
                     else:
                         render_multi_day_view(df_agg, used_dates, plot_func)
                 return
@@ -682,8 +683,9 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                 if df_ths.empty:
                     with ui.card().classes('w-full p-8 items-center justify-center bg-white rounded-xl shadow-sm border border-gray-200'):
                          ui.icon('cloud_off', size='4rem', color='grey-4')
-                         ui.label('数据加载异常').classes('text-xl text-gray-500 font-bold mt-4')
-                         ui.label('无法获取同花顺雷达数据，请稍后再试或检查网络。').classes('text-gray-400')
+                         ui.label('数据源暂时不可用').classes('text-xl text-gray-500 font-bold mt-4')
+                         ui.label('同花顺API解析异常，可能是网站结构变更。请稍后重试或联系开发者。').classes('text-gray-400 text-sm mt-2')
+                         ui.label('建议：尝试强制刷新，或等待数据源修复。').classes('text-gray-400 text-xs mt-1')
                     return
 
                 # --- Metric Logic (THS Only) ---
