@@ -196,6 +196,10 @@ def setup_common_ui():
             }
 
             window.addToChartQueue = function(id, data, layout, config) {
+                var isMobile = window.innerWidth < 768 || /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                if (isMobile) {
+                    config.staticPlot = true;
+                }
                 var found = false;
                 for(var i=0; i<window._chartQueue.length; i++){
                     if(window._chartQueue[i].id === id) {
