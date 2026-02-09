@@ -116,35 +116,20 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         is_current_target = (date_input.value == today_str)
                         refresh_btn.set_visibility(is_current_target)
                     
-                    # Update Duration Options based on Cache
+                    # Update Duration Options - now always show multi-day options
+                    # since THS direct API doesn't require daily cache accumulation
                     def update_duration_options(date_val):
-                        available_dates = radar.get_available_cache_dates()
-                        try:
-                            if date_val in available_dates:
-                                idx = available_dates.index(date_val)
-                                available_count = idx + 1
-                            elif date_val == today_str: 
-                                available_count = available_dates.index(date_val) + 1 if date_val in available_dates else 1
-                            else:
-                                available_count = 0 
-                        except:
-                            available_count = 0
-
-                        # Map display labels to days following "Money Flow" style
+                        # All standard periods are always available via THS direct API
+                        # 1天 = snapshot, 3/5/10/20天 = stock_fund_flow_industry ranking
                         possible_options = [
                             (1, '1天'),
                             (3, '3天'),
                             (5, '5天'),
                             (10, '10天'),
                             (20, '20天'),
-                            (60, '60天')
                         ]
                         
-                        options = {}
-                        for d, label in possible_options:
-                            # Show if only 1 day or enough data exists
-                            if d == 1 or available_count >= d:
-                                options[d] = label
+                        options = {d: label for d, label in possible_options}
                         
                         if radar_state['duration'] not in options:
                             radar_state['duration'] = 1
@@ -198,6 +183,14 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
              pos_ratio = (len(pos_df) / len(df) * 100) if not df.empty else 0
              avg_strength = df['资金强度'].mean()
              
+             # Calculate Core Sector Performance (Avg Change of top 20 by turnover) for multi-day
+             top_turnover_df = df.sort_values('总成交额', ascending=False).head(20)
+             if '涨跌幅' in df.columns:
+                 avg_change = top_turnover_df['涨跌幅'].mean() if not top_turnover_df.empty else 0.0
+             else:
+                 avg_change = 0.0
+             chg_color = "rose-500" if avg_change > 0 else "emerald-500"
+
              # Leaders
              top_inflow_list = df.sort_values('净流入', ascending=False).head(5)
              max_inflow = top_inflow_list.iloc[0] if not top_inflow_list.empty else None
@@ -229,6 +222,8 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         with ui.row().classes('items-center gap-2 mb-2'):
                             ui.icon('hub', color=status_color).classes('text-lg animate-pulse')
                             ui.label('智能态势洞察').classes('text-xs font-black hide-scrollbar tracking-widest text-gray-400')
+                            with ui.icon('help_outline', color='gray-400').classes('text-xs cursor-help'):
+                                ui.tooltip('基于多空资金流向、市场参与度和板块分化程度的综合市场状态评估。').classes('text-xs')
                         
                         with ui.column().classes('gap-0'):
                             ui.label(insight_title).classes(f'text-3xl md:text-4xl font-black {f"text-{status_color}-600"} tracking-tight')
@@ -257,11 +252,11 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                     
                     with ui.row().classes('w-full items-end justify-between'):
                         with ui.column().classes('gap-0'):
-                            ui.label(f'{avg_strength:+.3f}').classes(f'text-4xl font-black {"text-rose-500" if avg_strength > 0 else "text-emerald-500"}')
+                            ui.label(f'{avg_change:+.2f}%').classes(f'text-4xl font-black text-{chg_color}')
                             with ui.row().classes('items-center gap-1'):
-                                ui.label('平均进攻强度').classes('text-xs font-bold text-gray-400')
+                                ui.label('核心板块表现').classes('text-xs font-bold text-gray-400')
                                 with ui.icon('help_outline', color='gray-400').classes('text-xs cursor-help'):
-                                    ui.tooltip('该指标衡量资金流入成交额的效率，正值越高代表进攻欲望越强。').classes('text-xs')
+                                    ui.tooltip('统计成交额最高的前20个核心板块的平均涨跌幅，反映市场主流资金的赚钱效应。').classes('text-xs')
                         
                         # Distribution Visualizer
                         with ui.column().classes('items-end gap-1'):
@@ -630,7 +625,11 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                 # Loading State
                 with ui.column().classes('w-full items-center justify-center py-12'):
                     ui.spinner(type='dots', size='3rem', color='indigo')
-                    ui.label(f'正在加载 {date_val} (过去{duration}天) 数据...').classes('text-gray-400 mt-4 animate-pulse')
+                    if duration > 1:
+                        ui.label(f'正在从同花顺获取 {duration} 天累计数据...').classes('text-gray-400 mt-4 animate-pulse')
+                        ui.label('首次加载需约10秒（并行获取90个行业历史成交额）').classes('text-xs text-gray-300 mt-1')
+                    else:
+                        ui.label(f'正在加载 {date_val} 数据...').classes('text-gray-400 mt-4 animate-pulse')
             
             loop = asyncio.get_running_loop()
 
@@ -644,9 +643,9 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                 with dashboard_content:
                     if df_agg.empty:
                         with ui.card().classes('w-full p-8 items-center justify-center bg-white rounded-xl shadow-sm border border-gray-200'):
-                             ui.icon('history_edu', size='4rem', color='grey-4')
-                             ui.label(f'过去 {duration} 天数据不足').classes('text-xl text-gray-500 font-bold mt-4')
-                             ui.label('请尝试选择更近的日期或单日视图').classes('text-gray-400')
+                             ui.icon('cloud_off', size='4rem', color='grey-4')
+                             ui.label('数据加载异常').classes('text-xl text-gray-500 font-bold mt-4')
+                             ui.label('暂无法获取该周期数据，请稍后再试。').classes('text-gray-400')
                     else:
                         render_multi_day_view(df_agg, used_dates, plot_func)
                 return
@@ -822,6 +821,8 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         with ui.row().classes('items-center gap-2 mb-1'):
                             ui.icon('psychology', color=status_color).classes('text-lg')
                             ui.label('智能态势洞察').classes('text-xs font-black tracking-widest text-gray-400')
+                            with ui.icon('help_outline', color='gray-400').classes('text-xs cursor-help'):
+                                ui.tooltip('基于多空资金流向、市场参与度和板块分化程度的综合市场状态评估。').classes('text-xs')
                         
                         with ui.column().classes('gap-0'):
                             ui.label(market_nature.split(' ')[0]).classes(f'text-3xl md:text-4xl font-black {f"text-{status_color}-600"} tracking-tight')
@@ -852,6 +853,8 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                 ui.label(f'{avg_change:+.2f}%').classes(f'text-4xl font-black text-{chg_color}')
                                 with ui.row().classes('items-center gap-1'):
                                     ui.label('核心板块表现').classes('text-xs font-bold text-gray-400')
+                                    with ui.icon('help_outline', color='gray-400').classes('text-xs cursor-help'):
+                                        ui.tooltip('统计成交额最高的前10个核心板块的平均涨跌幅，反映市场主流资金的赚钱效应。').classes('text-xs')
                             
                             # Small bars for positive/negative balance
                             with ui.column().classes('items-end gap-1'):

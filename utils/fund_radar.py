@@ -5,6 +5,9 @@ import datetime
 import os
 import json
 import time
+import threading
+import random
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 class FundRadar:
     """
@@ -20,12 +23,153 @@ class FundRadar:
     
     # Retry Scheduling for Background Tasks
     _next_retry_time = {} # Key: date_str, Value: timestamp
+    
+    # Class-level cache for multi-day direct THS data
+    _multi_day_cache = {}  # Key: f"{days}_{date_str}", Value: (timestamp, DataFrame)
+    
+    # ── Anti-Crawl Rate Limiter (shared across all threads) ──
+    _api_lock = threading.Lock()
+    _api_last_call_ts = 0            # timestamp of last API call
+    _api_min_interval = 0.20         # min seconds between any two API calls
+    _api_error_count = 0             # consecutive error counter
+    _api_backoff_until = 0           # global pause timestamp (adaptive backoff)
+    _API_MAX_WORKERS = 4             # max parallel threads (down from 8)
+    _API_JITTER_RANGE = (0.05, 0.15) # random jitter added per request (seconds)
 
     def __init__(self):
         self.data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
         self.cache_dir = os.path.join(self.data_dir, 'fund_radar_cache')
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
+        # Auto-cleanup: remove stale batch cache files and legacy sector_history folder
+        self._cleanup_stale_cache()
+
+    # ── Anti-Crawl: Rate-Limited API Wrapper ──────────────────────
+
+    @classmethod
+    def _rate_limited_call(cls, api_func, *args, _retry_max=2, _label="API", **kwargs):
+        """
+        Thread-safe, rate-limited wrapper for any akshare API call.
+        Features:
+          - Global lock ensures min interval between ANY two outgoing requests
+          - Random jitter to avoid fingerprinting
+          - Adaptive backoff: if consecutive errors spike, pause all threads
+          - Retry with exponential backoff on failure
+        Returns: result or None on total failure.
+        """
+        for attempt in range(1, _retry_max + 1):
+            # 1. Check global adaptive backoff
+            now = time.time()
+            if now < cls._api_backoff_until:
+                wait = cls._api_backoff_until - now
+                print(f"[RateLimit] Global backoff active, sleeping {wait:.1f}s...")
+                time.sleep(wait)
+
+            # 2. Acquire lock → enforce min interval + add jitter
+            with cls._api_lock:
+                elapsed = time.time() - cls._api_last_call_ts
+                if elapsed < cls._api_min_interval:
+                    time.sleep(cls._api_min_interval - elapsed)
+                # Add random jitter
+                jitter = random.uniform(*cls._API_JITTER_RANGE)
+                time.sleep(jitter)
+                cls._api_last_call_ts = time.time()
+
+            # 3. Execute
+            try:
+                result = api_func(*args, **kwargs)
+                # Success → reset error counter
+                with cls._api_lock:
+                    cls._api_error_count = max(0, cls._api_error_count - 1)
+                return result
+            except Exception as e:
+                err_msg = str(e).lower()
+                # Special handling for known Akshare/Requests parsing error (often due to 401/403 or empty response)
+                if "'nonetype' object has no attribute 'text'" in err_msg:
+                    is_rate_limit = True
+                else:
+                    is_rate_limit = any(kw in err_msg for kw in [
+                        '403', '429', 'too many', 'rate limit', 'frequent',
+                        'banned', 'block', 'access denied', 'timeout',
+                        'timed out', 'connection', 'reset by peer'
+                    ])
+                
+                with cls._api_lock:
+                    cls._api_error_count += 1
+                    ec = cls._api_error_count
+                
+                if is_rate_limit or ec >= 5:
+                    # Adaptive backoff: exponential with cap
+                    backoff = min(2 ** min(ec, 6), 120)  # 2s → 4s → 8s … max 120s
+                    print(f"[RateLimit] {_label} attempt {attempt} failed (errors={ec}): {e}")
+                    print(f"[RateLimit] Triggering adaptive backoff: {backoff:.0f}s")
+                    with cls._api_lock:
+                        cls._api_backoff_until = time.time() + backoff
+                    time.sleep(backoff)
+                else:
+                    # Normal error → small delay before retry
+                    delay = attempt * 1.0 + random.uniform(0.3, 1.0)
+                    if attempt < _retry_max:
+                        print(f"[RateLimit] {_label} attempt {attempt} error: {e}, retrying in {delay:.1f}s")
+                        time.sleep(delay)
+                    else:
+                        print(f"[RateLimit] {_label} FAILED after {_retry_max} attempts: {e}")
+        
+        return None  # All retries exhausted
+
+    # ── Sector History Batch Disk Cache ──────────────────────
+    # One JSON file per (start_date, end_date, max_days) containing ALL sectors.
+    # e.g. hist_batch_20260125_20260209_5.json → {"半导体": {"turnover": ..., "pct": ...}, ...}
+    # This keeps the cache folder clean: ~1 file per period instead of 90.
+
+    def _get_batch_cache_path(self, date_key):
+        """Single file path for an entire batch of sector history data."""
+        return os.path.join(self.cache_dir, f"hist_batch_{date_key}.json")
+
+    def _load_batch_cache(self, date_key):
+        """Load the full batch cache. Returns dict {sector_name: {turnover, pct}} or None."""
+        path = self._get_batch_cache_path(date_key)
+        if not os.path.exists(path):
+            return None
+        try:
+            mtime = os.path.getmtime(path)
+            cache_age_hours = (time.time() - mtime) / 3600
+            if cache_age_hours > 16:  # Stale after 16h (next trading day)
+                return None
+            with open(path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return None
+
+    def _save_batch_cache(self, date_key, all_sectors_dict):
+        """Save the full batch of sector history to one file."""
+        path = self._get_batch_cache_path(date_key)
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(all_sectors_dict, f, ensure_ascii=False)
+        except Exception as e:
+            print(f"[FundRadar] Batch cache write error: {e}")
+
+    def _cleanup_stale_cache(self):
+        """Remove expired batch cache files (>24h) and legacy sector_history folder."""
+        try:
+            # Remove legacy per-sector folder if it exists
+            legacy_dir = os.path.join(self.cache_dir, 'sector_history')
+            if os.path.exists(legacy_dir):
+                import shutil
+                shutil.rmtree(legacy_dir, ignore_errors=True)
+                print(f"[FundRadar] Cleaned up legacy sector_history folder")
+
+            # Remove stale hist_batch_*.json files (>24 hours old)
+            now = time.time()
+            for f in os.listdir(self.cache_dir):
+                if f.startswith('hist_batch_') and f.endswith('.json'):
+                    fpath = os.path.join(self.cache_dir, f)
+                    age_hours = (now - os.path.getmtime(fpath)) / 3600
+                    if age_hours > 24:
+                        os.remove(fpath)
+        except Exception as e:
+            print(f"[FundRadar] Cache cleanup error: {e}")
             
     def _get_china_now(self):
         utc_now = datetime.datetime.now(datetime.timezone.utc)
@@ -271,8 +415,269 @@ class FundRadar:
 
     def get_multi_day_data(self, end_date_str, days):
         """
-        Aggregate data for N days ending on end_date_str.
-        Returns: (DataFrame, list_of_dates_used)
+        Aggregate multi-day data. Now uses DIRECT THS API for 3/5/10/20 day periods,
+        no daily cache accumulation needed.
+        Falls back to cache aggregation only when direct API fails.
+        Returns: (DataFrame, list_of_dates_used_or_period_label)
+        """
+        # Map days to THS multi-day ranking API periods
+        ths_period_map = {3: '3日排行', 5: '5日排行', 10: '10日排行', 20: '20日排行'}
+        
+        # Try direct THS API first for supported periods
+        if days in ths_period_map:
+            df_direct = self._fetch_multi_day_ths_direct(days, end_date_str)
+            if df_direct is not None and not df_direct.empty:
+                return df_direct, [f"THS {days}日直取"]
+        
+        # For unsupported periods (e.g. 60 days) or API failure, 
+        # try direct history fetch for arbitrary period
+        df_hist = self._fetch_multi_day_history_direct(days, end_date_str)
+        if df_hist is not None and not df_hist.empty:
+            return df_hist, [f"THS {days}日历史"]
+
+        # Final fallback: legacy cache aggregation
+        return self._get_multi_day_from_cache(end_date_str, days)
+
+    def _fetch_multi_day_ths_direct(self, days, date_str):
+        """
+        Fetch multi-day aggregated data directly from THS APIs.
+        Combines:
+          1. stock_fund_flow_industry("N日排行") → 阶段涨跌幅, 流入, 流出, 净额
+          2. stock_board_industry_index_ths() per sector (parallel) → 累计成交额
+        Result: Full multi-day DF with both 净流入 and 总成交额.
+        """
+        ths_period_map = {3: '3日排行', 5: '5日排行', 10: '10日排行', 20: '20日排行'}
+        period_label = ths_period_map.get(days)
+        if not period_label:
+            return None
+        
+        # Check class-level cache (valid for 30 minutes)
+        cache_key = f"{days}_{date_str}"
+        cached = FundRadar._multi_day_cache.get(cache_key)
+        if cached:
+            ts, df_cached = cached
+            if time.time() - ts < 1800:  # 30 min cache
+                print(f"[FundRadar] Multi-day {days}d: Using memory cache ({(time.time()-ts)/60:.0f}m old)")
+                return df_cached
+        
+        print(f"[FundRadar] Multi-day {days}d: Fetching from THS directly...")
+        
+        try:
+            # Step 1: Fetch multi-day fund flow ranking (single rate-limited call)
+            df_flow = self._rate_limited_call(
+                ak.stock_fund_flow_industry, symbol=period_label,
+                _label=f"fund_flow_industry({period_label})"
+            )
+            if df_flow is None or df_flow.empty:
+                print(f"[FundRadar] stock_fund_flow_industry({period_label}) returned empty")
+                return None
+            
+            # Step 2: Fetch cumulative turnover via parallel history calls (rate-limited)
+            end_dt = datetime.datetime.strptime(date_str, '%Y-%m-%d')
+            start_dt = end_dt - datetime.timedelta(days=days + 10)  # Extra buffer for weekends/holidays
+            start_str = start_dt.strftime('%Y%m%d')
+            end_str = end_dt.strftime('%Y%m%d')
+            
+            sector_names = df_flow['行业'].tolist()
+            hist_map = self._parallel_fetch_sector_history(sector_names, start_str, end_str, days)
+            
+            # Step 3: Merge into unified DataFrame
+            rows = []
+            for _, row in df_flow.iterrows():
+                name = row['行业']
+                try: 
+                    net_flow = float(row.get('净额', 0))
+                except (ValueError, TypeError): 
+                    net_flow = 0.0
+                
+                try:
+                    inflow = float(row.get('流入资金', 0))
+                except (ValueError, TypeError):
+                    inflow = 0.0
+                    
+                try:
+                    outflow = float(row.get('流出资金', 0))
+                except (ValueError, TypeError):
+                    outflow = 0.0
+                
+                try:
+                    pct_str = str(row.get('阶段涨跌幅', '0'))
+                    pct = float(pct_str.replace('%', ''))
+                except (ValueError, TypeError):
+                    pct = 0.0
+                
+                # Get turnover from parallel fetch (already in 亿)
+                hist_info = hist_map.get(name, {})
+                turnover_yi = hist_info.get('turnover', 0.0)
+                
+                # Normalize net flow to 亿 if needed
+                if abs(net_flow) > 100000:
+                    net_flow /= 100000000.0
+                if abs(inflow) > 100000:
+                    inflow /= 100000000.0
+                if abs(outflow) > 100000:
+                    outflow /= 100000000.0
+                
+                rows.append({
+                    '名称': name,
+                    '净流入': net_flow,
+                    '流入资金': inflow,
+                    '流出资金': outflow,
+                    '总成交额': turnover_yi,
+                    '活跃天数': days,
+                    '涨跌幅': pct,
+                    '日均趋势': []  # Not available from ranking API
+                })
+            
+            df_result = pd.DataFrame(rows)
+            
+            # Save to class-level cache
+            FundRadar._multi_day_cache[cache_key] = (time.time(), df_result)
+            print(f"[FundRadar] Multi-day {days}d: Fetched {len(df_result)} sectors successfully")
+            return df_result
+            
+        except Exception as e:
+            print(f"[FundRadar] Multi-day {days}d direct fetch failed: {e}")
+            return None
+
+    def _fetch_multi_day_history_direct(self, days, date_str):
+        """
+        For arbitrary periods (e.g. 60 days) not covered by THS ranking API.
+        Uses stock_fund_flow_industry("20日排行") for net flow proxy +
+        single parallel batch for both turnover AND pct from history.
+        """
+        cache_key = f"hist_{days}_{date_str}"
+        cached = FundRadar._multi_day_cache.get(cache_key)
+        if cached:
+            ts, df_cached = cached
+            if time.time() - ts < 1800:
+                return df_cached
+        
+        print(f"[FundRadar] Multi-day {days}d (history): Fetching from THS...")
+        
+        try:
+            # Rate-limited call for the ranking API
+            df_flow_20 = self._rate_limited_call(
+                ak.stock_fund_flow_industry, symbol='20日排行',
+                _label="fund_flow_industry(20d)"
+            )
+            if df_flow_20 is None or df_flow_20.empty:
+                return None
+            
+            end_dt = datetime.datetime.strptime(date_str, '%Y-%m-%d')
+            start_dt = end_dt - datetime.timedelta(days=days + 15)
+            start_str = start_dt.strftime('%Y%m%d')
+            end_str = end_dt.strftime('%Y%m%d')
+            
+            sector_names = df_flow_20['行业'].tolist()
+            # Single combined parallel fetch (turnover + pct in one pass)
+            hist_map = self._parallel_fetch_sector_history(sector_names, start_str, end_str, days)
+            
+            rows = []
+            for _, row in df_flow_20.iterrows():
+                name = row['行业']
+                try: net_flow = float(row.get('净额', 0))
+                except: net_flow = 0.0
+                if abs(net_flow) > 100000:
+                    net_flow /= 100000000.0
+                
+                hist_info = hist_map.get(name, {})
+                turnover_yi = hist_info.get('turnover', 0.0)
+                pct = hist_info.get('pct', 0.0)
+                
+                rows.append({
+                    '名称': name,
+                    '净流入': net_flow,
+                    '总成交额': turnover_yi,
+                    '活跃天数': days,
+                    '涨跌幅': pct,
+                    '日均趋势': []
+                })
+            
+            df_result = pd.DataFrame(rows)
+            FundRadar._multi_day_cache[cache_key] = (time.time(), df_result)
+            print(f"[FundRadar] Multi-day {days}d (history): Fetched {len(df_result)} sectors")
+            return df_result
+            
+        except Exception as e:
+            print(f"[FundRadar] Multi-day {days}d history fetch failed: {e}")
+            return None
+
+
+    def _parallel_fetch_sector_history(self, sector_names, start_str, end_str, max_days):
+        """
+        Rate-limited parallel fetch of sector history data.
+        Returns BOTH turnover and pct_change in a single pass per sector.
+        Uses a single batch cache file per (start, end, days) to keep disk clean.
+        
+        Returns: dict {name: {'turnover': float_yi, 'pct': float_pct}}
+        """
+        date_key = f"{start_str}_{end_str}_{max_days}"
+        
+        # Phase 1: Try to load entire batch from one disk file
+        batch_cached = self._load_batch_cache(date_key)
+        if batch_cached:
+            # Verify it has enough sectors (in case the list changed)
+            missing = [n for n in sector_names if n not in batch_cached]
+            if not missing:
+                print(f"[FundRadar] Sector history: All {len(sector_names)} from batch cache")
+                return batch_cached
+            else:
+                # Partial hit: reuse cached, only fetch missing
+                results = dict(batch_cached)
+                to_fetch = missing
+                print(f"[FundRadar] Sector history: {len(sector_names)-len(missing)} cached, {len(missing)} to fetch")
+        else:
+            results = {}
+            to_fetch = list(sector_names)
+            print(f"[FundRadar] Sector history: 0 cached, {len(to_fetch)} to fetch")
+        
+        if to_fetch:
+            # Phase 2: Rate-limited parallel fetch for uncached sectors
+            fetch_errors = []
+            
+            def fetch_one(name):
+                df = self._rate_limited_call(
+                    ak.stock_board_industry_index_ths,
+                    symbol=name, start_date=start_str, end_date=end_str,
+                    _retry_max=2, _label=f"hist({name})"
+                )
+                if df is not None and not df.empty:
+                    df = df.sort_values('日期').tail(max_days)
+                    turnover = df['成交额'].sum() / 1e8  # → 亿
+                    pct = 0.0
+                    if len(df) >= 2:
+                        first_close = float(df.iloc[0]['收盘价'])
+                        last_close = float(df.iloc[-1]['收盘价'])
+                        if first_close > 0:
+                            pct = ((last_close - first_close) / first_close) * 100
+                    return name, {'turnover': turnover, 'pct': pct}, True
+                return name, {'turnover': 0.0, 'pct': 0.0}, False
+            
+            with ThreadPoolExecutor(max_workers=self._API_MAX_WORKERS) as executor:
+                futures = {executor.submit(fetch_one, s): s for s in to_fetch}
+                done_count = 0
+                for future in as_completed(futures):
+                    name, data, success = future.result()
+                    results[name] = data
+                    done_count += 1
+                    if not success:
+                        fetch_errors.append(name)
+                    if done_count % 20 == 0:
+                        print(f"[FundRadar] Sector history progress: {done_count}/{len(to_fetch)}")
+            
+            # Phase 3: Save entire batch as ONE file
+            self._save_batch_cache(date_key, results)
+            
+            if fetch_errors:
+                print(f"[FundRadar] Sector history: {len(fetch_errors)} failed: {fetch_errors[:5]}{'...' if len(fetch_errors)>5 else ''}")
+        
+        return results
+
+    def _get_multi_day_from_cache(self, end_date_str, days):
+        """
+        Legacy: Aggregate data from daily cache files.
+        Fallback when direct THS API is unavailable.
         """
         all_dates = self.get_available_cache_dates()
         
@@ -281,9 +686,7 @@ class FundRadar:
         except ValueError:
             return pd.DataFrame(), []
 
-        # Ensure we don't go out of bounds (handle large 'days' as 'all available history')
         start_idx = max(0, idx - days + 1)
-            
         target_dates = all_dates[start_idx : idx + 1]
         
         aggregated_stats = {} 
@@ -299,11 +702,11 @@ class FundRadar:
                  
                  try: flow = float(item.get('净流入', 0))
                  except (ValueError, TypeError): flow = 0.0
-                 if abs(flow) > 100000: flow /= 100000000.0 # Normalize to Yi
+                 if abs(flow) > 100000: flow /= 100000000.0
                      
                  try: turnover = float(item.get('总成交额', 0)) 
                  except (ValueError, TypeError): turnover = 0.0
-                 if turnover > 100000: turnover /= 100000000.0 # Normalize to Yi
+                 if turnover > 100000: turnover /= 100000000.0
 
                  try: pct = float(item.get('涨跌幅', 0))
                  except (ValueError, TypeError): pct = 0.0
@@ -332,24 +735,28 @@ class FundRadar:
                     '净流入': stats['net_inflow'],     
                     '总成交额': stats['turnover'],    
                     '活跃天数': stats['count'],
-                    '涨跌幅': avg_pct, # Average Daily Change for the period
+                    '涨跌幅': avg_pct,
                     '日均趋势': stats['flows'] 
                 })
                 
         df = pd.DataFrame(rows)
         return df, target_dates
 
-    # --- Fetch Implementations (Keep existing logic) ---
+    # --- Fetch Implementations (Rate-Limited) ---
     def _fetch_sina_sector(self):
         try:
-            df = ak.stock_sector_spot(indicator="新浪行业")
+            df = self._rate_limited_call(
+                ak.stock_sector_spot, indicator="新浪行业",
+                _label="sina_sector"
+            )
             if df is not None and not df.empty:
                 res = pd.DataFrame()
                 res['名称'] = df['板块']
                 res['涨跌幅'] = pd.to_numeric(df['涨跌幅'], errors='coerce')
                 res['成交额'] = pd.to_numeric(df['总成交额'], errors='coerce')
                 return res
-        except: return pd.DataFrame()
+        except: pass
+        return pd.DataFrame()
 
     def _fetch_ths_sector(self):
         """
@@ -357,17 +764,16 @@ class FundRadar:
         Now using ak.stock_board_industry_summary_ths() which provides Snapshot with Turnover.
         """
         try:
-            df = ak.stock_board_industry_summary_ths()
+            df = self._rate_limited_call(
+                ak.stock_board_industry_summary_ths,
+                _label="ths_summary"
+            )
             if df is None or df.empty:
                 return pd.DataFrame()
             
             # Rename columns to match system expectations
-            # Standard output: 序号, 板块, 涨跌幅, 总成交量, 总成交额, 净流入...
             df = df.rename(columns={
                 '板块': '名称',
-                # '涨跌幅' is already correct
-                # '总成交额' is already correct (Yi Yuan usually)
-                # '净流入' is already correct
             })
             
             # Ensure required columns exist
@@ -390,21 +796,20 @@ class FundRadar:
     def _parse_ths_html_rows(self, text):
         import re
         rows_data = []
-        # findall tr
-        # Non-greedy .*? inside tr
         trs = re.findall(r'<tr[^>]*>(.*?)</tr>', text, re.DOTALL)
         for tr in trs:
             tds = re.findall(r'<td[^>]*>(.*?)</td>', tr, re.DOTALL)
-             # Basic validation: Table usually has ~11 cols
             if len(tds) >= 8:
-                # Clean tags
                 clean_tds = [re.sub(r'<[^>]+>', '', td).strip() for td in tds]
                 rows_data.append(clean_tds)
         return rows_data
 
     def get_market_snapshot(self):
         try:
-            df = ak.stock_zh_index_spot_sina()
+            df = self._rate_limited_call(
+                ak.stock_zh_index_spot_sina,
+                _label="market_snapshot"
+            )
             if df is not None and not df.empty:
                 row = df[df['代码'] == 'sh000001']
                 if not row.empty:
