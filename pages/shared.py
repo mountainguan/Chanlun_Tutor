@@ -102,10 +102,18 @@ def setup_common_ui():
                         box.style.background = 'rgba(46, 125, 50, 0.95)';
                         box.innerHTML = '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">✓</span><span style="font-weight:600">加载完成</span></div>';
                         setTimeout(function(){ 
-                            box.style.opacity = '0'; 
-                            box.style.transform = 'translateY(20px)';
+                            if(box) {
+                                box.style.opacity = '0'; 
+                                box.style.transform = 'translateY(20px)';
+                            }
                         }, 1500);
-                        setTimeout(function(){ if(box.parentNode) box.remove(); }, 2000);
+                        setTimeout(function(){ 
+                            if(box && box.parentNode) { 
+                                box.remove(); 
+                            } else if(box) {
+                                box.style.display = 'none';
+                            }
+                        }, 2000);
                     }
                 }
             };
