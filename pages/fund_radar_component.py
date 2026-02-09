@@ -305,7 +305,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                     with ui.icon('help_outline', color='gray-300').classes('text-[10px] cursor-help'):
                                         ui.tooltip('指单位成交额吸纳净流入最多的板块，代表该板块资金承接力最强。').classes('text-xs')
                                 ui.label(max_strength["名称"]).classes('text-sm font-bold text-indigo-500')
-                                ui.label(f'强度 {max_strength["资金强度"]:.3f}').classes('text-xs bg-indigo-50 text-indigo-400 px-2 py-0.5 rounded font-bold')
+                                ui.label(f'强度 {max_strength["资金强度"]*100:.1f}%').classes('text-xs bg-indigo-50 text-indigo-400 px-2 py-0.5 rounded font-bold')
                     else:
                         ui.label('等待数据同步...').classes('text-gray-300 text-sm italic py-8 text-center w-full')
 
@@ -323,7 +323,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                           
                           # Hover template
                           hover_text = [
-                              f"板块: {row.名称}<br>净流入: {row.净流入:.1f}亿<br>强度: {row.资金强度:.3f}<br>成交: {row.总成交额:.1f}亿<br>活跃: {row.活跃天数}天"
+                              f"板块: {row.名称}<br>净流入: {row.净流入:.1f}亿<br>强度: {row.资金强度*100:.1f}%<br>成交: {row.总成交额:.1f}亿<br>活跃: {row.活跃天数}天"
                               for row in df_top_scatter.itertuples()
                           ]
                           
@@ -336,7 +336,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
                           fig_scatter.add_trace(go.Scatter(
                               x=df_top_scatter['净流入'],
-                              y=df_top_scatter['资金强度'],
+                              y=df_top_scatter['资金强度'] * 100,
                               mode='markers+text',
                               text=df_top_scatter['名称'],
                               textposition="top center",
@@ -371,7 +371,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                               paper_bgcolor='rgba(0,0,0,0)',
                               plot_bgcolor='rgba(252, 252, 252, 1)', 
                               xaxis_title='累积净流入 (亿)',
-                              yaxis_title='资金强度 (净流入/成交额)',
+                              yaxis_title='资金强度 (%)<br><sup>计算公式: (净流入 ÷ 成交额) × 100%</sup>',
                               xaxis=dict(zeroline=False, gridcolor='#F3F4F6'),
                               yaxis=dict(zeroline=False, gridcolor='#F3F4F6'),
                               showlegend=False
