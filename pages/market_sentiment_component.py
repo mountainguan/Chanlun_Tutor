@@ -16,8 +16,8 @@ executor = ThreadPoolExecutor(max_workers=2)
 def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
     # Top Layout: Info + Gauge
     # Modified for Mobile: Stack vertically on mobile (flex-col), row on PC (md:flex-row)
-    # Reduced gap on mobile (gap-2 vs gap-4)
-    with ui.row().classes('w-full gap-2 md:gap-4 items-stretch flex-col md:flex-row'):
+    # Unified gap to gap-6 for consistency
+    with ui.row().classes('w-full gap-6 items-stretch flex-col md:flex-row'):
         # Info Card
         # Mobile: Compact padding (p-3), full width. PC: p-4, min-w-300
         with ui.card().classes('flex-1 w-full md:min-w-[300px] bg-white p-3 md:p-4 rounded-xl shadow-sm border border-gray-200 relative overflow-hidden'):
@@ -114,13 +114,15 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
         chart_plot_area = ui.column().classes('w-full flex-1 min-h-0 relative p-0 m-0')
 
     # Data Table Container
-    data_container = ui.column().classes('w-full mt-4 hidden')
+    data_container = ui.column().classes('w-full hidden')
     
     # Shibor Chart Container
+    # render_shibor_panel(plotly_renderer, is_mobile) -> Creates its own card, will be spaced by parent gap
+
     render_shibor_panel(plotly_renderer=plotly_renderer, is_mobile=is_mobile)
 
     # Savings Ratio Table Container
-    savings_container = ui.column().classes('w-full mt-4')
+    savings_container = ui.column().classes('w-full')
 
     async def fetch_and_update_savings_ratio(force=False):
         if savings_container.is_deleted:

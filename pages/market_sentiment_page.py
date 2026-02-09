@@ -54,7 +54,8 @@ def render_sentiment_view(active_tab, on_nav, plotly_renderer, is_mobile):
     
     # 2. Content
     # Use wider container for 'money' flow
-    container_classes = 'w-full items-center min-h-[500px]'
+    # Added gap-6 to unify spacing between modules
+    container_classes = 'w-full items-center min-h-[500px] gap-6'
     if active_tab == 'money':
         # Remove constrained max-width by adding a full-width class that overrides mood-content-area if possible
         # Or we can just ensure the components inside are responsive.

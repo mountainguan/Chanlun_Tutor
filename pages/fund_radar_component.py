@@ -653,12 +653,15 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
             # --- Single Day Logic (Original) ---
 
 
+
             # Fetch data 
             # Returns: Sina DF (Amount), THS DF (Net Inflow), Market Snapshot
             # Use 'FORCE_UPDATE' if force is True, else 'READ_CACHE'
             mode = 'FORCE_UPDATE' if force else 'READ_CACHE'
             loop = asyncio.get_running_loop()
-            df_flow, df_ths, market_snap_data = await loop.run_in_executor(
+            
+            # Request data (Ignore Sina/Flow data, only use THS)
+            _, df_ths, market_snap_data = await loop.run_in_executor(
                 None, lambda: radar.get_data(date_val, mode=mode)
             )
 
@@ -675,85 +678,54 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
             dashboard_content.clear()
 
             with dashboard_content:
-                if df_flow.empty and df_ths.empty:
+                # Strictly check THS data
+                if df_ths.empty:
                     with ui.card().classes('w-full p-8 items-center justify-center bg-white rounded-xl shadow-sm border border-gray-200'):
-                        if date_val == today_str:
-                             ui.icon('cloud_off', size='4rem', color='grey-4')
-                             ui.label('今日暂无数据').classes('text-xl text-gray-500 font-bold mt-4')
-                             ui.label('请检查网络，或尝试点击右上角“强制刷新”按钮').classes('text-gray-400')
-                        else:
-                             ui.icon('history_toggle_off', size='4rem', color='grey-4')
-                             ui.label('历史数据未缓存').classes('text-xl text-gray-500 font-bold mt-4')
-                             ui.label('该日期没有本地缓存记录，无法回溯。').classes('text-gray-400')
+                         ui.icon('cloud_off', size='4rem', color='grey-4')
+                         ui.label('数据加载异常').classes('text-xl text-gray-500 font-bold mt-4')
+                         ui.label('无法获取同花顺雷达数据，请稍后再试或检查网络。').classes('text-gray-400')
                     return
 
-                # --- Metric Logic (Sina / Default) ---
-                metric_col = '成交额'
+                # --- Metric Logic (THS Only) ---
+                metric_col = '总成交额' # Use THS column name
 
-                # Ensure Types for Sina DF
-                if not df_flow.empty:
-                    # Data is now normalized to '亿' (100M) by FundRadar class
-                    df_flow[metric_col] = pd.to_numeric(df_flow[metric_col], errors='coerce').fillna(0)
-                    
-                    if '涨跌幅' in df_flow.columns:
-                        df_flow['涨跌幅'] = pd.to_numeric(df_flow['涨跌幅'], errors='coerce').fillna(0)
-                    else:
-                        df_flow['涨跌幅'] = 0.0
-
-                    df_sorted = df_flow.sort_values(by=metric_col, ascending=False)
-                    top_10 = df_sorted.head(10)
-                    top_20 = df_sorted.head(20)
+                # Ensure Types for THS DF
+                # Data is normalized to '亿' in utils if > 1e5, but let's be safe
+                df_ths['净流入'] = pd.to_numeric(df_ths['净流入'], errors='coerce').fillna(0)
+                
+                if '总成交额' not in df_ths.columns and '成交额' in df_ths.columns:
+                     df_ths['总成交额'] = df_ths['成交额']
+                
+                if '总成交额' in df_ths.columns:
+                     df_ths['总成交额'] = pd.to_numeric(df_ths['总成交额'], errors='coerce').fillna(0)
                 else:
-                     df_flow = pd.DataFrame(columns=['名称', '涨跌幅', metric_col])
-                     df_sorted = df_flow
-                     top_10 = df_flow
-                     top_20 = df_flow
+                     df_ths['总成交额'] = 0.0
 
-                # Ensure Types for THS DF (Net Inflow)
-                if not df_ths.empty:
-                     df_ths['净流入'] = pd.to_numeric(df_ths['净流入'], errors='coerce').fillna(0)
-                     if '总成交额' in df_ths.columns:
-                         df_ths['总成交额'] = pd.to_numeric(df_ths['总成交额'], errors='coerce').fillna(0)
-                     else:
-                        df_ths['总成交额'] = 0.0
-                        
-                     df_ths['涨跌幅'] = pd.to_numeric(df_ths['涨跌幅'], errors='coerce').fillna(0)
-                     
-                     # PATCH: Try to fill '总成交额' from Sina DF if missing/zero in THS DF
-                     # Because 'net ratio' depends on it.
-                     if not df_flow.empty and '成交额' in df_flow.columns:
-                         # Merge Sina Turnover into THS DF temporarily
-                         temp_merge = pd.merge(df_ths, df_flow[['名称', '成交额']], on='名称', how='left')
-                         # Update 0 turnover with Sina turnover
-                         # Use numpy where: if total_turnover <= 0, use sina_turnover
-                         temp_merge['总成交额'] = np.where(
-                             temp_merge['总成交额'] <= 0, 
-                             temp_merge['成交额'], 
-                             temp_merge['总成交额']
-                         )
-                         # Fill NaN with 0
-                         temp_merge['总成交额'] = temp_merge['总成交额'].fillna(0)
-                         # Assign back
-                         df_ths['总成交额'] = temp_merge['总成交额']
-
-                     # Calculate Main Force Net Inflow Ratio
-                     df_ths['净占比'] = (df_ths['净流入'] / df_ths['总成交额'].replace(0, 1)) * 100
-
-                # Create Combined DF for Leaderboard (Join Sina Turnover + THS Inflow)
-                if not df_flow.empty and not df_ths.empty:
-                    df_leader = pd.merge(df_flow, df_ths[['名称', '净流入', '净占比']], on='名称', how='left')
-                elif not df_flow.empty:
-                    df_leader = df_flow.copy()
-                    df_leader['净流入'] = np.nan
-                    df_leader['净占比'] = np.nan
+                if '涨跌幅' in df_ths.columns:
+                    df_ths['涨跌幅'] = pd.to_numeric(df_ths['涨跌幅'], errors='coerce').fillna(0)
                 else:
-                    df_leader = df_ths.copy()
-                    if metric_col not in df_leader.columns: df_leader[metric_col] = df_leader.get('总成交额', 0)
+                    df_ths['涨跌幅'] = 0.0
+                
+                # Calculate Net Ratio
+                df_ths['净占比'] = (df_ths['净流入'] / df_ths['总成交额'].replace(0, 1)) * 100
+
+                # Prepare standard views
+                # Leaderboard / Charts will use this unified DF
+                df_flow = df_ths # Alias for compatibility with existing variable names below if needed, or replace usages
+                
+                # Sorted by Turnover for Panorama/Bubble size
+                df_sorted = df_ths.sort_values(by='总成交额', ascending=False)
+                top_10 = df_sorted.head(10)
+                top_20 = df_sorted.head(20)
+                
+                # Create Combined DF for Leaderboard (Logic simplified: it's just df_ths)
+                df_leader = df_ths
 
                 offensive, defensive = radar.get_offensive_defensive_list()
 
-                # Turnover / Market Nature Analysis (Preferred Source: Sina for Money Flow)
-                analysis_df = top_10 if not top_10.empty else (df_ths.head(10) if not df_ths.empty else pd.DataFrame())
+                # Turnover / Market Nature Analysis 
+                analysis_df = top_10
+
                 avg_chg_top10 = analysis_df['涨跌幅'].mean() if not analysis_df.empty else 0.0
                 if avg_chg_top10 > 1.0:
                     market_nature = "放量上攻 (Strong)"
@@ -798,7 +770,8 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                 total_count = len(df_flow) if not df_flow.empty else 1
                 pos_ratio = (pos_count / total_count) * 100
                 
-                with ui.grid(columns=3 if not is_mobile else 1).classes('w-full gap-3 md:gap-4 px-1'):
+
+                with ui.grid(columns=3 if not is_mobile else 1).classes('w-full gap-6'):
 
                     # Card 1: AI Insight Specialist (Screenshot 1 Style)
                     # Use existing nature_color logic to map to status colors
@@ -927,7 +900,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
                 if market_snap_data:
                     mkt_chg = market_snap_data.get('change_pct', 0.0)
-                    with ui.card().classes('w-full p-0 rounded-xl shadow-sm border border-gray-200 bg-white overflow-hidden mt-3'):
+                    with ui.card().classes('w-full p-0 rounded-xl shadow-sm border border-gray-200 bg-white overflow-hidden'):
                         with ui.row().classes('w-full p-3 border-b border-gray-200 items-center justify-between'):
                             with ui.row().classes('items-center gap-2'):
                                 ui.icon('compare_arrows', color='indigo').classes('text-xl')
@@ -1027,138 +1000,152 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                     with ui.row().classes('w-full justify-center p-4'):
                         reason = "今日获取失败" if date_val == today_str else "历史数据未包含大盘快照"
                         ui.label(f'多空博弈无法显示：{reason}').classes('text-gray-400 italic text-sm')
-                # --- NEW SECTION: THS Deep Insight Analysis ---
+
+                # --- NEW SECTION: THS Deep Insight Analysis (Merged & Redesigned) ---
                 if not df_ths.empty:
-                    # 1. Data Processing & Derived Metrics
-                    # Note: Data is already normalized to '亿' by FundRadar
+                    # 1. Data Processing
                     df_ths_clean = df_ths.copy()
-
-                    # Avoid division by zero
                     df_ths_clean['净占比'] = (df_ths_clean['净流入'] / (df_ths_clean['总成交额'].replace(0, 1))) * 100
-
-                    # Sort by absolute inflow impact for bubble size
                     df_ths_clean['abs_inflow'] = df_ths_clean['净流入'].abs()
 
-                    # Filter for visualization noise reduction (keep top 80% by volume or just all non-tiny)
-                    # df_ths_viz = df_ths_clean[df_ths_clean['总成交额'] > (max_turnover * 0.02)] 
+                    # Lists Logic
+                    accumulating = df_ths_clean[ (df_ths_clean['涨跌幅'] < 0) & (df_ths_clean['净流入'] > 0) ].sort_values('净占比', ascending=False).head(6)
+                    distributing = df_ths_clean[ (df_ths_clean['涨跌幅'] > 0) & (df_ths_clean['净流入'] < 0) ].sort_values('净占比', ascending=True).head(6)
 
+                    # --- Unified Insight Panel ---
                     with ui.card().classes('w-full p-0 rounded-xl shadow-sm border border-gray-200 bg-white overflow-hidden'):
-                        with ui.row().classes('w-full p-4 border-b border-gray-200 items-center justify-between'):
+                        # Panel Header
+                        with ui.row().classes('w-full px-4 py-3 border-b border-gray-200 items-center justify-between bg-gray-50/50'):
                             with ui.row().classes('items-center gap-2'):
                                 ui.icon('psychology', color='indigo').classes('text-xl')
-                                ui.label('主力动向四象限 (Main Force Intent Map)').classes('font-bold text-gray-800')
-                            with ui.row().classes('items-center gap-2 text-xs text-gray-500'):
-                                ui.label('X轴: 市场涨跌').classes('px-2 py-0.5 bg-gray-100 rounded')
-                                with ui.row().classes('items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-500 rounded cursor-help'):
-                                    ui.label('Y轴: 主力净占比')
-                                    ui.icon('info', size='14px')
-                                    ui.tooltip('主力净占比 = (主力净流入 / 总成交额) * 100%。反映单位成交量中主力介入的“密度”，比单纯的金额更能剔除盘子大小的影响。').classes('text-xs')
+                                ui.label('资金深度博弈透视 (Deep Market Insight)').classes('font-bold text-gray-800 text-sm md:text-base')
+                            
+                            # Legend / Controls
+                            with ui.row().classes('items-center gap-3 text-xs'):
+                                with ui.row().classes('items-center gap-1'):
+                                    ui.element('div').classes('w-2 h-2 rounded-full bg-red-500')
+                                    ui.label('主力做多')
+                                with ui.row().classes('items-center gap-1'):
+                                    ui.element('div').classes('w-2 h-2 rounded-full bg-emerald-500')
+                                    ui.label('主力做空')
 
-                        # Prepare Quadrant Data
-                        # Q1: Up + Inflow (Bullish Consensus)
-                        # Q2: Down + Inflow (Hidden Accumulation)
-                        # Q3: Down + Outflow (Panic/Bearish)
-                        # Q4: Up + Outflow (Divergence/Distribution)
+                        # Content Grid (Chart vs Lists)
+                        with ui.grid(columns=12).classes('w-full'):
+                            
+                            # LEFT COLUMN: CHART (Span 9 on desktop)
+                            with ui.column().classes('col-span-12 lg:col-span-9 p-1 relative border-r border-gray-100'):
+                                # Chart Controls Overlay
+                                with ui.row().classes('absolute top-2 right-2 z-10 gap-2 opacity-80 hover:opacity-100 transition-opacity'):
+                                     ui.label('Y轴: 净占比').classes('text-[10px] text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 cursor-help') \
+                                        .tooltip('净占比 = 净流入 / 总成交额')
 
-                        fig_map = go.Figure()
+                                fig_map = go.Figure()
+                                # Add Quadrant Backgrounds/Lines
+                                fig_map.add_hline(y=0, line_width=1, line_dash="solid", line_color="rgba(0,0,0,0.08)")
+                                fig_map.add_vline(x=0, line_width=1, line_dash="solid", line_color="rgba(0,0,0,0.08)")
 
-                        # Add Quadrant Backgrounds/Lines
-                        fig_map.add_hline(y=0, line_width=1, line_dash="solid", line_color="rgba(0,0,0,0.1)")
-                        fig_map.add_vline(x=0, line_width=1, line_dash="solid", line_color="rgba(0,0,0,0.1)")
 
-                        # Plot Scatter
-                        # Color: Red for Inflow, Green for Outflow
-                        colors = ['#ef4444' if x > 0 else '#10b981' for x in df_ths_clean['净流入']]
+                                colors = ['#ef4444' if x > 0 else '#10b981' for x in df_ths_clean['净流入']]
+                                size_ref = df_ths_clean['abs_inflow'].max() if df_ths_clean['abs_inflow'].max() > 0 else 1
+                                # Tuned size factor: Slightly reduce max bubble size to improve readability
+                                sizes = (np.sqrt(df_ths_clean['abs_inflow']) / np.sqrt(size_ref)) * 30 + 5
 
-                        # Size: Based on 'abs_inflow' (Actual money amount impact)
-                        # Normalize check
-                        size_ref = df_ths_clean['abs_inflow'].max() if df_ths_clean['abs_inflow'].max() > 0 else 1
-                        sizes = (np.sqrt(df_ths_clean['abs_inflow']) / np.sqrt(size_ref)) * 30 + 8
+                                fig_map.add_trace(go.Scatter(
+                                    x=df_ths_clean['涨跌幅'],
+                                    y=df_ths_clean['净占比'],
+                                    mode='markers+text',
+                                    text=df_ths_clean['名称'],
+                                    textposition='top center',
+                                    textfont=dict(size=10, color='rgba(0,0,0,0.7)'),
+                                    marker=dict(size=sizes, color=colors, opacity=0.8, line=dict(width=1, color='white')),
+                                    hovertemplate='<b>%{text}</b><br>涨跌: %{x:.2f}%<br>净占比: %{y:.2f}%<br>净流入: %{customdata:.2f}亿<extra></extra>',
+                                    customdata=df_ths_clean['净流入']
+                                ))
 
-                        fig_map.add_trace(go.Scatter(
-                            x=df_ths_clean['涨跌幅'],
-                            y=df_ths_clean['净占比'],
-                            mode='markers+text',
-                            text=df_ths_clean['名称'],
-                            textposition='top center',
-                            textfont=dict(size=10, color='rgba(0,0,0,0.6)'),
-                            marker=dict(
-                                size=sizes,
-                                color=colors,
-                                opacity=0.7,
-                                line=dict(width=1, color='white')
-                            ),
-                            hovertemplate='<b>%{text}</b><br>涨跌: %{x:.2f}%<br>主力净占比: %{y:.2f}%<br>净流入额: %{customdata:.2f}亿<extra></extra>',
-                            customdata=df_ths_clean['净流入']
-                        ))
+                                # Quadrant Annotations
+                                quad_anns = [
+                                    dict(x=1, y=1, xref='x domain', yref='y domain', text="🔥 强力做多", showarrow=False, font=dict(color='rgba(239, 68, 68, 0.15)', size=24, weight='bold'), xanchor='right', yanchor='top'),
+                                    dict(x=0, y=1, xref='x domain', yref='y domain', text="🛡️ 逆势吸筹", showarrow=False, font=dict(color='rgba(245, 158, 11, 0.15)', size=24, weight='bold'), xanchor='left', yanchor='top'),
+                                    dict(x=1, y=0, xref='x domain', yref='y domain', text="⚠️ 拉高出货", showarrow=False, font=dict(color='rgba(16, 185, 129, 0.15)', size=24, weight='bold'), xanchor='right', yanchor='bottom'),
+                                    dict(x=0, y=0, xref='x domain', yref='y domain', text="❄️ 合力做空", showarrow=False, font=dict(color='rgba(107, 114, 128, 0.15)', size=24, weight='bold'), xanchor='left', yanchor='bottom')
+                                ]
+                                for ann in quad_anns:
+                                    fig_map.add_annotation(ann)
 
-                        # Annotations for Quadrants (Generic)
-                        quad_anns = [
-                            dict(x=1, y=1, xref='x domain', yref='y domain', text="🔥 强力做多", showarrow=False, font=dict(color='rgba(239, 68, 68, 0.2)', size=20, weight='bold'), xanchor='right', yanchor='top'),
-                            dict(x=0, y=1, xref='x domain', yref='y domain', text="🛡️ 逆势吸筹", showarrow=False, font=dict(color='rgba(245, 158, 11, 0.2)', size=20, weight='bold'), xanchor='left', yanchor='top'),
-                            dict(x=1, y=0, xref='x domain', yref='y domain', text="⚠️ 拉高出货", showarrow=False, font=dict(color='rgba(16, 185, 129, 0.2)', size=20, weight='bold'), xanchor='right', yanchor='bottom'),
-                            dict(x=0, y=0, xref='x domain', yref='y domain', text="❄️ 合力做空", showarrow=False, font=dict(color='rgba(107, 114, 128, 0.2)', size=20, weight='bold'), xanchor='left', yanchor='bottom')
-                        ]
-                        for ann in quad_anns:
-                            fig_map.add_annotation(ann)
+                                fig_map.update_layout(
+                                    height=750, margin=dict(l=40, r=40, t=30, b=40),
+                                    plot_bgcolor='white', paper_bgcolor='white',
+                                    xaxis=dict(title="板块涨跌幅 (%)", zeroline=False, gridcolor='#F3F4F6', showgrid=True),
+                                    yaxis=dict(title="主力资金净占比 (%)", zeroline=False, gridcolor='#F3F4F6', showgrid=True),
+                                    showlegend=False
+                                )
+                                plot_func(fig_map).classes('w-full h-full min-h-[700px]')
 
-                        fig_map.update_layout(
-                            height=550, margin=dict(l=40, r=40, t=20, b=40),
-                            plot_bgcolor='rgba(252,252,252,1)', paper_bgcolor='rgba(0,0,0,0)',
-                            xaxis=dict(title="板块涨跌幅 (%)", zeroline=False, gridcolor='#F3F4F6'),
-                            yaxis=dict(title="主力资金净占比 (%)", zeroline=False, gridcolor='#F3F4F6'),
-                            showlegend=False
-                        )
-                        plot_func(fig_map).classes('w-full h-full min-h-[550px]')
+                            # RIGHT COLUMN: LISTS (Span 3 on desktop)
+                            with ui.column().classes('col-span-12 lg:col-span-3 bg-white flex flex-col h-full'):
+                                
+                                # Helper for List Item
+                                def render_list_item(row, type_color, is_accum=True):
+                                    with ui.row().classes('w-full items-center justify-between py-2 px-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0'):
+                                        # Name & Code/Tag
+                                        with ui.row().classes('items-center gap-2'):
+                                            # Mini Bar
+                                            ui.element('div').classes(f'w-1 h-3 rounded-full bg-{type_color}-500')
+                                            with ui.column().classes('gap-0'):
+                                                # Truncated name logic if too long
+                                                display_name = row['名称']
+                                                ui.label(display_name).classes('font-bold text-gray-800 text-sm leading-tight')
+                                                # Small badge for intensity
+                                                intensity = abs(row['净占比'])
+                                                ui.label(f'强度 {intensity:.1f}').classes('text-[10px] text-gray-400')
+                                        
+                                        # Data numbers
+                                        with ui.column().classes('items-end gap-0'):
+                                            flow_sign = "+" if row['净流入'] > 0 else ""
+                                            ui.label(f'{flow_sign}{row["净流入"]:.1f}亿').classes(f'text-{type_color}-600 font-bold font-mono text-sm leading-tight')
+                                            
+                                            change_sign = "+" if row['涨跌幅'] > 0 else ""
+                                            change_color = 'red' if row['涨跌幅'] > 0 else 'green' # Standard CN colors
+                                            # Specific logic: Accumulation (Down) -> Green text, Divergence (Up) -> Red text
+                                            
+                                            ui.label(f'{change_sign}{row["涨跌幅"]:.2f}%').classes(f'text-{change_color}-500 font-mono text-xs')
 
-                    # 2. Insight Cards (Divergence & Accumulation)
-                    # Accumulation: Down > 0 (or just negative) AND Inflow > 0
-                    # Rank by Inflow Ratio (Density of buying)
-                    accumulating = df_ths_clean[ (df_ths_clean['涨跌幅'] < 0) & (df_ths_clean['净流入'] > 0) ].sort_values('净占比', ascending=False).head(5)
+                                # 1. Accumulation List (Top Half)
+                                # Increased max-height to match new chart height roughly (700px total -> ~320px each)
+                                with ui.column().classes('w-full flex-1 p-0 border-b border-gray-100'):
+                                    with ui.row().classes('w-full p-3 bg-amber-50/30 border-l-4 border-amber-400 items-center justify-between'):
+                                        with ui.row().classes('items-center gap-2'):
+                                            ui.icon('vertical_align_bottom', color='amber-600').classes('text-sm')
+                                            ui.label('隐形吸筹 (跌势入资)').classes('font-bold text-gray-800 text-xs tracking-wider')
+                                        ui.label('资金流入 > 0 | 指数 < 0').classes('text-[10px] text-gray-400 scale-90 origin-right')
+                                    
+                                    with ui.column().classes('w-full p-0 gap-0 overflow-y-auto max-h-[320px] scrollbar-thin'):
+                                        if not accumulating.empty:
+                                            for _, row in accumulating.iterrows():
+                                                render_list_item(row, 'rose', is_accum=True)
+                                        else:
+                                            with ui.row().classes('w-full justify-center py-6'):
+                                                ui.label('当前无明显吸筹板块').classes('text-gray-400 text-xs italic')
 
-                    # Distribution: Up > 0 AND Inflow < 0
-                    # Rank by Outflow Intensity
-                    distributing = df_ths_clean[ (df_ths_clean['涨跌幅'] > 0) & (df_ths_clean['净流入'] < 0) ].sort_values('净占比', ascending=True).head(5)
+                                # 2. Divergence List (Bottom Half)
+                                with ui.column().classes('w-full flex-1 p-0'):
+                                    with ui.row().classes('w-full p-3 bg-emerald-50/30 border-l-4 border-emerald-400 items-center justify-between'):
+                                        with ui.row().classes('items-center gap-2'):
+                                            ui.icon('warning_amber', color='emerald-600').classes('text-sm')
+                                            ui.label('背离警示 (涨势出货)').classes('font-bold text-gray-800 text-xs tracking-wider')
+                                        ui.label('资金流入 < 0 | 指数 > 0').classes('text-[10px] text-gray-400 scale-90 origin-right')
+                                    
+                                    with ui.column().classes('w-full p-0 gap-0 overflow-y-auto max-h-[320px] scrollbar-thin'):
+                                        if not distributing.empty:
+                                            for _, row in distributing.iterrows():
+                                                render_list_item(row, 'emerald', is_accum=False)
+                                        else:
+                                            with ui.row().classes('w-full justify-center py-6'):
+                                                ui.label('当前无明显背离板块').classes('text-gray-400 text-xs italic')
 
-                    if not accumulating.empty or not distributing.empty:
-                        with ui.grid(columns=2 if not is_mobile else 1).classes('w-full gap-3 mt-2'):
-                            # Accumulation List
-                            with ui.card().classes('w-full p-2 rounded-xl shadow-sm border border-amber-50 bg-amber-50/50'):
-                                with ui.row().classes('items-center gap-2 mb-1'):
-                                    ui.icon('vertical_align_bottom', color='amber').classes('text-lg')
-                                    with ui.column().classes('gap-0'):
-                                        ui.label('隐形吸筹榜 (Accumulation)').classes('font-black text-gray-800 text-xs uppercase')
-                                        ui.label('下跌但主力净流入').classes('text-xs text-gray-400')
-
-                                if not accumulating.empty:
-                                    for _, row in accumulating.iterrows():
-                                        with ui.row().classes('w-full items-center justify-between py-1.5 border-b border-amber-100 last:border-0'):
-                                            ui.label(row['名称']).classes('font-bold text-gray-700 text-sm')
-                                            with ui.row().classes('gap-2 items-center'):
-                                                ui.label(f"{row['涨跌幅']:.2f}%").classes('text-emerald-500 font-mono text-xs')
-                                                ui.label(f"{row['净流入']:.1f}亿").classes('text-rose-500 font-black text-sm')
-                                else:
-                                    ui.label('暂无明显数据').classes('text-gray-400 text-xs italic')
-
-                            # Distribution List
-                            with ui.card().classes('w-full p-2 rounded-xl shadow-sm border border-emerald-50 bg-emerald-50/50'):
-                                with ui.row().classes('items-center gap-2 mb-1'):
-                                    ui.icon('warning', color='emerald').classes('text-lg')
-                                    with ui.column().classes('gap-0'):
-                                        ui.label('背离警示榜 (Divergence)').classes('font-black text-gray-800 text-xs uppercase')
-                                        ui.label('上涨但主力净流出').classes('text-xs text-gray-400')
-
-                                if not distributing.empty:
-                                    for _, row in distributing.iterrows():
-                                        with ui.row().classes('w-full items-center justify-between py-1.5 border-b border-emerald-100 last:border-0'):
-                                            ui.label(row['名称']).classes('font-bold text-gray-700 text-sm')
-                                            with ui.row().classes('gap-2 items-center'):
-                                                ui.label(f"+{row['涨跌幅']:.2f}%").classes('text-rose-500 font-mono text-xs')
-                                                ui.label(f"{abs(row['净流入']):.1f}亿").classes('text-emerald-500 font-black text-sm')
-                                else:
-                                    ui.label('暂无明显数据').classes('text-gray-400 text-xs italic')
                 # --- 3. Main Charts Section ---
-                with ui.column().classes('w-full gap-4 mt-2'):
+                # Unified Spacing: removed mt-2 to match parent gap-6
+                with ui.column().classes('w-full gap-6'):
 
                     # Chart B: Bubble / Scatter 
                     with ui.card().classes('w-full p-0 rounded-xl shadow-sm border border-gray-200 bg-white overflow-hidden'):
