@@ -715,7 +715,28 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                      df_ths['净流入'] = pd.to_numeric(df_ths['净流入'], errors='coerce').fillna(0)
                      if '总成交额' in df_ths.columns:
                          df_ths['总成交额'] = pd.to_numeric(df_ths['总成交额'], errors='coerce').fillna(0)
+                     else:
+                        df_ths['总成交额'] = 0.0
+                        
                      df_ths['涨跌幅'] = pd.to_numeric(df_ths['涨跌幅'], errors='coerce').fillna(0)
+                     
+                     # PATCH: Try to fill '总成交额' from Sina DF if missing/zero in THS DF
+                     # Because 'net ratio' depends on it.
+                     if not df_flow.empty and '成交额' in df_flow.columns:
+                         # Merge Sina Turnover into THS DF temporarily
+                         temp_merge = pd.merge(df_ths, df_flow[['名称', '成交额']], on='名称', how='left')
+                         # Update 0 turnover with Sina turnover
+                         # Use numpy where: if total_turnover <= 0, use sina_turnover
+                         temp_merge['总成交额'] = np.where(
+                             temp_merge['总成交额'] <= 0, 
+                             temp_merge['成交额'], 
+                             temp_merge['总成交额']
+                         )
+                         # Fill NaN with 0
+                         temp_merge['总成交额'] = temp_merge['总成交额'].fillna(0)
+                         # Assign back
+                         df_ths['总成交额'] = temp_merge['总成交额']
+
                      # Calculate Main Force Net Inflow Ratio
                      df_ths['净占比'] = (df_ths['净流入'] / df_ths['总成交额'].replace(0, 1)) * 100
 

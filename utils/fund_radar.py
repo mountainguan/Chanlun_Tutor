@@ -84,15 +84,22 @@ class FundRadar:
         
         try:
             # 1. Fetch Data
-            df_sina = self._fetch_sina_sector()
+            # df_sina = self._fetch_sina_sector() # Deprecated by user request to unify on THS
             df_ths = self._fetch_ths_sector()
             market_snap = self.get_market_snapshot()
             
-            # Check for critical data failure (at least Sina or THS should exist)
-            if df_sina.empty and df_ths.empty:
-                print("[FundRadar] Both Sina and THS data fetch failed (empty).")
+            # Check for critical data failure (at least THS should exist)
+            if df_ths.empty:
+                print("[FundRadar] THS data fetch failed (empty). check akshare.")
                 return None, False
 
+            # Prepare 'sina_sectors' slot with THS data for UI compatibility
+            # This ensures 'df_flow' in UI matches 'df_ths' exactly (same industry list)
+            df_sina = df_ths.copy()
+            if not df_sina.empty:
+                 if '总成交额' in df_sina.columns:
+                     df_sina['成交额'] = df_sina['总成交额'] # Alias for UI
+            
             # 2. Prepare Data Structure
             now_str = self._get_china_now().strftime('%H:%M:%S')
             
@@ -345,16 +352,55 @@ class FundRadar:
         except: return pd.DataFrame()
 
     def _fetch_ths_sector(self):
+        """
+        Original THS fetcher via Akshare. 
+        Now using ak.stock_board_industry_summary_ths() which provides Snapshot with Turnover.
+        """
         try:
             df = ak.stock_board_industry_summary_ths()
-            if df is not None and not df.empty:
-                res = pd.DataFrame()
-                res['名称'] = df['板块']
-                res['涨跌幅'] = pd.to_numeric(df['涨跌幅'], errors='coerce')
-                res['净流入'] = pd.to_numeric(df['净流入'], errors='coerce')
-                res['总成交额'] = pd.to_numeric(df['总成交额'], errors='coerce')
-                return res
-        except: return pd.DataFrame()
+            if df is None or df.empty:
+                return pd.DataFrame()
+            
+            # Rename columns to match system expectations
+            # Standard output: 序号, 板块, 涨跌幅, 总成交量, 总成交额, 净流入...
+            df = df.rename(columns={
+                '板块': '名称',
+                # '涨跌幅' is already correct
+                # '总成交额' is already correct (Yi Yuan usually)
+                # '净流入' is already correct
+            })
+            
+            # Ensure required columns exist
+            required = ['名称', '涨跌幅', '总成交额', '净流入']
+            for col in required:
+                if col not in df.columns:
+                    df[col] = 0.0
+            
+            return df[required]
+        except Exception as e:
+            print(f"[FundRadar] THS Akshare Fetch Error: {e}")
+            return pd.DataFrame()
+
+    def _fetch_ths_hyzjl_new(self):
+        """
+        Legacy scraper. Now Deprecated in favor of generic summary.
+        """
+        return pd.DataFrame()
+
+    def _parse_ths_html_rows(self, text):
+        import re
+        rows_data = []
+        # findall tr
+        # Non-greedy .*? inside tr
+        trs = re.findall(r'<tr[^>]*>(.*?)</tr>', text, re.DOTALL)
+        for tr in trs:
+            tds = re.findall(r'<td[^>]*>(.*?)</td>', tr, re.DOTALL)
+             # Basic validation: Table usually has ~11 cols
+            if len(tds) >= 8:
+                # Clean tags
+                clean_tds = [re.sub(r'<[^>]+>', '', td).strip() for td in tds]
+                rows_data.append(clean_tds)
+        return rows_data
 
     def get_market_snapshot(self):
         try:
