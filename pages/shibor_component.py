@@ -172,11 +172,20 @@ def render_shibor_panel(plotly_renderer, is_mobile=False):
 
         # ── 构建图表 ──────────────────────────────────────────
         fig = go.Figure()
+        y_range = None
+        idx_range = None
 
         # Shibor 利率曲线（默认 O/N）
         term = selected_term
         if term in shibor_view.columns:
             term_data = shibor_view[['date', term]].dropna(subset=[term])
+            if not term_data.empty:
+                v_min, v_max = term_data[term].min(), term_data[term].max()
+                # 留出 10% 的边距
+                diff = v_max - v_min
+                margin = diff * 0.1 if diff > 0 else 0.1
+                y_range = [v_min - margin, v_max + margin]
+
             color = TERM_COLORS.get(term, '#5C6BC0')
             term_label = SHIBOR_TERMS.get(term, term)
 
@@ -207,6 +216,11 @@ def render_shibor_panel(plotly_renderer, is_mobile=False):
                 idx = idx[(idx['date'] >= start_dt) & (idx['date'] <= end_dt)]
 
             if not idx.empty:
+                v_min_idx, v_max_idx = idx['close'].min(), idx['close'].max()
+                diff_idx = v_max_idx - v_min_idx
+                margin_idx = diff_idx * 0.1 if diff_idx > 0 else 50
+                idx_range = [v_min_idx - margin_idx, v_max_idx + margin_idx]
+
                 fig.add_trace(go.Scatter(
                     x=idx['date'],
                     y=idx['close'],
@@ -256,14 +270,15 @@ def render_shibor_panel(plotly_renderer, is_mobile=False):
             xaxis=xaxis_cfg,
             yaxis=dict(
                 title='Shibor (%)',
+                range=y_range,
                 showgrid=True,
                 gridcolor='#F3F4F6',
-                zeroline=True,
-                zerolinecolor='#E5E7EB',
+                zeroline=False,
                 tickformat='.2f',
             ),
             yaxis2=dict(
                 title='上证指数',
+                range=idx_range,
                 overlaying='y',
                 side='right',
                 showgrid=False,
