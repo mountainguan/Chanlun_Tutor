@@ -17,6 +17,7 @@ from utils.charts import create_candlestick_chart, get_demo_fenxing_data, get_ch
 from utils.simulator_logic import generate_simulation_data, analyze_action, resample_klines, analyze_advanced_action, get_chanlun_shapes
 from pages.market_sentiment_page import render_sentiment_view
 from pages.shared import setup_common_ui, custom_plotly
+from pages.social_security_demo import social_security_page_instance
 
 
 # 获取当前文件所在的目录
@@ -155,6 +156,17 @@ def landing_page():
                     ui.label('市场情绪与资金').classes('text-2xl font-bold text-gray-800')
                     ui.label('实时监控大盘情绪，板块热度追踪及资金流向分析').classes('text-center text-gray-500 leading-relaxed text-sm')
                     ui.button('进入工具', on_click=lambda: ui.navigate.to('/mood')).props('flat color=red')
+
+                # 卡片 3: 社保基金分析
+                with ui.card().classes('w-72 h-80 items-center justify-center p-6 hover:shadow-xl transition-shadow cursor-pointer border-t-4 border-green-500 gap-4 bg-white') \
+                    .on('click', lambda: ui.navigate.to('/social-security')):
+                    
+                    with ui.element('div').classes('w-20 h-20 rounded-full bg-green-50 flex items-center justify-center mb-2'):
+                        ui.icon('account_balance', size='40px').classes('text-green-600')
+                    
+                    ui.label('社保基金分析').classes('text-2xl font-bold text-gray-800')
+                    ui.label('社保基金持股分析，追踪持仓变化和投资策略').classes('text-center text-gray-500 leading-relaxed text-sm')
+                    ui.button('进入分析', on_click=lambda: ui.navigate.to('/social-security')).props('flat color=green')
         
         # 下部占位 (flex-grow) + Footer 位于最底
         ui.space()
