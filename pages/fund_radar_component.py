@@ -92,6 +92,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
                     # Visibility Logic
                     def check_refresh_visibility():
+                        if refresh_btn.is_deleted: return
                         # Allow refresh if it is "today" OR the latest available trading day
                         # A simple logic is: allow refresh if date is today (logic might need adjust for holidays)
                         # Actually original logic: is_today = (date_input.value == today_str) 
@@ -107,6 +108,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                     # Update Duration Options - now always show multi-day options
                     # since THS direct API doesn't require daily cache accumulation
                     def update_duration_options(date_val):
+                        if duration_container.is_deleted: return
                         # All standard periods are always available via THS direct API
                         # 1天 = snapshot, 3/5/10/20天 = stock_fund_flow_industry ranking
                         possible_options = [
@@ -161,8 +163,9 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
              # Filter logic
              df['abs_flow'] = df['净流入'].abs()
              df_top_scatter = df.sort_values('abs_flow', ascending=False)
-             if len(df_top_scatter) > 50:
-                 df_top_scatter = df_top_scatter.head(50)
+             # Removed limit to show all sectors
+             # if len(df_top_scatter) > 50:
+             #     df_top_scatter = df_top_scatter.head(50)
              
              # Stats
              total_net = df['净流入'].sum()
@@ -603,6 +606,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
 
         async def update_dashboard(date_val, force=False):
+            if dashboard_content.is_deleted: return
             check_refresh_visibility() # Update button state
             dashboard_content.clear()
             
@@ -636,6 +640,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                     None, lambda: radar.get_multi_day_data(date_val, duration, cache_only=is_past_date)
                 )
                 
+                if dashboard_content.is_deleted: return
                 dashboard_content.clear()
                 with dashboard_content:
                     if df_agg.empty:
@@ -1256,6 +1261,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
     async def poll_for_monitor():
         # Poll cache to reflect backend updates (Monitor visual)
         # Checks every minute. force=False ensures we ONLY read cache, never fetch.
+        if date_input.is_deleted: return
         if date_input.value == today_str:
             await update_dashboard(today_str, force=False)
 

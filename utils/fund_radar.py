@@ -496,6 +496,19 @@ class FundRadar:
         # Final fallback: legacy cache aggregation
         return self._get_multi_day_from_cache(end_date_str, days)
 
+
+    def _get_history_start_date(self, end_date_str, days):
+        """
+        Unified logic for calculating start date for history fetching.
+        Uses a fixed buffer (15 days) to ensure cache key consistency
+        across different fetch methods (direct, summary, history).
+        """
+        end_dt = datetime.datetime.strptime(end_date_str, '%Y-%m-%d')
+        # Buffer for weekends/holidays/gaps
+        buffer = 15 
+        start_dt = end_dt - datetime.timedelta(days=days + buffer)
+        return start_dt, start_dt.strftime('%Y%m%d')
+
     def _get_ths_flow_cached(self, symbol):
         """
         Fetch stock_fund_flow_industry with short-lived in-memory cache (10 min).
@@ -571,9 +584,9 @@ class FundRadar:
                 return None
             
             # Step 2: Fetch cumulative turnover via parallel history calls (rate-limited)
+            # Use unified start date calculation so cache files are consistent
+            _, start_str = self._get_history_start_date(date_str, days)
             end_dt = datetime.datetime.strptime(date_str, '%Y-%m-%d')
-            start_dt = end_dt - datetime.timedelta(days=days + 10)  # Extra buffer for weekends/holidays
-            start_str = start_dt.strftime('%Y%m%d')
             end_str = end_dt.strftime('%Y%m%d')
             
             sector_names = df_flow['行业'].tolist()
@@ -668,9 +681,9 @@ class FundRadar:
                 return None
             
             # Step 2: Parallel fetch N-day history for turnover + pct
+            # Use unified start date calculation
+            _, start_str = self._get_history_start_date(date_str, days)
             end_dt = datetime.datetime.strptime(date_str, '%Y-%m-%d')
-            start_dt = end_dt - datetime.timedelta(days=days + 15)
-            start_str = start_dt.strftime('%Y%m%d')
             end_str = end_dt.strftime('%Y%m%d')
             
             sector_names = df_summary['板块'].tolist()
@@ -733,9 +746,9 @@ class FundRadar:
             if df_flow_20 is None or df_flow_20.empty:
                 return None
             
+            # Use unified start date calculation
+            _, start_str = self._get_history_start_date(date_str, days)
             end_dt = datetime.datetime.strptime(date_str, '%Y-%m-%d')
-            start_dt = end_dt - datetime.timedelta(days=days + 15)
-            start_str = start_dt.strftime('%Y%m%d')
             end_str = end_dt.strftime('%Y%m%d')
             
             sector_names = df_flow_20['行业'].tolist()
