@@ -109,15 +109,26 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                     # since THS direct API doesn't require daily cache accumulation
                     def update_duration_options(date_val):
                         if duration_container.is_deleted: return
-                        # All standard periods are always available via THS direct API
-                        # 1天 = snapshot, 3/5/10/20天 = stock_fund_flow_industry ranking
-                        possible_options = [
-                            (1, '1天'),
-                            (3, '3天'),
-                            (5, '5天'),
-                            (10, '10天'),
-                            (20, '20天'),
-                        ]
+                        
+                        # 判断是否为历史回溯模式（非最新交易日）
+                        is_history_mode = (date_val != today_str)
+                        
+                        if is_history_mode:
+                            # 历史回溯模式：隐藏多日选项，强制使用单日
+                            possible_options = [(1, '1天')]
+                            # 如果当前处于多日模式，强制切回单日（注意：这里不直接触发 set_duration 避免死循环，
+                            # 而是修改 state，UI 刷新由后续逻辑保证，或者在切换日期时本就会重置视图）
+                            if radar_state['duration'] != 1:
+                                radar_state['duration'] = 1
+                        else:
+                            # 最新交易日：显示所有选项
+                            possible_options = [
+                                (1, '1天'),
+                                (3, '3天'),
+                                (5, '5天'),
+                                (10, '10天'),
+                                (20, '20天'),
+                            ]
                         
                         options = {d: label for d, label in possible_options}
                         
@@ -125,13 +136,19 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                             radar_state['duration'] = 1
                             
                         duration_container.clear()
+                        # 仅在有多个选项时才渲染（或者始终渲染1天以保持布局，但根据需求这里只显示可用的）
+                        # 如果是历史模式，为了提示用户，可以显示一个静态标签或者仅仅显示“1天”按钮
                         with duration_container:
-                            for d, lbl in options.items():
-                                is_active = (radar_state['duration'] == d)
-                                # Capture d in closure
-                                ui.button(lbl, on_click=lambda val=d: set_duration(val)) \
-                                    .props(f'flat dense no-caps size=sm {"color=indigo" if is_active else "text-color=grey-7"}') \
-                                    .classes(f'px-2 md:px-3 rounded-md transition-all {"bg-white shadow-sm font-bold" if is_active else "hover:bg-gray-200"} text-xs')
+                            if is_history_mode:
+                                # 历史模式下，显示一个提示或置灰的单日按钮
+                                ui.label('历史快照').classes('text-xs text-gray-400 font-bold px-2')
+                            else:
+                                for d, lbl in options.items():
+                                    is_active = (radar_state['duration'] == d)
+                                    # Capture d in closure
+                                    ui.button(lbl, on_click=lambda val=d: set_duration(val)) \
+                                        .props(f'flat dense no-caps size=sm {"color=indigo" if is_active else "text-color=grey-7"}') \
+                                        .classes(f'px-2 md:px-3 rounded-md transition-all {"bg-white shadow-sm font-bold" if is_active else "hover:bg-gray-200"} text-xs')
 
                     async def set_duration(val):
                         radar_state['duration'] = val
