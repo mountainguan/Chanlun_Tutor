@@ -191,6 +191,54 @@ class SocialSecurityFund:
         price = price_dict.get(stock_code, 0.0)
         return holdings * price
 
+    def _correct_stock_codes(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        校正股票代码：
+        检查代码是否在当前A股列表中。如果不在，尝试通过股票名称匹配最新代码。
+        解决因代码变更（如新三板转板、合并重组）导致的代码失效问题。
+        """
+        if df.empty:
+            return df
+            
+        print("正在校正股票代码...")
+        try:
+            # 获取当前所有A股代码和名称
+            stock_info = ak.stock_info_a_code_name()
+            valid_codes = set(stock_info['code'].astype(str))
+            name_to_code = dict(zip(stock_info['name'], stock_info['code'].astype(str)))
+            
+            fixed_count = 0
+            
+            def fix_code(row):
+                nonlocal fixed_count
+                code = str(row['股票代码'])
+                name = str(row['股票简称'])
+                
+                # 如果代码有效，直接返回
+                if code in valid_codes:
+                    return code
+                
+                # 尝试通过名称查找
+                if name in name_to_code:
+                    new_code = name_to_code[name]
+                    if new_code != code:
+                        # print(f"代码修正: {name} {code} -> {new_code}")
+                        fixed_count += 1
+                        return new_code
+                
+                return code
+
+            df['股票代码'] = df.apply(fix_code, axis=1)
+            
+            if fixed_count > 0:
+                print(f"完成代码校正，共修复 {fixed_count} 个代码")
+            
+            return df
+            
+        except Exception as e:
+            print(f"校正股票代码失败: {e}")
+            return df
+
     def _load_pension_data(self) -> pd.DataFrame:
         """
         从 Excel 文件加载养老保险数据
@@ -219,6 +267,9 @@ class SocialSecurityFund:
             
             # 将股票代码统一为6位字符串
             df_processed['股票代码'] = df_processed['股票代码'].astype(str).str.zfill(6)
+            
+            # 校正股票代码
+            df_processed = self._correct_stock_codes(df_processed)
             
             # 添加缺失的列
             df_processed['序号'] = range(1, len(df_processed) + 1)

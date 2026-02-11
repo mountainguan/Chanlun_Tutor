@@ -4,6 +4,7 @@ from pages.money_flow_component import render_money_flow_panel
 from pages.market_sentiment_component import render_market_sentiment_panel
 from pages.sector_sentiment_component import render_sector_sentiment_panel
 from pages.fund_radar_component import render_fund_radar_panel
+from pages.national_team_component import render_national_team_panel
 
 def render_mood_tabs(active_tab, on_nav, is_mobile):
     tabs_config = [
@@ -11,6 +12,7 @@ def render_mood_tabs(active_tab, on_nav, is_mobile):
         ('sector', '板块温度'),
         ('money', '资金流向'),
         ('radar', '主力雷达'),
+        ('national', '国家队筛选'),
     ]
 
     # --- PC 端视图 (仅在非移动设备渲染) ---
@@ -30,9 +32,9 @@ def render_mood_tabs(active_tab, on_nav, is_mobile):
 
     # --- 移动端视图 (仅在移动设备渲染) ---
     if is_mobile:
-        # 采用全宽网格布局 (Grid)，4等分，Segmented Control 风格
+        # 采用全宽网格布局 (Grid)，5等分，Segmented Control 风格
         with ui.element('div').classes('w-full px-1 mb-4'):
-            with ui.grid(columns=4).classes('w-full gap-1 p-1 bg-gray-100/80 rounded-lg border border-gray-200'):
+            with ui.grid(columns=5).classes('w-full gap-1 p-1 bg-gray-100/80 rounded-lg border border-gray-200'):
                 for tab_id, label in tabs_config:
                     is_active = (tab_id == active_tab)
                     
@@ -72,4 +74,6 @@ def render_sentiment_view(active_tab, on_nav, plotly_renderer, is_mobile):
                 render_money_flow_panel(plotly_renderer=plotly_renderer)
         elif active_tab == 'radar':
             render_fund_radar_panel(plotly_renderer=plotly_renderer, is_mobile=is_mobile)
+        elif active_tab == 'national':
+            render_national_team_panel(plotly_renderer=plotly_renderer, is_mobile=is_mobile)
 
