@@ -315,6 +315,8 @@ def render_social_security_panel(plotly_renderer, is_mobile=False):
         ui.notify('Excel 文件已生成并开始下载', type='positive')
 
     def render_table(df, exited_df=None):
+        if not table_container: return
+        table_container.clear()
         
         rows = []
         # 1. Process Current Holdings
