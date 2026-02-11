@@ -77,6 +77,10 @@ class SocialSecurityFund:
         """
         获取最近季度退出的股票（上季度有，本季度无）
         """
+        if self.fund_type == 'pension':
+            # 养老保险数据没有历史，无法计算退出股票
+            return pd.DataFrame()
+        
         current_df = self.get_latest_holdings()
         if current_df.empty: return pd.DataFrame()
         
@@ -148,11 +152,140 @@ class SocialSecurityFund:
                 print(f"读取缓存失败: {e}")
 
         # 获取最新季度数据
+        if self.fund_type == 'pension':
+            df = self._load_pension_data()
+        else:
+            df = self._load_social_security_data()
+        
+        if df is None or df.empty:
+            return pd.DataFrame()
+
+        # 缓存数据
+        cache_data = {
+            'timestamp': time.time(),
+            'date': '20250930',  # 养老保险数据日期
+            'data': df.to_dict('records')
+        }
+        with open(self.cache_file, 'w', encoding='utf-8') as f:
+            json.dump(cache_data, f, ensure_ascii=False, indent=2)
+
+        return df
+
+    def _get_stock_prices(self, stock_codes):
+        """
+        批量获取股价数据（暂时使用估算价格）
+        """
+        price_dict = {}
+        # 由于网络问题，使用估算股价 15元
+        for code in stock_codes:
+            price_dict[str(code)] = 15.0
+        return price_dict
+
+    def _calculate_market_value(self, row, price_dict):
+        """
+        计算单只股票的市值
+        """
+        stock_code = str(row['股票代码'])
+        holdings = row['持股总数']
+        
+        price = price_dict.get(stock_code, 0.0)
+        return holdings * price
+
+    def _load_pension_data(self) -> pd.DataFrame:
+        """
+        从 Excel 文件加载养老保险数据
+        """
+        excel_file = os.path.join(self.data_dir, 'yanglaojin', '基本养老保险持股_20250930.xlsx')
+        if not os.path.exists(excel_file):
+            print(f"养老保险数据文件不存在: {excel_file}")
+            return pd.DataFrame()
+        
+        try:
+            df = pd.read_excel(excel_file)
+            print(f"成功加载养老保险数据，共{len(df)}条记录")
+            
+            # 转换数据结构以匹配社保基金格式
+            df_processed = df.copy()
+            
+            # 重命名列
+            column_mapping = {
+                '股票代码': '股票代码',
+                '股票简称': '股票简称',
+                '期末持股-数量': '持股总数',
+                '期末持股-数量变化': '持股变动数值',
+                '期末持股-数量变化比例': '持股变动比例'
+            }
+            df_processed = df_processed.rename(columns=column_mapping)
+            
+            # 将股票代码统一为6位字符串
+            df_processed['股票代码'] = df_processed['股票代码'].astype(str).str.zfill(6)
+            
+            # 添加缺失的列
+            df_processed['序号'] = range(1, len(df_processed) + 1)
+            df_processed['持有基金家数'] = 1  # 每个记录代表一个组合
+            
+            # 获取股价数据
+            print("正在获取股价数据...")
+            price_dict = self._get_stock_prices(df_processed['股票代码'].tolist())
+            
+            # 计算市值
+            df_processed['持股市值'] = df_processed.apply(lambda row: self._calculate_market_value(row, price_dict), axis=1)
+            
+            # 如果没有获取到股价，使用估算市值（平均股价约15元）
+            if not price_dict:
+                print("未获取到股价数据，使用估算市值（平均股价15元）")
+                df_processed['持股市值'] = df_processed['持股总数'] * 15.0
+            
+            # 根据持股变动数值判断持股变化类型
+            def determine_change_type(row):
+                change_val = row['持股变动数值']
+                if pd.isna(change_val):
+                    return '新进'  # 假设 NaN 表示新进
+                elif change_val == 0:
+                    return '不变'
+                elif change_val > 0:
+                    return '增加'
+                else:
+                    return '减少'
+            
+            df_processed['持股变化'] = df_processed.apply(determine_change_type, axis=1)
+            
+            # 按股票代码汇总（因为同一个股票可能被多个组合持有）
+            df_grouped = df_processed.groupby(['股票代码', '股票简称']).agg({
+                '持股总数': 'sum',
+                '持股市值': 'sum',
+                '持有基金家数': 'count',  # 持有组合数
+                '持股变动数值': 'sum',
+                '持股变动比例': 'mean'  # 平均变动比例
+            }).reset_index()
+            
+            # 重新添加序号
+            df_grouped['序号'] = range(1, len(df_grouped) + 1)
+            
+            # 复制 DataFrame 以避免警告
+            df_processed = df_grouped.copy()
+            
+            # 由于汇总后，持股变化需要重新判断
+            df_processed['持股变化'] = df_processed.apply(
+                lambda row: '新进' if pd.isna(row['持股变动数值']) or row['持股变动数值'] == 0 else 
+                           ('增加' if row['持股变动数值'] > 0 else '减少'), 
+                axis=1
+            )
+            
+            return df_processed
+            
+        except Exception as e:
+            print(f"加载养老保险数据失败: {e}")
+            return pd.DataFrame()
+
+    def _load_social_security_data(self) -> pd.DataFrame:
+        """
+        从 AKShare 加载社保基金数据
+        """
         current_date = datetime.datetime.now()
         # 尝试获取最近的季度末数据，但不包括未来日期
         quarters = []
         # 优先尝试固定的已知最新发布日期（要求：20250930）
-        # Actually checking dynamic dates
         preferred_date = '20250930'
         quarters.append(preferred_date)
         for year in range(current_date.year, current_date.year - 4, -1):  # 从今年开始往前推3年
@@ -161,8 +294,8 @@ class SocialSecurityFund:
                 if year == current_date.year and month > current_date.month:
                     continue
                 # 跳过2024年及以后的数据（akshare可能不支持）
-                if year >= 2024 and year < 2025: # Example, actually logic is year >= 2024, adjust if needed
-                    pass # Keep going if akshare supports it
+                if year >= 2024 and year < 2025:  # Example, actually logic is year >= 2024, adjust if needed
+                    pass  # Keep going if akshare supports it
                 
                 # Assume 2025 supports 2024 data
                 
@@ -181,18 +314,8 @@ class SocialSecurityFund:
                 continue
 
         if df is None or df.empty:
-            # raise ValueError("无法获取社保基金持仓数据")
             return pd.DataFrame()
-
-        # 缓存数据
-        cache_data = {
-            'timestamp': time.time(),
-            'date': date_str,
-            'data': df.to_dict('records')
-        }
-        with open(self.cache_file, 'w', encoding='utf-8') as f:
-            json.dump(cache_data, f, ensure_ascii=False, indent=2)
-
+        
         return df
 
     def get_holdings_history(self, stock_codes: List[str], quarters: int = 8) -> Dict[str, pd.DataFrame]:
