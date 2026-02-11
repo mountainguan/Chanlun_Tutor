@@ -41,6 +41,85 @@ def render_social_security_panel(plotly_renderer, is_mobile=False):
     table_container = None
     distribution_chart_container = None
 
+    def render_table(df, exited_df=None):
+        
+        rows = []
+        # 1. Process Current Holdings
+        for _, row in df.iterrows():
+            change_type = row.get('持股变化', '不变')
+            change_val = row.get('持股变动数值', 0)
+            change_pct = row.get('持股变动比例', 0)
+            
+            if pd.isna(change_val): change_val = 0
+            if pd.isna(change_pct): change_pct = 0
+            
+            change_display = "--"
+            if change_type == '新进':
+                 change_display = "新进"
+            elif change_val != 0:
+                 prefix = "+" if change_val > 0 else ""
+                 change_display = f"{prefix}{change_val/10000:.1f}万 ({change_pct:.2f}%)"
+            
+            # Ensure '持股市值' is a float, default to 0.0 if NaN
+            mv_raw_value = float(row['持股市值']) if pd.notna(row['持股市值']) else 0.0
+            mv_raw_value = round(mv_raw_value / 1e8, 2)
+
+            rows.append({
+                'code': row['股票代码'],
+                'name': row['股票简称'],
+                'mv_raw': mv_raw_value, 
+                # 'mv': f"{mv_raw_value/1e8:.2f}亿", # Unused if we use formatter
+                'vol': f"{row['持股总数']/10000:.0f}万",
+                'change_type': change_type,
+                'change_val': change_val, 
+                'change_txt': change_display
+            })
+
+        # 2. Process Exited Holdings
+        if exited_df is not None and not exited_df.empty:
+            for _, row in exited_df.iterrows():
+                 prev_vol = row.get('持股总数', 0)
+                 prev_vol = float(prev_vol) if prev_vol else 0
+                 rows.append({
+                    'code': row['股票代码'],
+                    'name': row['股票简称'],
+                    'mv_raw': 0.0, 
+                    # 'mv': "0.00亿",
+                    'vol': "0万",
+                    'change_type': "退出",
+                    'change_val': -prev_vol, 
+                    'change_txt': "已清仓"
+                })
+
+        # Define Grid
+        column_defs = [
+            {'headerName': '代码', 'field': 'code', 'sortable': True, 'filter': True, 'width': 90, 'pinned': 'left'},
+            {'headerName': '名称', 'field': 'name', 'sortable': True, 'filter': True, 'width': 100, 'pinned': 'left', 'cellStyle': {'fontWeight': 'bold'}},
+            {'headerName': '持股市值(亿)', 'field': 'mv_raw', 'sortable': True, 'width': 130, 'sort': 'desc',
+             'cellStyle': {'textAlign': 'right', 'color': '#4338ca', 'fontWeight': 'bold'}},
+            {'headerName': '持股数量', 'field': 'vol', 'sortable': True, 'width': 120, 'cellStyle': {'textAlign': 'right'}},
+            {'headerName': '变动类型', 'field': 'change_type', 'sortable': True, 'filter': True, 'width': 100,
+             'cellClassRules': {
+                 'text-orange-600 font-bold': "x == '新进'",
+                 'text-red-600': "x == '增仓'",
+                 'text-green-600': "x == '减仓'",
+                 'text-gray-500 italic': "x == '退出'"
+             }},
+            {'headerName': '变动详情 (数量/比例)', 'field': 'change_txt', 'sortable': True, 'width': 180, 'cellStyle': {'textAlign': 'right'}},
+        ]
+
+        with table_container:
+            ui.aggrid({
+                'columnDefs': column_defs,
+                'rowData': rows,
+                'pagination': True,
+                'paginationPageSize': 50,
+                # 'domLayout': 'autoHeight', # Removed to ensure it fits in container with scroll
+                'defaultColDef': {'resizable': True, 'filter': True}, # Removed floatingFilter
+                'rowSelection': 'single',
+                'animateRows': True,
+            }).classes('w-full h-full border-none')
+
     async def load_data(force=False):
         fund_name = "社保基金" if state['fund_type'] == 'social_security' else "基本养老保险"
         if force:
@@ -170,9 +249,72 @@ def render_social_security_panel(plotly_renderer, is_mobile=False):
         with distribution_chart_container:
             plotly_renderer(fig_pie).classes('w-full h-full')
 
+    def export_to_excel():
+        df = state['df']
+        exited_df = state['exited_df']
+        if df is None or df.empty:
+            ui.notify('没有数据可导出', type='warning')
+            return
+        
+        rows = []
+        # 1. Process Current Holdings
+        for _, row in df.iterrows():
+            change_type = row.get('持股变化', '不变')
+            change_val = row.get('持股变动数值', 0)
+            change_pct = row.get('持股变动比例', 0)
+            
+            if pd.isna(change_val): change_val = 0
+            if pd.isna(change_pct): change_pct = 0
+            
+            # Ensure '持股市值' is a float, default to 0.0 if NaN
+            mv_raw_value = float(row['持股市值']) if pd.notna(row['持股市值']) else 0.0
+            mv_raw_value = round(mv_raw_value / 1e8, 2)
+
+            rows.append({
+                'code': row['股票代码'],
+                'name': row['股票简称'],
+                'mv_raw': mv_raw_value, 
+                'vol': row['持股总数'],  # 原始数值
+                'change_type': change_type,
+                'change_val': change_val,  # 原始变动数值
+            })
+
+        # 2. Process Exited Holdings
+        if exited_df is not None and not exited_df.empty:
+            for _, row in exited_df.iterrows():
+                 prev_vol = row.get('持股总数', 0)
+                 prev_vol = float(prev_vol) if prev_vol else 0
+                 rows.append({
+                    'code': row['股票代码'],
+                    'name': row['股票简称'],
+                    'mv_raw': 0.0, 
+                    'vol': 0,  # 原始数值
+                    'change_type': "退出",
+                    'change_val': -prev_vol,  # 原始变动数值
+                })
+        
+        df_export = pd.DataFrame(rows)
+        # Rename columns to Chinese
+        df_export = df_export.rename(columns={
+            'code': '股票代码',
+            'name': '股票简称',
+            'mv_raw': '持股市值(亿)',
+            'vol': '持股数量',
+            'change_type': '变动类型',
+            'change_val': '变动数值'
+        })
+        
+        # Create Excel in memory
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_export.to_excel(writer, sheet_name='社保持仓明细', index=False)
+        output.seek(0)
+        
+        # Download
+        ui.download(output.getvalue(), filename='社保持仓明细.xlsx', media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        ui.notify('Excel 文件已生成并开始下载', type='positive')
+
     def render_table(df, exited_df=None):
-        if not table_container: return
-        table_container.clear()
         
         rows = []
         # 1. Process Current Holdings
@@ -303,8 +445,11 @@ def render_social_security_panel(plotly_renderer, is_mobile=False):
                 ui.icon('table_chart', color='indigo').classes('text-xl')
                 ui.label('全部持仓明细 (含变动对比)').classes('text-base font-bold text-gray-800')
             
-            # Reload Button
-            ui.button(icon='refresh', on_click=lambda: load_data(force=True)).props('flat round dense color=indigo').tooltip('强制刷新')
+            with ui.row().classes('items-center gap-2'):
+                # Export Button
+                ui.button(icon='download', on_click=export_to_excel).props('flat round dense color=green').tooltip('导出Excel')
+                # Reload Button
+                ui.button(icon='refresh', on_click=lambda: load_data(force=True)).props('flat round dense color=indigo').tooltip('强制刷新')
 
         # Table Container
         table_container = ui.element('div').classes('w-full relative h-[600px]')
