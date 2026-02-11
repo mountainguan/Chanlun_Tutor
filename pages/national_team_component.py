@@ -7,11 +7,33 @@ from utils.national_team import NationalTeamSelector
 
 def render_national_team_panel(plotly_renderer=None, is_mobile=False):
     selector = NationalTeamSelector()
+    fmt_num = 'value => (value !== null && value !== undefined) ? Number(value).toFixed(2) : "--"'
+    
+    COL_DEFS = [
+        {'name': 'code', 'label': '股票代码', 'field': 'code', 'sortable': True, 'align': 'left'},
+        {'name': 'name', 'label': '股票简称', 'field': 'name', 'sortable': True, 'align': 'left'},
+        {'name': 'industry', 'label': '同花顺行业', 'field': 'industry', 'sortable': True, 'align': 'left'},
+        {'name': 'sector_flow', 'label': '板块净流入(亿)', 'field': 'sector_flow', 'sortable': True, 'align': 'right', ':format': fmt_num},
+        {'name': 'mv', 'label': '持股市值(亿)', 'field': 'mv', 'sortable': True, 'align': 'right', ':format': fmt_num},
+        {'name': 'price', 'label': '最新价', 'field': 'price', 'sortable': True, 'align': 'right', ':format': fmt_num},
+        {'name': 'ma5', 'label': 'MA5', 'field': 'ma5', 'sortable': True, 'align': 'right', ':format': fmt_num},
+        {'name': 'ma10', 'label': 'MA10', 'field': 'ma10', 'sortable': True, 'align': 'right', ':format': fmt_num},
+        {'name': 'ma20', 'label': 'MA20', 'field': 'ma20', 'sortable': True, 'align': 'right', ':format': fmt_num},
+        {'name': 'rsi', 'label': 'RSI(14)', 'field': 'rsi', 'sortable': True, 'align': 'right', ':format': fmt_num},
+        {'name': 'bb_upper', 'label': '布林上轨', 'field': 'bb_upper', 'sortable': True, 'align': 'right', ':format': fmt_num},
+        {'name': 'bb_lower', 'label': '布林下轨', 'field': 'bb_lower', 'sortable': True, 'align': 'right', ':format': fmt_num},
+        {'name': 'above5', 'label': '站上MA5', 'field': 'above5', 'sortable': True, 'align': 'center'},
+        {'name': 'above10', 'label': '站上MA10', 'field': 'above10', 'sortable': True, 'align': 'center'},
+        {'name': 'above20', 'label': '站上MA20', 'field': 'above20', 'sortable': True, 'align': 'center'},
+        {'name': 'hint', 'label': '缠论提示', 'field': 'hint', 'sortable': True, 'align': 'left'},
+    ]
+
     state = {
         'days': 5,
         'fund_type': 'social_security',
         'df': pd.DataFrame(),
         'meta': {},
+        'visible_columns': [c['name'] for c in COL_DEFS],
     }
 
     with ui.card().classes('w-full border border-gray-200 rounded-xl shadow-sm bg-white p-4 flex flex-col gap-3'):
@@ -36,7 +58,20 @@ def render_national_team_panel(plotly_renderer=None, is_mobile=False):
                     .classes('text-indigo-600')
 
         stats_container = ui.row().classes('w-full gap-3 flex-wrap')
+        controls_container = ui.row().classes('w-full justify-between items-center')
+        controls_container.set_visibility(False)
         table_container = ui.column().classes('w-full gap-4')
+
+    def toggle_column(name, value):
+        if value:
+            if name not in state['visible_columns']:
+                state['visible_columns'].append(name)
+                # Maintain order based on COL_DEFS
+                state['visible_columns'].sort(key=lambda x: [c['name'] for c in COL_DEFS].index(x))
+        else:
+            if name in state['visible_columns']:
+                state['visible_columns'].remove(name)
+        render_table()
 
     def update_duration_options():
         options = [(3, '3天'), (5, '5天'), (10, '10天')]
@@ -79,20 +114,42 @@ def render_national_team_panel(plotly_renderer=None, is_mobile=False):
         ui.download(output.getvalue(), filename='国家队股票筛选.xlsx', media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         ui.notify('Excel 文件已生成并开始下载', type='positive')
 
+    def init_controls():
+        controls_container.clear()
+        with controls_container:
+             ui.label('筛选明细').classes('text-sm font-bold text-gray-700')
+             with ui.row().classes('items-center gap-2'):
+                 with ui.button('显示列', icon='view_column').props('flat dense size=sm color=indigo'):
+                     with ui.menu().classes('p-2 bg-white max-h-[300px] overflow-y-auto shadow-lg border border-gray-100'):
+                         for col in COL_DEFS:
+                             # Use closure to capture loop variable
+                             def make_cb(c):
+                                 ui.checkbox(
+                                     c['label'], 
+                                     value=c['name'] in state['visible_columns'],
+                                     on_change=lambda e: toggle_column(c['name'], e.value)
+                                 ).props('dense')
+                             make_cb(col)
+
+                 ui.button('导出Excel', icon='file_download', on_click=download_excel).props('small outline color=green')
+    
+    init_controls()
+
     def render_table():
         table_container.clear()
         df = state['df']
-        if df is None or df.empty:
+        has_data = not (df is None or df.empty)
+        controls_container.set_visibility(has_data)
+        
+        if not has_data:
             with table_container:
                 with ui.card().classes('w-full p-6 items-center justify-center bg-white rounded-xl shadow-sm border border-gray-200'):
                     ui.icon('info', size='2rem', color='grey-4')
                     ui.label('暂无符合条件的国家队股票').classes('text-gray-500 text-sm mt-2')
             return
+            
         render_stats(df)
         with table_container:
-            with ui.row().classes('w-full justify-between items-center'):
-                ui.label('筛选明细').classes('text-sm font-bold text-gray-700')
-                ui.button('导出Excel', icon='file_download', on_click=download_excel).props('small outline color=green')
             rows = []
             for _, row in df.iterrows():
                 rows.append({
@@ -105,30 +162,19 @@ def render_national_team_panel(plotly_renderer=None, is_mobile=False):
                     'ma5': row.get('MA5') if pd.notna(row.get('MA5')) else None,
                     'ma10': row.get('MA10') if pd.notna(row.get('MA10')) else None,
                     'ma20': row.get('MA20') if pd.notna(row.get('MA20')) else None,
+                    'rsi': row.get('RSI') if pd.notna(row.get('RSI')) else None,
+                    'bb_upper': row.get('布林上轨') if pd.notna(row.get('布林上轨')) else None,
+                    'bb_lower': row.get('布林下轨') if pd.notna(row.get('布林下轨')) else None,
                     'above5': row.get('站上MA5'),
                     'above10': row.get('站上MA10'),
                     'above20': row.get('站上MA20'),
                     'hint': row.get('缠论提示'),
                 })
             
-            # Format function for numeric columns
-            fmt_num = 'value => (value !== null && value !== undefined) ? Number(value).toFixed(2) : "--"'
+            # Filter cols based on visible_columns
+            visible_names = set(state['visible_columns'])
+            cols = [c for c in COL_DEFS if c['name'] in visible_names]
             
-            cols = [
-                {'name': 'code', 'label': '股票代码', 'field': 'code', 'sortable': True, 'align': 'left'},
-                {'name': 'name', 'label': '股票简称', 'field': 'name', 'sortable': True, 'align': 'left'},
-                {'name': 'industry', 'label': '同花顺行业', 'field': 'industry', 'sortable': True, 'align': 'left'},
-                {'name': 'sector_flow', 'label': '板块净流入(亿)', 'field': 'sector_flow', 'sortable': True, 'align': 'right', ':format': fmt_num},
-                {'name': 'mv', 'label': '持股市值(亿)', 'field': 'mv', 'sortable': True, 'align': 'right', ':format': fmt_num},
-                {'name': 'price', 'label': '最新价', 'field': 'price', 'sortable': True, 'align': 'right', ':format': fmt_num},
-                {'name': 'ma5', 'label': 'MA5', 'field': 'ma5', 'sortable': True, 'align': 'right', ':format': fmt_num},
-                {'name': 'ma10', 'label': 'MA10', 'field': 'ma10', 'sortable': True, 'align': 'right', ':format': fmt_num},
-                {'name': 'ma20', 'label': 'MA20', 'field': 'ma20', 'sortable': True, 'align': 'right', ':format': fmt_num},
-                {'name': 'above5', 'label': '站上MA5', 'field': 'above5', 'sortable': True, 'align': 'center'},
-                {'name': 'above10', 'label': '站上MA10', 'field': 'above10', 'sortable': True, 'align': 'center'},
-                {'name': 'above20', 'label': '站上MA20', 'field': 'above20', 'sortable': True, 'align': 'center'},
-                {'name': 'hint', 'label': '缠论提示', 'field': 'hint', 'sortable': True, 'align': 'left'},
-            ]
             ui.table(columns=cols, rows=rows, pagination={'rowsPerPage': 10, 'sortBy': 'mv', 'descending': True}).classes('w-full bg-white shadow-sm border border-gray-200')
 
     async def load_data(force=False):

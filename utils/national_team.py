@@ -7,6 +7,7 @@ import akshare as ak
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.social_security_fund import SocialSecurityFund
 from utils.fund_radar import FundRadar
+from utils.simulator_logic import calculate_rsi, calculate_bollinger_bands
 
 
 class NationalTeamSelector:
@@ -259,11 +260,32 @@ class NationalTeamSelector:
         ma5 = float(closes.tail(5).mean()) if len(closes) >= 5 else last_price
         ma10 = float(closes.tail(10).mean()) if len(closes) >= 10 else ma5
         ma20 = float(closes.tail(20).mean()) if len(closes) >= 20 else ma10
-        return {'price': last_price, 'ma5': ma5, 'ma10': ma10, 'ma20': ma20}
+        
+        # Calculate RSI
+        rsi_values = calculate_rsi(closes.tolist(), period=14)
+        rsi = float(rsi_values[-1]) if rsi_values else 50.0
+        
+        # Calculate Bollinger Bands
+        bb = calculate_bollinger_bands(closes.tolist(), period=20, num_std=2)
+        bb_upper = float(bb['upper'][-1]) if bb['upper'] else last_price
+        bb_middle = float(bb['middle'][-1]) if bb['middle'] else last_price
+        bb_lower = float(bb['lower'][-1]) if bb['lower'] else last_price
+        
+        return {
+            'price': last_price, 
+            'ma5': ma5, 
+            'ma10': ma10, 
+            'ma20': ma20,
+            'rsi': rsi,
+            'bb_upper': bb_upper,
+            'bb_middle': bb_middle,
+            'bb_lower': bb_lower
+        }
 
     def _fetch_ma(self, code):
         end_dt = datetime.date.today()
-        start_dt = end_dt - datetime.timedelta(days=70)
+        start_dt = end_dt - datetime.timedelta(days=120) # 增加到120天以确保足够的计算数据
+
         
         # 1. 尝试使用新浪接口（增加重试机制）
         for _ in range(3):
@@ -297,7 +319,11 @@ class NationalTeamSelector:
                 price = row.iloc[0]['最新价']
                 try:
                     price = float(price)
-                    return {'price': price, 'ma5': None, 'ma10': None, 'ma20': None}
+                    return {
+                        'price': price, 
+                        'ma5': None, 'ma10': None, 'ma20': None,
+                        'rsi': None, 'bb_upper': None, 'bb_middle': None, 'bb_lower': None
+                    }
                 except:
                     pass
         except Exception:
@@ -336,7 +362,11 @@ class NationalTeamSelector:
                         cache[code] = {**ma, 'timestamp': time.time()}
                         result[code] = cache[code]
                     else:
-                        cache[code] = {'price': None, 'ma5': None, 'ma10': None, 'ma20': None, 'timestamp': time.time()}
+                        cache[code] = {
+                            'price': None, 'ma5': None, 'ma10': None, 'ma20': None,
+                            'rsi': None, 'bb_upper': None, 'bb_middle': None, 'bb_lower': None,
+                            'timestamp': time.time()
+                        }
                     
                     completed += 1
                     if progress_callback:
@@ -387,6 +417,13 @@ class NationalTeamSelector:
         holdings['同花顺行业'] = holdings['股票代码'].map(industry_map).fillna('')
         
         if progress_callback:
+            progress_callback(0, 0, "正在获取行情数据...")
+            
+        # 先获取所有持仓股票的行情数据（无论后续是否过滤），确保缓存完整
+        all_codes = holdings['股票代码'].tolist()
+        ma_map = self.get_stock_ma_map(all_codes, force_update=force_update, progress_callback=progress_callback)
+            
+        if progress_callback:
             progress_callback(0, 0, "正在获取主力雷达数据...")
             
         radar = FundRadar()
@@ -413,28 +450,75 @@ class NationalTeamSelector:
         if holdings.empty:
             return pd.DataFrame(), {'date': date_str, 'used': used_info, 'updated_at': last_updated_at}
             
-        ma_map = self.get_stock_ma_map(holdings['股票代码'].tolist(), force_update=force_update, progress_callback=progress_callback)
         rows = []
         for row in holdings.to_dict('records'):
             code = row.get('股票代码')
+            # 这里的 ma_map 已经包含了所有持仓股票的数据
             ma = ma_map.get(code, {})
             price = ma.get('price')
             ma5 = ma.get('ma5')
             ma10 = ma.get('ma10')
             ma20 = ma.get('ma20')
+            rsi = ma.get('rsi')
+            bb_upper = ma.get('bb_upper')
+            bb_middle = ma.get('bb_middle')
+            bb_lower = ma.get('bb_lower')
+            
             above5 = price is not None and ma5 is not None and price >= ma5
             above10 = price is not None and ma10 is not None and price >= ma10
             above20 = price is not None and ma20 is not None and price >= ma20
+            
+            # 综合缠论建议
+            hints = []
+            chan_status = '震荡'
+            
+            # 1. 均线形态
             if above5 and above10 and above20:
-                hint = '多头排列·三买观察'
-            elif above5 and above10 and not above20:
-                hint = '中枢上沿承压'
-            elif above5 and not above10:
-                hint = '短线上冲'
+                hints.append('多头')
+                chan_status = '上涨'
             elif not above5 and not above10 and not above20:
-                hint = '空头回撤'
-            else:
-                hint = '结构分化'
+                hints.append('空头')
+                chan_status = '下跌'
+            
+            # 2. 布林线位置
+            if price is not None and bb_upper is not None:
+                if price > bb_upper:
+                    hints.append('破上轨')
+                elif price < bb_lower:
+                    hints.append('破下轨')
+                elif price > bb_middle:
+                    hints.append('中轨上')
+                else:
+                    hints.append('中轨下')
+            
+            # 3. RSI状态
+            if rsi is not None:
+                if rsi > 75:
+                    hints.append('超买')
+                elif rsi < 25:
+                    hints.append('超卖')
+            
+            # 4. 缠论近似判断
+            final_advice = '中枢震荡'
+            if chan_status == '上涨':
+                if '超买' in hints or '破上轨' in hints:
+                    final_advice = '顶背驰风险'
+                elif price and ma5 and abs(price - ma5)/ma5 < 0.02: # 回踩MA5
+                    final_advice = '三买观察'
+                else:
+                    final_advice = '强势延续'
+            elif chan_status == '下跌':
+                if '超卖' in hints or '破下轨' in hints:
+                    final_advice = '一买潜伏'
+                elif price and ma5 and abs(price - ma5)/ma5 < 0.02: # 反抽MA5
+                    final_advice = '三卖风险'
+                else:
+                    final_advice = '弱势寻底'
+            elif '中轨上' in hints and above5:
+                 final_advice = '二买观察'
+            
+            hint = f"{final_advice} | {' '.join(hints)}"
+            
             rows.append({
                 '股票代码': code,
                 '股票简称': row.get('股票简称'),
@@ -445,6 +529,10 @@ class NationalTeamSelector:
                 'MA5': ma5,
                 'MA10': ma10,
                 'MA20': ma20,
+                'RSI': rsi,
+                '布林上轨': bb_upper,
+                '布林中轨': bb_middle,
+                '布林下轨': bb_lower,
                 '站上MA5': '是' if above5 else '否',
                 '站上MA10': '是' if above10 else '否',
                 '站上MA20': '是' if above20 else '否',

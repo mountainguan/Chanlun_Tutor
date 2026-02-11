@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import pandas as pd
 
 def calculate_ema(values, span):
     values = np.array(values, dtype=float)
@@ -29,6 +30,49 @@ def calculate_macd(close_prices, fast_period=12, slow_period=26, signal_period=9
         'dea': dea.tolist(),
         'hist': hist.tolist()
     }
+
+def calculate_rsi(prices, period=14):
+    """
+    计算RSI
+    """
+    prices = pd.Series(prices)
+    if len(prices) < period + 1:
+        return [50.0] * len(prices)
+        
+    delta = prices.diff()
+    up = delta.clip(lower=0)
+    down = -1 * delta.clip(upper=0)
+    
+    ma_up = up.ewm(com=period-1, adjust=False).mean()
+    ma_down = down.ewm(com=period-1, adjust=False).mean()
+    
+    rs = ma_up / ma_down
+    rsi = 100 - (100 / (1 + rs))
+    return rsi.fillna(50.0).tolist()
+
+def calculate_bollinger_bands(prices, period=20, num_std=2):
+    """
+    计算布林线
+    """
+    prices = pd.Series(prices)
+    if len(prices) < period:
+        return {
+            'upper': prices.tolist(),
+            'middle': prices.tolist(),
+            'lower': prices.tolist()
+        }
+        
+    middle = prices.rolling(window=period).mean()
+    std = prices.rolling(window=period).std()
+    upper = middle + (std * num_std)
+    lower = middle - (std * num_std)
+    
+    return {
+        'upper': upper.fillna(0).tolist(),
+        'middle': middle.fillna(0).tolist(),
+        'lower': lower.fillna(0).tolist()
+    }
+
 
 def generate_simulation_data(initial_price=100, length=300):
     """
