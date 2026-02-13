@@ -1,6 +1,7 @@
 import akshare as ak
 import pandas as pd
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 print("Checking akshare interfaces...\n")
 
@@ -21,7 +22,7 @@ print("-" * 50)
 print("2. Checking ak.stock_zh_a_hist(symbol='600000', period='daily')...")
 try:
     start_date = "20230101"
-    end_date = datetime.now().strftime("%Y%m%d")
+    end_date = datetime.now(ZoneInfo('Asia/Shanghai')).strftime("%Y%m%d")
     hist_df = ak.stock_zh_a_hist(symbol="600000", period="daily", start_date=start_date, end_date=end_date)
     
     print("\nColumns:", hist_df.columns.tolist())

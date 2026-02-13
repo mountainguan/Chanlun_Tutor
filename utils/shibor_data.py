@@ -8,6 +8,8 @@ import pandas as pd
 import requests
 import datetime
 import os
+from typing import Optional
+from zoneinfo import ZoneInfo
 import json
 import urllib3
 
@@ -64,14 +66,14 @@ class ShiborDataManager:
                         log = json.load(f)
                 except Exception:
                     pass
-            log['last_shibor_fetch'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            log['last_shibor_fetch'] = datetime.datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S')
             with open(self.fetch_log_file, 'w') as f:
                 json.dump(log, f)
         except Exception as e:
             print(f"[Shibor] Failed to update fetch log: {e}")
 
     # ── 本地缓存 ──────────────────────────────────────────────
-    def load_cache(self) -> pd.DataFrame | None:
+    def load_cache(self) -> Optional[pd.DataFrame]:
         """从本地加载缓存数据"""
         if os.path.exists(self.cache_file):
             try:
@@ -90,7 +92,7 @@ class ShiborDataManager:
             print(f"[Shibor] Cache save failed: {e}")
 
     # ── 数据获取 ──────────────────────────────────────────────
-    def fetch_from_api(self) -> pd.DataFrame | None:
+    def fetch_from_api(self) -> Optional[pd.DataFrame]:
         """
         从中国货币网 API 获取 Shibor 历史数据
         返回 DataFrame，列: date, O/N, 1W, 2W, 1M, 3M, 6M, 9M, 1Y
@@ -150,7 +152,7 @@ class ShiborDataManager:
             return None
 
     # ── 主入口 ────────────────────────────────────────────────
-    def get_shibor_data(self, force_refresh=False) -> pd.DataFrame | None:
+    def get_shibor_data(self, force_refresh=False) -> Optional[pd.DataFrame]:
         """
         获取 Shibor 数据（带缓存策略）
         - 默认每天最多从 API 拉取一次
@@ -163,9 +165,9 @@ class ShiborDataManager:
             last_fetch = self._get_fetch_log_time()
             if last_fetch:
                 try:
-                    last_dt = datetime.datetime.strptime(last_fetch, '%Y-%m-%d %H:%M:%S')
+                    last_dt = datetime.datetime.strptime(last_fetch, '%Y-%m-%d %H:%M:%S').replace(tzinfo=ZoneInfo('Asia/Shanghai'))
                     # 如果距上次拉取不足 6 小时，优先使用缓存
-                    if (datetime.datetime.now() - last_dt).total_seconds() < 6 * 3600:
+                    if (datetime.datetime.now(ZoneInfo('Asia/Shanghai')) - last_dt).total_seconds() < 6 * 3600:
                         cached = self.load_cache()
                         if cached is not None and not cached.empty:
                             return cached
@@ -187,7 +189,7 @@ class ShiborDataManager:
 
         return None
 
-    def get_shibor_term(self, term: str = "O/N", force_refresh=False) -> pd.DataFrame | None:
+    def get_shibor_term(self, term: str = "O/N", force_refresh=False) -> Optional[pd.DataFrame]:
         """
         获取指定期限的 Shibor 利率时间序列
         term: "O/N", "1W", "2W", "1M", "3M", "6M", "9M", "1Y"

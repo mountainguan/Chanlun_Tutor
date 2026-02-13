@@ -5,6 +5,7 @@ import time
 import urllib3
 import os
 import json
+from zoneinfo import ZoneInfo
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -39,7 +40,7 @@ class MarketSentiment:
                 except:
                     pass
             
-            log['last_market_sentiment_fetch'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            log['last_market_sentiment_fetch'] = datetime.datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S')
             
             with open(self.fetch_log_file, 'w') as f:
                 json.dump(log, f)
@@ -159,7 +160,7 @@ class MarketSentiment:
                 sohu_code = "zs_000001" if secid == "1.000001" else "zs_399106"
                 
                 # Sohu uses YYYYMMDD for start/end
-                today_str = datetime.datetime.now().strftime("%Y%m%d")
+                today_str = datetime.datetime.now(ZoneInfo('Asia/Shanghai')).strftime("%Y%m%d")
                 start_str = "20230101" 
                 if beg and beg != "0":
                     start_str = beg
@@ -366,7 +367,7 @@ class MarketSentiment:
                 total = dfs[0][[target_col]]
             
             # 过滤只保留最近三年的数据
-            cutoff_date = pd.Timestamp.now() - pd.Timedelta(days=365*3)
+            cutoff_date = (pd.Timestamp.now(tz='Asia/Shanghai') - pd.Timedelta(days=365*3)).tz_convert(None)
             total = total[total.index >= cutoff_date]
             
             return total[target_col].sort_index()
@@ -376,7 +377,7 @@ class MarketSentiment:
     def get_temperature_data(self, force_refresh=False):
         # 1. Loading Cache
         cache = self.load_cache()
-        today = datetime.datetime.now().date()
+        today = datetime.datetime.now(ZoneInfo('Asia/Shanghai')).date()
         
         latest_date = None
         need_fetch = True
@@ -421,7 +422,7 @@ class MarketSentiment:
                 # Latest date is OLDER than today.
                 # However, we should also check if we recently tried fetching (Fetch Throttling)
                 last_fetch_str = self._get_fetch_log_time()
-                current_time = datetime.datetime.now()
+                current_time = datetime.datetime.now(ZoneInfo('Asia/Shanghai'))
                 checkpoint_morning = current_time.replace(hour=9, minute=10, second=0, microsecond=0)
                 checkpoint_midday = current_time.replace(hour=11, minute=30, second=0, microsecond=0)
                 checkpoint_close = current_time.replace(hour=15, minute=30, second=0, microsecond=0)
@@ -432,7 +433,7 @@ class MarketSentiment:
                 
                 if last_fetch_str and not force_refresh:
                     try:
-                        last_fetch = datetime.datetime.strptime(last_fetch_str, '%Y-%m-%d %H:%M:%S')
+                        last_fetch = datetime.datetime.strptime(last_fetch_str, '%Y-%m-%d %H:%M:%S').replace(tzinfo=ZoneInfo('Asia/Shanghai'))
                         
                         # Logic:
                         # If last fetch was TODAY

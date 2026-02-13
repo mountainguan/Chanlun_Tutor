@@ -114,7 +114,7 @@ def render_shibor_panel(plotly_renderer, is_mobile=False):
         range_days = RANGE_OPTIONS.get(range_select.value)
         if range_days is None or df is None or df.empty:
             return df
-        cutoff = pd.Timestamp.now() - pd.Timedelta(days=range_days)
+        cutoff = (pd.Timestamp.now(tz='Asia/Shanghai') - pd.Timedelta(days=range_days)).tz_convert(None)
         return df[df[date_col] >= cutoff].copy()
 
     async def fetch_and_draw(force=False):

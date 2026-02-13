@@ -6,6 +6,7 @@ import datetime
 import json
 import time
 import random
+from zoneinfo import ZoneInfo
 
 # 通达信 行业板块代码映射表（由用户提供）
 tdx_industry_map = {
@@ -283,7 +284,7 @@ class SectorSentiment:
                         sectors.append({'name': info.get('name', tdx_industry_map.get(code, '')), 'code': code})
                 if sectors:
                     with open(self.if_sector_list_cache, 'w', encoding='utf-8') as f:
-                        json.dump({'date': datetime.datetime.now().isoformat(), 'sectors': sectors}, f, ensure_ascii=False)
+                        json.dump({'date': datetime.datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(), 'sectors': sectors}, f, ensure_ascii=False)
                     return sectors
         except Exception:
             pass
@@ -293,7 +294,7 @@ class SectorSentiment:
             try:
                 with open(self.if_sector_list_cache, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    if (datetime.datetime.now() - datetime.datetime.fromisoformat(data['date'])).days < 30:
+                    if (datetime.datetime.now(ZoneInfo('Asia/Shanghai')) - datetime.datetime.fromisoformat(data['date'])).days < 30:
                         sectors = data['sectors']
                         # 验证缓存格式是否为新版 [{name, code}]
                         if sectors and isinstance(sectors[0], dict) and 'code' in sectors[0]:
@@ -313,7 +314,7 @@ class SectorSentiment:
                         sectors.append({'name': info.get('name', tdx_industry_map.get(code, '')), 'code': code})
                 if sectors:
                     with open(self.if_sector_list_cache, 'w', encoding='utf-8') as f:
-                        json.dump({'date': datetime.datetime.now().isoformat(), 'sectors': sectors}, f, ensure_ascii=False)
+                        json.dump({'date': datetime.datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(), 'sectors': sectors}, f, ensure_ascii=False)
                     return sectors
         except Exception:
             pass
@@ -324,7 +325,7 @@ class SectorSentiment:
             for code, name in tdx_industry_map.items():
                 sectors.append({'name': name, 'code': code})
             with open(self.if_sector_list_cache, 'w', encoding='utf-8') as f:
-                json.dump({'date': datetime.datetime.now().isoformat(), 'sectors': sectors}, f, ensure_ascii=False)
+                json.dump({'date': datetime.datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(), 'sectors': sectors}, f, ensure_ascii=False)
             return sectors
         except Exception as e:
             print(f"Failed to build sector list from tdx_industry_map: {e}")

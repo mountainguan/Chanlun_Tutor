@@ -5,6 +5,7 @@ import os
 import json
 import time
 from typing import Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 class SocialSecurityFund:
     """
@@ -333,7 +334,7 @@ class SocialSecurityFund:
         """
         从 AKShare 加载社保基金数据
         """
-        current_date = datetime.datetime.now()
+        current_date = datetime.datetime.now(ZoneInfo('Asia/Shanghai'))
         # 尝试获取最近的季度末数据，但不包括未来日期
         quarters = []
         # 优先尝试固定的已知最新发布日期（要求：20250930）
@@ -373,7 +374,7 @@ class SocialSecurityFund:
         """
         获取指定股票的持股历史数据
         """
-        current_date = datetime.datetime.now()
+        current_date = datetime.datetime.now(ZoneInfo('Asia/Shanghai'))
         history_data = {}
 
         # 生成季度日期列表

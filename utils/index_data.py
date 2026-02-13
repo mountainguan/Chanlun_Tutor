@@ -3,6 +3,7 @@ import requests
 import datetime
 import os
 import json
+from zoneinfo import ZoneInfo
 
 class IndexDataManager:
     def __init__(self):
@@ -54,7 +55,7 @@ class IndexDataManager:
         """Record the fetch time for specific index code"""
         try:
             log = self._get_fetch_log()
-            log[code] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            log[code] = datetime.datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S')
             with open(self.fetch_log_file, 'w') as f:
                 json.dump(log, f)
         except Exception as e:
@@ -104,7 +105,7 @@ class IndexDataManager:
             curr_cache = cache[cache['code'] == code].copy()
             curr_cache = curr_cache.sort_values('date')
         
-        today = datetime.datetime.now().date()
+        today = datetime.datetime.now(ZoneInfo('Asia/Shanghai')).date()
         latest_date = None
         
         if not curr_cache.empty:
@@ -127,13 +128,13 @@ class IndexDataManager:
             try:
                 log = self._get_fetch_log()
                 last_fetch_str = log.get(code)
-                now = datetime.datetime.now()
+                now = datetime.datetime.now(ZoneInfo('Asia/Shanghai'))
                 
                 if not last_fetch_str:
                     # Never fetched this code recorded -> Fetch
                     need_fetch = True
                 else:
-                    last_fetch = datetime.datetime.strptime(last_fetch_str, '%Y-%m-%d %H:%M:%S')
+                    last_fetch = datetime.datetime.strptime(last_fetch_str, '%Y-%m-%d %H:%M:%S').replace(tzinfo=ZoneInfo('Asia/Shanghai'))
                     
                     # Define Checkpoints for Today
                     checkpoint_new_day = now.replace(hour=0, minute=0, second=0, microsecond=0)

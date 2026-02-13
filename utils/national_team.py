@@ -5,6 +5,7 @@ import datetime
 import pandas as pd
 import akshare as ak
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from zoneinfo import ZoneInfo
 from utils.social_security_fund import SocialSecurityFund
 from utils.fund_radar import FundRadar
 from utils.simulator_logic import calculate_rsi, calculate_bollinger_bands
@@ -378,7 +379,7 @@ class NationalTeamSelector:
         return result
 
     def get_selection(self, days=5, fund_type='social_security', force_update=False, date_str=None, progress_callback=None):
-        date_str = date_str if date_str else datetime.datetime.now().strftime('%Y-%m-%d')
+        date_str = date_str if date_str else datetime.datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y-%m-%d')
         ssf = SocialSecurityFund(fund_type=fund_type)
         
         # 获取或更新最后更新时间
@@ -386,7 +387,7 @@ class NationalTeamSelector:
         last_updated_at = None
         
         if force_update:
-            last_updated_at = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            last_updated_at = datetime.datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S')
             try:
                 with open(meta_cache_file, 'w', encoding='utf-8') as f:
                     json.dump({'updated_at': last_updated_at}, f)
