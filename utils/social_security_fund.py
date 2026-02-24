@@ -18,16 +18,27 @@ class SocialSecurityFund:
         # Map fund_type to AKShare symbol
         self.symbol_map = {
             'social_security': '社保持仓',
-            'pension': '基本养老保险'
+            'pension': '基本养老保险',
+            'huijin': '中央汇金'
         }
         self.symbol = self.symbol_map.get(fund_type, '社保持仓')
         
         self.data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
         
         # Dynamic cache files
-        cache_name = 'social_security' if fund_type == 'social_security' else 'pension'
+        if fund_type == 'social_security':
+            cache_name = 'social_security'
+        elif fund_type == 'pension':
+            cache_name = 'pension'
+        elif fund_type == 'huijin':
+            cache_name = 'huijin'
+        else:
+            cache_name = 'social_security'
+            
         self.cache_file = os.path.join(self.data_dir, f'{cache_name}_fund_cache.json')
         self.changes_cache_file = os.path.join(self.data_dir, f'{cache_name}_changes_cache.json')
+        
+        self.report_date = None
         
         self.ensure_data_dir()
 
@@ -78,8 +89,8 @@ class SocialSecurityFund:
         """
         获取最近季度退出的股票（上季度有，本季度无）
         """
-        if self.fund_type == 'pension':
-            # 养老保险数据没有历史，无法计算退出股票
+        if self.fund_type in ['pension', 'huijin']:
+            # 养老保险和中央汇金数据没有历史，无法计算退出股票
             return pd.DataFrame()
         
         current_df = self.get_latest_holdings()
@@ -155,6 +166,8 @@ class SocialSecurityFund:
         # 获取最新季度数据
         if self.fund_type == 'pension':
             df = self._load_pension_data()
+        elif self.fund_type == 'huijin':
+            df = self._load_huijin_data()
         else:
             df = self._load_social_security_data()
         
@@ -164,7 +177,7 @@ class SocialSecurityFund:
         # 缓存数据
         cache_data = {
             'timestamp': time.time(),
-            'date': '20250930',  # 养老保险数据日期
+            'date': self.report_date if self.report_date else '20250930',  # 优先使用加载的日期，默认20250930
             'data': df.to_dict('records')
         }
         with open(self.cache_file, 'w', encoding='utf-8') as f:
@@ -328,6 +341,46 @@ class SocialSecurityFund:
             
         except Exception as e:
             print(f"加载养老保险数据失败: {e}")
+            return pd.DataFrame()
+
+    def _load_huijin_data(self) -> pd.DataFrame:
+        """
+        从 JSON 缓存文件加载中央汇金数据（因为通常由手工脚本获取）
+        """
+        # 尝试直接读取脚本生成的缓存文件
+        cache_file = os.path.join(self.data_dir, 'huijin_fund_cache.json')
+        
+        if not os.path.exists(cache_file):
+            print(f"中央汇金数据文件不存在: {cache_file}")
+            return pd.DataFrame()
+            
+        try:
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                
+            if 'date' in data:
+                self.report_date = data['date']
+                
+            if 'data' not in data or not data['data']:
+                return pd.DataFrame()
+                
+            df = pd.DataFrame(data['data'])
+            print(f"成功加载中央汇金数据，共{len(df)}条记录")
+            
+            # 确保列名正确
+            required_columns = ['股票代码', '股票简称', '持股总数', '持股市值', '持股变动数值', '持股变动比例', '持股变化']
+            for col in required_columns:
+                if col not in df.columns:
+                    print(f"中央汇金数据缺少列: {col}")
+                    if col == '持股变化':
+                         df['持股变化'] = '不变'
+                    else:
+                         df[col] = 0
+            
+            return df
+            
+        except Exception as e:
+            print(f"加载中央汇金数据失败: {e}")
             return pd.DataFrame()
 
     def _load_social_security_data(self) -> pd.DataFrame:

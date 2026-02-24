@@ -121,7 +121,15 @@ def render_social_security_panel(plotly_renderer, is_mobile=False):
             }).classes('w-full h-full border-none')
 
     async def load_data(force=False):
-        fund_name = "社保基金" if state['fund_type'] == 'social_security' else "基本养老保险"
+        if state['fund_type'] == 'social_security':
+            fund_name = "社保基金"
+        elif state['fund_type'] == 'pension':
+            fund_name = "基本养老保险"
+        elif state['fund_type'] == 'huijin':
+            fund_name = "中央汇金"
+        else:
+            fund_name = "社保基金"
+            
         if force:
             ui.notify(f'正在刷新{fund_name}数据...', type='info', position='top')
         
@@ -403,7 +411,8 @@ def render_social_security_panel(plotly_renderer, is_mobile=False):
          with ui.row().classes('bg-gray-100 p-1 rounded-lg'):
              ui.toggle({
                  'social_security': '社保基金', 
-                 'pension': '养老金'
+                 'pension': '养老金',
+                 'huijin': '中央汇金'
              }, value='social_security', on_change=lambda e: change_fund_type(e.value)) \
              .props('no-caps unelevated toggle-color=indigo text-color=grey-7').classes('shadow-none')
     
