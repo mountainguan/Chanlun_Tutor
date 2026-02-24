@@ -164,8 +164,8 @@ def landing_page():
                     with ui.element('div').classes('w-20 h-20 rounded-full bg-green-50 flex items-center justify-center mb-2'):
                         ui.icon('account_balance', size='40px').classes('text-green-600')
                     
-                    ui.label('社保基金分析').classes('text-2xl font-bold text-gray-800')
-                    ui.label('社保基金持股分析，追踪持仓变化和投资策略').classes('text-center text-gray-500 leading-relaxed text-sm')
+                    ui.label('国家队持股情况').classes('text-2xl font-bold text-gray-800')
+                    ui.label('国家队持股情况分析，追踪持仓变化和投资策略').classes('text-center text-gray-500 leading-relaxed text-sm')
                     ui.button('进入分析', on_click=lambda: ui.navigate.to('/social-security')).props('flat color=green')
         
         # 下部占位 (flex-grow) + Footer 位于最底

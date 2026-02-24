@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-社保基金持股分析模块测试脚本
+国家队持股情况模块测试脚本
 """
 
 import sys
@@ -12,7 +12,7 @@ import pandas as pd
 
 def main():
     print("=" * 60)
-    print("社保基金持股分析模块测试")
+    print("国家队持股情况模块测试")
     print("=" * 60)
 
     try:

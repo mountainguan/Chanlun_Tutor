@@ -399,7 +399,7 @@ def render_social_security_panel(plotly_renderer, is_mobile=False):
 
     # 0. Header & Toggle
     with ui.row().classes('w-full justify-between items-center mb-4'):
-         ui.label('持仓数据分析').classes('text-lg font-bold text-gray-800')
+         ui.label('国家队持仓分析').classes('text-lg font-bold text-gray-800')
          with ui.row().classes('bg-gray-100 p-1 rounded-lg'):
              ui.toggle({
                  'social_security': '社保基金', 

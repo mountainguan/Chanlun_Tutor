@@ -8,11 +8,11 @@ from pages.social_security_component import render_social_security_panel
 
 def create_social_security_page():
     """
-    创建美观的社保基金持股分析页面（Fintech Fresh 风格）
+    创建美观的国家队持股情况页面（Fintech Fresh 风格）
     """
     @ui.page('/social-security')
     def social_security_page():
-        ui.page_title('社保基金持股分析')
+        ui.page_title('国家队持股情况')
         setup_common_ui()
 
         # --- Header ---
@@ -22,7 +22,7 @@ def create_social_security_page():
                 
                 with ui.row().classes('items-center gap-2 ml-2'):
                     ui.icon('security', color='indigo').classes('text-2xl')
-                    ui.label('社保基金持股分析').classes('text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-teal-500')
+                    ui.label('国家队持股情况').classes('text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-teal-500')
                 
                 ui.space()
                 ui.button(icon='home', on_click=lambda: ui.navigate.to('/')).props('flat round color=grey').tooltip('返回首页')
@@ -37,13 +37,13 @@ def create_social_security_page():
                 with ui.expansion('查看功能说明', icon='info').classes('w-full bg-white border border-gray-100 rounded-lg shadow-sm'):
                     with ui.column().classes('p-4 text-gray-600 text-sm'):
                         ui.markdown('''
-                        **社保基金持股分析说明**
+                        **国家队持股情况说明**
 
-                        - **数据来源**: 东方财富/Akshare 接口获取的最新季度社保基金持仓数据。
+                        - **数据来源**: 东方财富/Akshare 接口获取的最新季度国家队（社保、养老金）持仓数据。
                         - **更新频率**: 每一季度更新一次（通常在季报披露期结束后）。
                         - **主要指标**:
                         
-                            - **总持股市值**: 当前所有被社保基金持有的股票市值总和。
+                            - **总持股市值**: 当前所有被国家队持有的股票市值总和。
                             - **重仓股 TOP 10**: 按市值排名的前10大重仓股。
                         ''')
 
