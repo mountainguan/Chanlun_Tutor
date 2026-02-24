@@ -637,9 +637,11 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                 with ui.card().classes('w-full border border-gray-200 rounded-xl shadow-sm bg-white p-0 flex flex-col gap-0 mt-4'):
                     # Header
                     with ui.row().classes('w-full justify-between items-center p-3 border-b border-gray-200 bg-gray-50/50'):
-                        with ui.row().classes('items-center gap-2'):
-                            ui.icon('grid_view', color='indigo').classes('text-lg')
-                            ui.label('核心板块资金流向雷达 (Core Sector Flow Radar)').classes('text-sm font-bold text-gray-800')
+                        with ui.column().classes('gap-0'):
+                            with ui.row().classes('items-center gap-2'):
+                                ui.icon('grid_view', color='indigo').classes('text-lg')
+                                ui.label('核心板块资金流向雷达 (Core Sector Flow Radar)').classes('text-sm font-bold text-gray-800')
+                            ui.label('备注：2.24日开始，净流入为主力净流入，之前为全口径净流入').classes('text-[10px] text-gray-400 transform scale-90 origin-left ml-7')
                         
                         with ui.row().classes('items-center gap-4'):
                             # Legend
