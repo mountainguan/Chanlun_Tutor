@@ -1,10 +1,12 @@
 from nicegui import ui, app
 import plotly.graph_objects as go
 from utils.fund_radar import FundRadar
+from utils.sector_grid_logic import get_sector_grid_data
 import pandas as pd
 import numpy as np
 import datetime
 import asyncio
+import os
 
 def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
     """
@@ -622,6 +624,126 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                              ui.table(columns=cols, rows=rows, pagination=10).classes('w-full bg-white shadow-sm border border-gray-200')
 
 
+        def render_sector_grid_view():
+            """
+            Render the 3-column sector grid view (similar to Tonghuashun structure).
+            """
+            try:
+                # Get data for last 6 days
+                dates, grid_data = get_sector_grid_data(radar.cache_dir, days=6)
+                if not dates:
+                    return
+
+                with ui.card().classes('w-full border border-gray-200 rounded-xl shadow-sm bg-white p-0 flex flex-col gap-0 mt-4'):
+                    # Header
+                    with ui.row().classes('w-full justify-between items-center p-3 border-b border-gray-200 bg-gray-50/50'):
+                        with ui.row().classes('items-center gap-2'):
+                            ui.icon('grid_view', color='indigo').classes('text-lg')
+                            ui.label('核心板块资金流向雷达 (Core Sector Flow Radar)').classes('text-sm font-bold text-gray-800')
+                        
+                        with ui.row().classes('items-center gap-4'):
+                            # Legend
+                            with ui.row().classes('items-center gap-2 text-[10px] text-gray-500'):
+                                with ui.row().classes('items-center gap-1'):
+                                    ui.element('div').classes('w-2 h-2 bg-red-600 rounded-sm')
+                                    ui.label('超入')
+                                with ui.row().classes('items-center gap-1'):
+                                    ui.element('div').classes('w-2 h-2 bg-red-400 rounded-sm')
+                                    ui.label('强入')
+                                with ui.row().classes('items-center gap-1'):
+                                    ui.element('div').classes('w-2 h-2 bg-green-600 rounded-sm')
+                                    ui.label('超出')
+                                with ui.row().classes('items-center gap-1'):
+                                    ui.element('div').classes('w-2 h-2 bg-green-400 rounded-sm')
+                                    ui.label('强出')
+                            
+                            ui.label('单位: 亿元').classes('text-[10px] text-gray-400')
+
+                    # Grid Content - Single Column List View (User Requested)
+                    with ui.column().classes('w-full gap-0 border-t border-gray-200'):
+                        
+                        # 1. Main Table Header
+                        with ui.row().classes('w-full bg-gray-100 border-b border-gray-200 h-8 items-center gap-0'):
+                            ui.label('板块').classes('w-24 pl-4 text-[11px] font-bold text-gray-500')
+                            for d in dates:
+                                ui.label(d).classes('flex-1 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
+
+                        # 2. Render Rows
+                        all_rows = [] # Store row objects to control visibility
+                        sector_count = 0
+                        INITIAL_SHOW_COUNT = 10
+
+                        # Iterate through grid_data (preserves insertion order from logic file)
+                        for category, sectors in grid_data.items():
+                            if not sectors: continue
+
+                            # Category Header Row
+                            cat_row = ui.row().classes('w-full bg-indigo-50 border-y border-indigo-100 py-1.5 px-4 items-center')
+                            with cat_row:
+                                ui.label(category).classes('text-[11px] font-black text-indigo-800 tracking-widest')
+                            
+                            all_rows.append({'row': cat_row, 'type': 'category'})
+                            
+                            # Sector Rows
+                            for sector in sectors:
+                                s_row = ui.row().classes('w-full border-b border-gray-100 h-9 items-center gap-0 hover:bg-gray-50 transition-colors group')
+                                with s_row:
+                                    # Name
+                                    with ui.row().classes('w-24 pl-4 h-full items-center border-r border-gray-100'):
+                                        ui.label(sector['name']).classes('text-[11px] font-bold text-gray-700 truncate')
+                                    
+                                    # Date Cells
+                                    for day_data in sector['history']:
+                                        with ui.row().classes(f'flex-1 h-full items-center justify-center {day_data["color_class"]} border-r border-gray-100 px-1 relative'):
+                                            ui.label(day_data['status']).classes('text-[11px] font-bold leading-none')
+                                            # Tooltip
+                                            ui.tooltip(f"{day_data['date']} {sector['name']}\n净流入: {day_data['inflow']:.1f}亿\n成交额: {day_data['turnover']:.1f}亿\n强度: {day_data['ratio']:.1f}%").classes('text-xs bg-gray-800 text-white shadow-lg whitespace-pre-line')
+                                
+                                all_rows.append({'row': s_row, 'type': 'sector'})
+                                sector_count += 1
+                        
+                        # 3. Visibility Logic
+                        # We want to show the first INITIAL_SHOW_COUNT *sectors*.
+                        # We also need to manage category headers (hide if all their sectors are hidden? or just show them)
+                        # Simpler approach: Show first N *rows* (including headers) that cover roughly 10 sectors.
+                        # Or better: Count sectors as we iterate and mark rows as hidden after count > 10.
+                        
+                        visible_sectors = 0
+                        hidden_row_elements = []
+                        
+                        for item in all_rows:
+                            if visible_sectors >= INITIAL_SHOW_COUNT:
+                                item['row'].set_visibility(False)
+                                hidden_row_elements.append(item['row'])
+                            
+                            if item['type'] == 'sector':
+                                visible_sectors += 1
+                        
+                        # 4. Expand/Collapse Button
+                        if hidden_row_elements:
+                            with ui.row().classes('w-full justify-center py-3 bg-gray-50 border-t border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors') as btn_container:
+                                icon = ui.icon('expand_more', color='gray-500').classes('text-xl transition-transform duration-300')
+                                lbl = ui.label(f'展开剩余 {sector_count - INITIAL_SHOW_COUNT} 个板块').classes('text-xs font-bold text-gray-500')
+                                
+                                is_expanded = {'val': False}
+                                
+                                def toggle_grid():
+                                    is_expanded['val'] = not is_expanded['val']
+                                    for r in hidden_row_elements:
+                                        r.set_visibility(is_expanded['val'])
+                                    
+                                    if is_expanded['val']:
+                                        lbl.set_text('收起列表')
+                                        icon.classes(remove='rotate-0', add='rotate-180')
+                                    else:
+                                        lbl.set_text(f'展开剩余 {sector_count - INITIAL_SHOW_COUNT} 个板块')
+                                        icon.classes(remove='rotate-180', add='rotate-0')
+                                
+                                btn_container.on('click', toggle_grid)
+            except Exception as e:
+                print(f"Error rendering sector grid: {e}")
+                ui.label(f"Error loading sector grid: {str(e)}").classes('text-red-500 text-xs p-4')
+
         async def update_dashboard(date_val, force=False):
             if dashboard_content.is_deleted: return
             check_refresh_visibility() # Update button state
@@ -929,6 +1051,10 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                     ui.label(f'{best_ratio["净占比"]:+.1f}%').classes('text-xs bg-indigo-50 text-indigo-400 px-1.5 py-0.5 rounded font-mono font-bold')
                         else:
                             ui.label('暂无成交数据').classes('text-gray-300 text-sm italic py-8 text-center w-full')
+
+
+                # --- 3. Sector Grid View (Tonghuashun Style) ---
+                render_sector_grid_view()
 
 
                 # --- 4. Confrontation (Battlefield) Section (Moved to Top) ---
@@ -1275,14 +1401,15 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
     ui.timer(0, auto_load_logic, once=True)
 
     # --- Client-Side Poller (Reflect Background Updates) ---
-    async def poll_for_monitor():
-        # Poll cache to reflect backend updates (Monitor visual)
-        # Checks every minute. force=False ensures we ONLY read cache, never fetch.
-        if date_input.is_deleted: return
-        if date_input.value == today_str:
-            await update_dashboard(today_str, force=False)
+    # Disabled to prevent interrupting user analysis
+    # async def poll_for_monitor():
+    #     # Poll cache to reflect backend updates (Monitor visual)
+    #     # Checks every minute. force=False ensures we ONLY read cache, never fetch.
+    #     if date_input.is_deleted: return
+    #     if date_input.value == today_str:
+    #         await update_dashboard(today_str, force=False)
 
-    ui.timer(60, poll_for_monitor)
+    # ui.timer(60, poll_for_monitor)
 
 
 

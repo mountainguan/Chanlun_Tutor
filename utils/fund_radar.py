@@ -942,31 +942,84 @@ class FundRadar:
 
     def _fetch_ths_sector(self):
         """
-        Original THS fetcher via Akshare. 
-        Now using ak.stock_board_industry_summary_ths() which provides Snapshot with Turnover.
+        Combined fetcher:
+        1. Summary (for Turnover, Pct) via stock_board_industry_summary_ths
+        2. Flow (for Net Inflow) via stock_fund_flow_industry (More accurate for 'funds/hyzjl')
         """
         try:
-            df = self._rate_limited_call(
+            # 1. Fetch Basic Market Data (Turnover, Pct)
+            # This API often provides total turnover which is needed for UI
+            df_summary = self._rate_limited_call(
                 ak.stock_board_industry_summary_ths,
                 _label="ths_summary"
             )
-            if df is None or df.empty:
+            
+            # 2. Fetch Accurate Fund Flow Data (The user-verified source)
+            # data.10jqka.com.cn/funds/hyzjl/
+            df_flow = self._rate_limited_call(
+                ak.stock_fund_flow_industry,
+                symbol="即时",
+                _label="ths_flow"
+            )
+            
+            # --- Merge Strategy ---
+            # If both fail, return empty
+            if (df_summary is None or df_summary.empty) and (df_flow is None or df_flow.empty):
                 return pd.DataFrame()
+
+            # Base is summary (if available) because it has Turnover
+            if df_summary is not None and not df_summary.empty:
+                df = df_summary.rename(columns={'板块': '名称'})
+            else:
+                # Fallback: create base from flow (Turnover will be missing/0)
+                df = pd.DataFrame()
+                df['名称'] = df_flow['行业']
             
-            # Rename columns to match system expectations
-            df = df.rename(columns={
-                '板块': '名称',
-            })
-            
-            # Ensure required columns exist
+            # Ensure base columns exist
+            if '名称' not in df.columns: df['名称'] = df_flow['行业'] if (df_flow is not None and not df_flow.empty) else []
+            if '涨跌幅' not in df.columns: df['涨跌幅'] = 0.0
+            if '总成交额' not in df.columns: df['总成交额'] = 0.0
+            if '净流入' not in df.columns: df['净流入'] = 0.0
+
+            # Overwrite/Merge '净流入' from df_flow
+            if df_flow is not None and not df_flow.empty:
+                # Create a mapping: Name -> Net Flow (Yi)
+                # Note: df_flow['净额'] is already in Yi (e.g. 2.84)
+                # df_flow columns: ['行业', '行业-涨跌幅', '净额', ...]
+                
+                # Pre-process flow data
+                flow_map = {}
+                for _, row in df_flow.iterrows():
+                    name = row['行业']
+                    try:
+                        val = float(row['净额']) # Unit: Yi
+                    except:
+                        val = 0.0
+                    flow_map[name] = val
+                
+                # Apply to main df
+                # We iterate to preserve order or just map
+                df['净流入'] = df['名称'].map(flow_map).fillna(df['净流入'])
+                
+                # Optional: If summary failed, we might want to fill Pct from flow
+                if df_summary is None or df_summary.empty:
+                    pct_map = {}
+                    for _, row in df_flow.iterrows():
+                        try:
+                            pct_map[row['行业']] = float(row['行业-涨跌幅'])
+                        except: pass
+                    df['涨跌幅'] = df['名称'].map(pct_map).fillna(0.0)
+
+            # Ensure final columns
             required = ['名称', '涨跌幅', '总成交额', '净流入']
             for col in required:
                 if col not in df.columns:
                     df[col] = 0.0
             
             return df[required]
+
         except Exception as e:
-            print(f"[FundRadar] THS Akshare Fetch Error: {e}")
+            print(f"[FundRadar] THS Combined Fetch Error: {e}")
             return pd.DataFrame()
 
     def _fetch_ths_hyzjl_new(self):
