@@ -48,7 +48,7 @@ def render_national_team_panel(plotly_renderer=None, is_mobile=False):
             with ui.row().classes('items-center gap-2'):
                 duration_container = ui.row().classes('bg-gray-100 rounded-lg p-1 gap-1 items-center')
                 fund_toggle = ui.toggle(
-                    {'social_security': '社保基金', 'pension': '养老金'},
+                    {'social_security': '社保基金', 'pension': '养老金', 'huijin': '中央汇金'},
                     value=state['fund_type'],
                     on_change=lambda e: change_fund_type(e.value),
                 ).props('no-caps unelevated toggle-color=indigo text-color=grey-7').classes('shadow-none')
