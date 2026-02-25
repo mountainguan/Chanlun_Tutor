@@ -2,6 +2,7 @@ from nicegui import ui, app
 import plotly.graph_objects as go
 from utils.fund_radar import FundRadar
 from utils.sector_grid_logic import get_sector_grid_data
+from utils.sector_analysis import sector_analyzer
 import pandas as pd
 import numpy as np
 import datetime
@@ -641,9 +642,17 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                             with ui.row().classes('items-center gap-2'):
                                 ui.icon('grid_view', color='indigo').classes('text-lg')
                                 ui.label('核心板块资金流向雷达 (Core Sector Flow Radar)').classes('text-sm font-bold text-gray-800')
+                                
+                                # Last Update Time Label
+                                last_analysis_time = ui.label('').classes('text-[10px] text-gray-400 font-mono ml-2')
+                                
                             ui.label('备注：2.24日开始，净流入为主力净流入，之前为全口径净流入').classes('text-[10px] text-gray-400 transform scale-90 origin-left ml-7')
                         
                         with ui.row().classes('items-center gap-4'):
+                            # Refresh Button for Sector Analysis
+                            btn_refresh_analysis = ui.button('刷新分析', icon='refresh', on_click=lambda: run_analysis(force=True)) \
+                                .props('flat dense size=sm color=indigo').classes('text-xs font-bold')
+                            
                             # Legend
                             with ui.row().classes('items-center gap-2 text-[10px] text-gray-500'):
                                 with ui.row().classes('items-center gap-1'):
@@ -667,13 +676,21 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         # 1. Main Table Header
                         with ui.row().classes('w-full bg-gray-100 border-b border-gray-200 h-8 items-center gap-0'):
                             ui.label('板块').classes('w-24 pl-4 text-[11px] font-bold text-gray-500')
+                            # Added Analysis Columns
+                            ui.label('缠论结构').classes('w-24 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
+                            ui.label('突破').classes('w-16 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
+                            ui.label('MACD').classes('w-20 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
+                            ui.label('布林').classes('w-20 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
+                            ui.label('RSI').classes('w-12 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
+                            
                             for d in dates:
                                 ui.label(d).classes('flex-1 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
 
                         # 2. Render Rows
                         all_rows = [] # Store row objects to control visibility
+                        analysis_targets = [] # Store elements to update
                         sector_count = 0
-                        INITIAL_SHOW_COUNT = 10
+                        INITIAL_SHOW_COUNT = 15 # Increased slightly
 
                         # Iterate through grid_data (preserves insertion order from logic file)
                         for category, sectors in grid_data.items():
@@ -694,6 +711,36 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                     with ui.row().classes('w-24 pl-4 h-full items-center border-r border-gray-100'):
                                         ui.label(sector['name']).classes('text-[11px] font-bold text-gray-700 truncate')
                                     
+                                    # Analysis Placeholders
+                                    # Chan Lun Structure (Top/Bottom Fenxing)
+                                    with ui.row().classes('w-24 h-full items-center justify-center border-r border-gray-100 px-1'):
+                                        lbl_chan = ui.label('-').classes('text-[10px] text-gray-400')
+                                    
+                                    # Breakout
+                                    with ui.row().classes('w-16 h-full items-center justify-center border-r border-gray-100 px-1'):
+                                        lbl_breakout = ui.label('-').classes('text-[10px] text-gray-400')
+                                        
+                                    # MACD
+                                    with ui.row().classes('w-20 h-full items-center justify-center border-r border-gray-100 px-1'):
+                                        lbl_macd = ui.label('-').classes('text-[10px] text-gray-400')
+                                    
+                                    # Bollinger
+                                    with ui.row().classes('w-20 h-full items-center justify-center border-r border-gray-100 px-1'):
+                                        lbl_boll = ui.label('-').classes('text-[10px] text-gray-400')
+                                        
+                                    # RSI
+                                    with ui.row().classes('w-12 h-full items-center justify-center border-r border-gray-100 px-1'):
+                                        lbl_rsi = ui.label('-').classes('text-[10px] text-gray-400')
+                                    
+                                    analysis_targets.append({
+                                        'name': sector['name'],
+                                        'chan': lbl_chan,
+                                        'breakout': lbl_breakout,
+                                        'macd': lbl_macd,
+                                        'boll': lbl_boll,
+                                        'rsi': lbl_rsi
+                                    })
+
                                     # Date Cells
                                     for day_data in sector['history']:
                                         with ui.row().classes(f'flex-1 h-full items-center justify-center {day_data["color_class"]} border-r border-gray-100 px-1 relative'):
@@ -705,11 +752,6 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                 sector_count += 1
                         
                         # 3. Visibility Logic
-                        # We want to show the first INITIAL_SHOW_COUNT *sectors*.
-                        # We also need to manage category headers (hide if all their sectors are hidden? or just show them)
-                        # Simpler approach: Show first N *rows* (including headers) that cover roughly 10 sectors.
-                        # Or better: Count sectors as we iterate and mark rows as hidden after count > 10.
-                        
                         visible_sectors = 0
                         hidden_row_elements = []
                         
@@ -742,6 +784,102 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                         icon.classes(remove='rotate-180', add='rotate-0')
                                 
                                 btn_container.on('click', toggle_grid)
+                        
+                        # 5. Background Analysis Task
+                        async def run_analysis(force=False):
+                            # Update timestamp label
+                            cn_now = datetime.datetime.now() + datetime.timedelta(hours=8)
+                            # Actually, server is likely local, so datetime.now() might be correct if timezone is set.
+                            # But safe to use UTC+8 explicit if needed. 
+                            # Assuming system time is correct or we use utcnow
+                            # Let's use simple now() for display if running locally in China, 
+                            # or use the logic from earlier:
+                            # utc_now = datetime.datetime.now(datetime.timezone.utc)
+                            # cn_now = utc_now + datetime.timedelta(hours=8)
+                            # But 'datetime' is imported at top level.
+                            # Re-use logic:
+                            utc_now = datetime.datetime.now(datetime.timezone.utc)
+                            cn_now = utc_now + datetime.timedelta(hours=8)
+                            time_str = cn_now.strftime('%H:%M:%S')
+                            
+                            if not last_analysis_time.is_deleted:
+                                last_analysis_time.set_text(f"最后刷新: {time_str}")
+                                
+                            if force:
+                                ui.notify('正在强制刷新板块分析数据...', type='info', position='top')
+                                # Disable button temporarily?
+                                if not btn_refresh_analysis.is_deleted:
+                                    btn_refresh_analysis.disable()
+
+                            # Prioritize visible sectors? 
+                            # Since analysis_targets follows the grid order, the first INITIAL_SHOW_COUNT are visible.
+                            # We just iterate linearly.
+                            
+                            for target in analysis_targets:
+                                if s_row.is_deleted: return # Stop if component destroyed
+                                
+                                # Use run_in_executor to avoid blocking event loop during network requests
+                                try:
+                                    # If force is True, we pass it to fetch_history inside analyze?
+                                    # Need to update SectorAnalyzer.analyze to accept force_update
+                                    # Or call fetch_history with force first.
+                                    # Actually SectorAnalyzer.analyze doesn't take force arg in current impl.
+                                    # We can modify SectorAnalyzer to handle it, or call fetch_history explicitly.
+                                    # Let's modify the lambda to handle it.
+                                    
+                                    def analyze_wrapper(name, force_flag):
+                                        if force_flag:
+                                            # Force fetch first
+                                            sector_analyzer.fetch_history(name, force_update=True)
+                                        return sector_analyzer.analyze(name)
+
+                                    res = await asyncio.get_event_loop().run_in_executor(
+                                        None, 
+                                        lambda: analyze_wrapper(target['name'], force)
+                                    )
+                                    
+                                    # Update UI
+                                    # 1. Chan Structure
+                                    target['chan'].set_text(res['chan_info']['text'])
+                                    target['chan'].classes(replace=f"text-[10px] font-bold {res['chan_info']['color']}")
+                                    target['chan'].tooltip(res['summary'])
+                                    
+                                    # 2. Breakout
+                                    target['breakout'].set_text(res['breakout_info']['text'])
+                                    target['breakout'].classes(replace=f"text-[10px] font-bold {res['breakout_info']['color']}")
+                                    
+                                    # 3. MACD
+                                    target['macd'].set_text(res['macd_info']['text'])
+                                    target['macd'].classes(replace=f"text-[10px] font-bold {res['macd_info']['color']}")
+                                    
+                                    # 4. Bollinger
+                                    target['boll'].set_text(res['boll_info']['text'])
+                                    target['boll'].classes(replace=f"text-[10px] font-bold {res['boll_info']['color']}")
+                                    
+                                    # 5. RSI
+                                    target['rsi'].set_text(str(res['last_rsi']))
+                                    if res['last_rsi'] > 70:
+                                        target['rsi'].classes('text-red-500 font-bold')
+                                    elif res['last_rsi'] < 30:
+                                        target['rsi'].classes('text-green-500 font-bold')
+                                    else:
+                                        target['rsi'].classes('text-gray-400')
+                                    
+                                    # Yield to event loop to keep UI responsive
+                                    await asyncio.sleep(0.05)
+                                    
+                                except Exception as e:
+                                    print(f"Analysis error for {target['name']}: {e}")
+                                    target['chan'].set_text('Error')
+                            
+                            if force:
+                                if not btn_refresh_analysis.is_deleted:
+                                    btn_refresh_analysis.enable()
+                                ui.notify('板块分析数据刷新完成', type='positive', position='top')
+                        
+                        # Start analysis after a short delay
+                        ui.timer(0.5, run_analysis, once=True)
+
             except Exception as e:
                 print(f"Error rendering sector grid: {e}")
                 ui.label(f"Error loading sector grid: {str(e)}").classes('text-red-500 text-xs p-4')

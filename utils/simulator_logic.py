@@ -191,6 +191,130 @@ def identify_fenxing(klines):
     if is_bottom: return 'bottom'
     return None
 
+def process_baohan(klines_data):
+    """
+    处理K线包含关系
+    input: list of dict {'time', 'open', 'high', 'low', 'close'}
+    output: list of dict (processed)
+    """
+    if not klines_data:
+        return []
+        
+    processed = []
+    # 转换格式方便处理
+    for k in klines_data:
+        processed.append({
+            'high': float(k['high']), 
+            'low': float(k['low']), 
+            'date': k.get('time', k.get('date')),
+            'original': k
+        })
+        
+    if len(processed) < 2:
+        return processed
+        
+    result = [processed[0]]
+    direction = 1 # 1 for up, -1 for down (default up)
+    
+    for i in range(1, len(processed)):
+        curr = processed[i]
+        prev = result[-1]
+        
+        # 判断包含关系: (High1 >= High2 and Low1 <= Low2) or (High2 >= High1 and Low2 <= Low1)
+        is_included = (prev['high'] >= curr['high'] and prev['low'] <= curr['low']) or \
+                      (curr['high'] >= prev['high'] and curr['low'] <= prev['low'])
+                      
+        if is_included:
+            # 处理包含
+            if direction == 1: # 向上趋势，取高高，低高
+                new_high = max(prev['high'], curr['high'])
+                new_low = max(prev['low'], curr['low'])
+            else: # 向下趋势，取低低，高低
+                new_high = min(prev['high'], curr['high'])
+                new_low = min(prev['low'], curr['low'])
+            
+            # 更新前一根K线（合并）
+            result[-1]['high'] = new_high
+            result[-1]['low'] = new_low
+            # date通常取后一根的date
+            result[-1]['date'] = curr['date']
+            result[-1]['original'] = curr['original'] # Keep reference to latest
+            
+        else:
+            # 确定新趋势方向 (如果不是包含，则确定新方向)
+            if curr['high'] > prev['high']:
+                direction = 1
+            elif curr['low'] < prev['low']:
+                direction = -1
+            
+            result.append(curr)
+            
+    return result
+
+def find_bi(processed_klines):
+    """
+    识别笔 (Bi)
+    input: processed klines (after inclusion handling)
+    output: list of {'type': 'top'/'bottom', 'index': i, 'price': val, 'date': ...}
+    """
+    if len(processed_klines) < 5:
+        return []
+        
+    fx_list = []
+    # 1. Find all FenXing (Fractals)
+    for i in range(1, len(processed_klines)-1):
+        k1 = processed_klines[i-1]
+        k2 = processed_klines[i]
+        k3 = processed_klines[i+1]
+        
+        if k2['high'] > k1['high'] and k2['high'] > k3['high']:
+            fx_list.append({'type': 'top', 'index': i, 'price': k2['high'], 'date': k2['date']})
+        elif k2['low'] < k1['low'] and k2['low'] < k3['low']:
+            fx_list.append({'type': 'bottom', 'index': i, 'price': k2['low'], 'date': k2['date']})
+            
+    if not fx_list:
+        return []
+        
+    # 2. Connect FenXing to form Bi
+    # 规则：
+    # a. 顶底交替
+    # b. 中间至少隔3根K线 (index diff >= 4) ? 
+    #    标准缠论：顶分型与底分型之间至少有一根K线不属于这两个分型，即 index diff >= 3 (e.g. 1(top), 2, 3, 4(bottom)) -> 4-1=3 ?
+    #    Strictly: Top(i), Bottom(j) -> j > i+3 (at least 3 K-lines between the peak and valley points? No, between the constituent K-lines)
+    #    Simpler rule: Index difference >= 4 (Top is at i, Bottom at j, j-i >= 4)
+    
+    bi_points = []
+    # Find first strong point to start? Or just start from first valid pair
+    
+    # 简单回溯算法
+    # 找到最高/最低点作为起点
+    
+    last_bi = fx_list[0]
+    bi_points.append(last_bi)
+    
+    for fx in fx_list[1:]:
+        if fx['type'] == last_bi['type']:
+            # Same type, check if better (higher top or lower bottom)
+            if fx['type'] == 'top':
+                if fx['price'] > last_bi['price']:
+                    bi_points[-1] = fx # Replace with higher top
+                    last_bi = fx
+            else: # bottom
+                if fx['price'] < last_bi['price']:
+                    bi_points[-1] = fx # Replace with lower bottom
+                    last_bi = fx
+        else:
+            # Different type, check distance
+            if fx['index'] - last_bi['index'] >= 4:
+                bi_points.append(fx)
+                last_bi = fx
+            else:
+                # Distance too short, ignore? Or maybe the previous one was wrong?
+                # This is complex. Simplified: Ignore current if too close.
+                pass
+                
+    return bi_points
+
 def check_divergence(klines, macd_data, index, lookback=30):
     """
     检查背驰，返回描述和需要高亮的形状数据
