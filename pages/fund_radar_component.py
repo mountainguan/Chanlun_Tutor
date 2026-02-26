@@ -670,6 +670,188 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                             
                             ui.label('单位: 亿元').classes('text-[10px] text-gray-400')
 
+                    # Detail Dialog (Interactive Logic)
+                    detail_dialog = ui.dialog().classes('w-full')
+                    with detail_dialog, ui.card().classes('w-full max-w-5xl p-6 rounded-2xl shadow-xl bg-white'):
+                        # Header
+                        with ui.row().classes('w-full justify-between items-start mb-6'):
+                             with ui.row().classes('items-end gap-4'):
+                                 detail_title = ui.label('板块详情').classes('text-3xl font-black text-gray-900 tracking-tight')
+                                 # Price & Change Placeholder
+                                 detail_price = ui.label('').classes('text-2xl font-bold font-mono')
+                                 detail_change = ui.label('').classes('text-lg font-bold px-2 py-0.5 rounded-lg')
+                                 detail_subtitle = ui.label('').classes('text-sm text-gray-400 font-bold mb-1')
+                             ui.button(icon='close', on_click=detail_dialog.close).props('flat round dense color=grey size=lg')
+                        
+                        # Content Container
+                        detail_content = ui.column().classes('w-full gap-6')
+
+                    def show_sector_detail(name):
+                        detail_title.set_text(name)
+                        # Reset placeholders
+                        detail_price.set_text('')
+                        detail_change.set_text('')
+                        detail_change.classes(remove='bg-red-50 text-red-600 bg-green-50 text-green-600')
+                        
+                        detail_content.clear()
+                        detail_dialog.open()
+                        
+                        # Async fetch data
+                        async def load_detail():
+                             with detail_content:
+                                 ui.spinner(type='dots', size='3rem', color='indigo')
+                             
+                             # Fetch analysis
+                             res = await asyncio.get_event_loop().run_in_executor(None, lambda: sector_analyzer.analyze(name))
+                             
+                             # Update Header Data
+                             if 'market_data' in res:
+                                 md = res['market_data']
+                                 detail_price.set_text(f"{md['close']:.2f}")
+                                 chg = md['change']
+                                 detail_change.set_text(f"{chg:+.2f}%")
+                                 if chg > 0:
+                                     detail_change.classes('bg-red-50 text-red-600')
+                                     detail_price.classes('text-red-600')
+                                 else:
+                                     detail_change.classes('bg-green-50 text-green-600')
+                                     detail_price.classes('text-green-600')
+                                     
+                                 detail_subtitle.set_text(f"数据日期: {md['date']}")
+
+                             detail_content.clear()
+                             with detail_content:
+                                 # 1. Top Cards (Short & Mid-Long)
+                                 with ui.grid(columns=2).classes('w-full gap-6'):
+                                     # Short Term Card
+                                     with ui.card().classes('p-5 rounded-2xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all'):
+                                         ui.icon('bolt', color='gray-200').classes('absolute -right-4 -bottom-4 text-8xl opacity-20 rotate-12 group-hover:scale-110 transition-transform')
+                                         ui.label('短线机会 (Short Term)').classes('text-sm font-black text-gray-400 uppercase tracking-widest mb-3')
+                                         ui.label(res['short_term']['status']).classes(f"text-3xl font-black tracking-tight {res['short_term']['color']}")
+                                         with ui.row().classes('items-center gap-2 mt-2'):
+                                             ui.icon('info', size='xs', color='gray-400')
+                                             ui.label(res['short_term']['signal']).classes('text-sm text-gray-600 font-medium')
+                                         
+                                     # Mid-Long Term Card
+                                     with ui.card().classes('p-5 rounded-2xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all'):
+                                         ui.icon('trending_up', color='gray-200').classes('absolute -right-4 -bottom-4 text-8xl opacity-20 rotate-12 group-hover:scale-110 transition-transform')
+                                         ui.label('中线趋势 (Medium Term)').classes('text-sm font-black text-gray-400 uppercase tracking-widest mb-3')
+                                         ui.label(res['mid_long_term']['status']).classes(f"text-3xl font-black tracking-tight {res['mid_long_term']['color']}")
+                                         with ui.row().classes('items-center gap-2 mt-2'):
+                                             ui.icon('analytics', size='xs', color='gray-400')
+                                             ui.label(res['mid_long_term']['signal']).classes('text-sm text-gray-600 font-medium')
+
+                                 # 2. Indicators Grid
+                                 with ui.card().classes('w-full p-6 rounded-2xl border border-gray-100 shadow-sm'):
+                                     ui.label('技术指标透视 (Technical Indicators)').classes('text-base font-black text-gray-800 mb-6 pb-3 border-b border-gray-100 w-full')
+                                     
+                                     with ui.grid(columns=4).classes('w-full gap-8'):
+                                         # MACD
+                                         with ui.column().classes('gap-2'):
+                                             ui.label('MACD 趋势').classes('text-xs font-bold text-gray-400 uppercase')
+                                             ui.label(res['macd_info']['text']).classes(f"text-lg font-black {res['macd_info']['color']}")
+                                             if res['macd'] and res['macd']['dif']:
+                                                 with ui.column().classes('gap-0 mt-1 bg-gray-50 p-2 rounded-lg w-full'):
+                                                     with ui.row().classes('justify-between w-full'):
+                                                         ui.label('DIF').classes('text-[10px] text-gray-500 font-bold')
+                                                         ui.label(f"{res['macd']['dif'][-1]:.2f}").classes('text-xs font-mono font-bold text-gray-700')
+                                                     with ui.row().classes('justify-between w-full'):
+                                                         ui.label('DEA').classes('text-[10px] text-gray-500 font-bold')
+                                                         ui.label(f"{res['macd']['dea'][-1]:.2f}").classes('text-xs font-mono font-bold text-gray-700')
+                                         
+                                         # RSI
+                                         with ui.column().classes('gap-2'):
+                                             ui.label('RSI (14) 强弱').classes('text-xs font-bold text-gray-400 uppercase')
+                                             rsi_val = res['last_rsi']
+                                             rsi_color = 'text-red-500' if rsi_val > 70 else ('text-green-500' if rsi_val < 30 else 'text-gray-800')
+                                             
+                                             with ui.row().classes('items-baseline gap-1'):
+                                                 ui.label(f"{rsi_val:.1f}").classes(f"text-3xl font-black {rsi_color} leading-none")
+                                                 ui.label('/ 100').classes('text-xs text-gray-400 font-bold')
+                                             
+                                             # Visual Bar
+                                             with ui.element('div').classes('w-full h-2 bg-gray-100 rounded-full overflow-hidden mt-1 relative'):
+                                                 # Zones
+                                                 ui.element('div').classes('absolute left-0 top-0 h-full bg-green-100 w-[30%]')
+                                                 ui.element('div').classes('absolute right-0 top-0 h-full bg-red-100 w-[30%]')
+                                                 # Value
+                                                 bar_color = 'bg-red-500' if rsi_val > 70 else ('bg-green-500' if rsi_val < 30 else 'bg-indigo-500')
+                                                 ui.element('div').classes(f'h-full {bar_color} transition-all duration-500').style(f'width: {rsi_val}%')
+
+                                         # Bollinger
+                                         with ui.column().classes('gap-2'):
+                                             ui.label('布林线 (Bollinger)').classes('text-xs font-bold text-gray-400 uppercase')
+                                             ui.label(res['boll_info']['text']).classes(f"text-lg font-black {res['boll_info']['color']}")
+                                             if 'bollinger_bands' in res:
+                                                 bb = res['bollinger_bands']
+                                                 with ui.column().classes('gap-0 mt-1 bg-gray-50 p-2 rounded-lg w-full'):
+                                                     with ui.row().classes('justify-between w-full'):
+                                                         ui.label('上轨').classes('text-[10px] text-gray-500 font-bold')
+                                                         ui.label(f"{bb['upper']:.1f}").classes('text-xs font-mono font-bold text-gray-700')
+                                                     with ui.row().classes('justify-between w-full'):
+                                                         ui.label('中轨').classes('text-[10px] text-gray-500 font-bold')
+                                                         ui.label(f"{bb['middle']:.1f}").classes('text-xs font-mono font-bold text-gray-700')
+                                                     with ui.row().classes('justify-between w-full'):
+                                                         ui.label('下轨').classes('text-[10px] text-gray-500 font-bold')
+                                                         ui.label(f"{bb['lower']:.1f}").classes('text-xs font-mono font-bold text-gray-700')
+                                         
+                                         # MA Alignment
+                                         with ui.column().classes('gap-2'):
+                                             ui.label('均线排列 (MA)').classes('text-xs font-bold text-gray-400 uppercase')
+                                             if 'ma_data' in res:
+                                                 ma_align = res['ma_data']['alignment']
+                                                 align_text = "多头排列" if ma_align == 'bull' else ("空头排列" if ma_align == 'bear' else "纠缠/震荡")
+                                                 align_color = "text-red-500" if ma_align == 'bull' else ("text-green-500" if ma_align == 'bear' else "text-gray-500")
+                                                 ui.label(align_text).classes(f"text-lg font-black {align_color}")
+                                                 
+                                                 with ui.column().classes('gap-0 mt-1 bg-gray-50 p-2 rounded-lg w-full'):
+                                                     ma_vals = res['ma_data']
+                                                     for ma_name in ['ma5', 'ma10', 'ma20', 'ma60']:
+                                                         with ui.row().classes('justify-between w-full'):
+                                                             ui.label(ma_name.upper()).classes('text-[10px] text-gray-500 font-bold')
+                                                             ui.label(f"{ma_vals[ma_name]:.1f}").classes('text-xs font-mono font-bold text-gray-700')
+
+                                 # 3. Chan Lun Structure
+                                 with ui.card().classes('w-full p-6 rounded-2xl border border-gray-100 bg-gradient-to-r from-indigo-50 to-white shadow-sm'):
+                                     ui.label('缠论结构分析 (Chan Lun Structure)').classes('text-base font-black text-indigo-900 mb-4 pb-2 border-b border-indigo-100 w-full')
+                                     
+                                     with ui.row().classes('w-full gap-8'):
+                                         # Left: Current Status
+                                         with ui.column().classes('flex-1 gap-2'):
+                                             ui.label('当前笔状态').classes('text-xs font-bold text-indigo-400 uppercase')
+                                             ui.label(res['chan_info']['text']).classes(f"text-2xl font-black {res['chan_info']['color']}")
+                                             ui.label(res['summary']).classes('text-sm text-gray-600 font-medium leading-relaxed mt-2 bg-white/50 p-3 rounded-lg border border-indigo-50')
+                                         
+                                         # Right: Recent Bi List
+                                         with ui.column().classes('flex-1 gap-2'):
+                                             ui.label('近期笔走势 (Recent Strokes)').classes('text-xs font-bold text-indigo-400 uppercase')
+                                             if res['bi_points']:
+                                                 # Show last 5 points reversed
+                                                 recent_bi = list(reversed(res['bi_points']))[:5]
+                                                 with ui.column().classes('w-full gap-1'):
+                                                     for i, bi in enumerate(recent_bi):
+                                                         bi_type = "顶分型 (Top)" if bi['type'] == 'top' else "底分型 (Bottom)"
+                                                         bi_color = "text-green-600" if bi['type'] == 'top' else "text-red-600"
+                                                         bi_icon = "arrow_downward" if bi['type'] == 'top' else "arrow_upward"
+                                                         
+                                                         with ui.row().classes('w-full justify-between items-center bg-white/60 px-3 py-1.5 rounded border border-indigo-50/50'):
+                                                             with ui.row().classes('items-center gap-2'):
+                                                                 ui.label(f"{len(res['bi_points'])-i}").classes('text-[10px] font-bold text-gray-300 w-4')
+                                                                 ui.icon(bi_icon, size='xs', color=bi_color.split('-')[1])
+                                                                 ui.label(bi_type).classes(f"text-xs font-bold {bi_color}")
+                                                             
+                                                             with ui.row().classes('items-center gap-4'):
+                                                                 ui.label(f"{bi['price']:.2f}").classes('text-xs font-mono font-bold text-gray-700')
+                                                                 ui.label(str(bi['date'])).classes('text-[10px] text-gray-400 font-mono')
+                                             else:
+                                                 ui.label('暂无笔结构数据').classes('text-sm text-gray-400 italic')
+
+                        # Start async load
+                        run_in_bg(load_detail)
+
+                    def run_in_bg(task):
+                        asyncio.create_task(task())
+
                     # Grid Content - Single Column List View (User Requested)
                     with ui.column().classes('w-full gap-0 border-t border-gray-200'):
                         
@@ -677,11 +859,12 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                         with ui.row().classes('w-full bg-gray-100 border-b border-gray-200 h-8 items-center gap-0'):
                             ui.label('板块').classes('w-24 pl-4 text-[11px] font-bold text-gray-500')
                             # Added Analysis Columns
+                            ui.label('短线机会').classes('w-24 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
+                            ui.label('中线趋势').classes('w-24 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
                             ui.label('缠论结构').classes('w-24 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
-                            ui.label('突破').classes('w-16 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
                             ui.label('MACD').classes('w-20 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
-                            ui.label('布林').classes('w-20 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
                             ui.label('RSI').classes('w-12 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
+                            ui.label('布林').classes('w-16 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
                             
                             for d in dates:
                                 ui.label(d).classes('flex-1 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
@@ -712,34 +895,48 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                         ui.label(sector['name']).classes('text-[11px] font-bold text-gray-700 truncate')
                                     
                                     # Analysis Placeholders
+                                    
+                                    # Short Term
+                                    with ui.row().classes('w-24 h-full items-center justify-center border-r border-gray-100 px-1'):
+                                        lbl_short = ui.label('-').classes('text-[10px] text-gray-400')
+                                        
+                                    # Mid-Long Term
+                                    with ui.row().classes('w-24 h-full items-center justify-center border-r border-gray-100 px-1'):
+                                        lbl_mid = ui.label('-').classes('text-[10px] text-gray-400')
+
                                     # Chan Lun Structure (Top/Bottom Fenxing)
                                     with ui.row().classes('w-24 h-full items-center justify-center border-r border-gray-100 px-1'):
                                         lbl_chan = ui.label('-').classes('text-[10px] text-gray-400')
-                                    
-                                    # Breakout
-                                    with ui.row().classes('w-16 h-full items-center justify-center border-r border-gray-100 px-1'):
-                                        lbl_breakout = ui.label('-').classes('text-[10px] text-gray-400')
                                         
                                     # MACD
                                     with ui.row().classes('w-20 h-full items-center justify-center border-r border-gray-100 px-1'):
                                         lbl_macd = ui.label('-').classes('text-[10px] text-gray-400')
                                     
-                                    # Bollinger
-                                    with ui.row().classes('w-20 h-full items-center justify-center border-r border-gray-100 px-1'):
-                                        lbl_boll = ui.label('-').classes('text-[10px] text-gray-400')
-                                        
                                     # RSI
                                     with ui.row().classes('w-12 h-full items-center justify-center border-r border-gray-100 px-1'):
                                         lbl_rsi = ui.label('-').classes('text-[10px] text-gray-400')
-                                    
+
+                                    # Bollinger
+                                    with ui.row().classes('w-16 h-full items-center justify-center border-r border-gray-100 px-1'):
+                                        lbl_boll = ui.label('-').classes('text-[10px] text-gray-400')
+
                                     analysis_targets.append({
                                         'name': sector['name'],
+                                        'short': lbl_short,
+                                        'mid': lbl_mid,
                                         'chan': lbl_chan,
-                                        'breakout': lbl_breakout,
                                         'macd': lbl_macd,
-                                        'boll': lbl_boll,
-                                        'rsi': lbl_rsi
+                                        'rsi': lbl_rsi,
+                                        'boll': lbl_boll
                                     })
+                                    
+                                    # Click to Open Detail
+                                    def open_detail(name=sector['name']):
+                                        show_sector_detail(name)
+                                        
+                                    # Make Name Clickable
+                                    s_row.on('click', open_detail)
+                                    s_row.classes('cursor-pointer')
 
                                     # Date Cells
                                     for day_data in sector['history']:
@@ -839,38 +1036,47 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                     )
                                     
                                     # Update UI
-                                    # 1. Chan Structure
+                                    # 1. Short Term
+                                    target['short'].set_text(res['short_term']['status'])
+                                    target['short'].classes(replace=f"text-[10px] font-bold {res['short_term']['color']}")
+                                    target['short'].tooltip(res['short_term']['signal'])
+                                    
+                                    # 2. Mid-Long Term
+                                    target['mid'].set_text(res['mid_long_term']['status'])
+                                    target['mid'].classes(replace=f"text-[10px] font-bold {res['mid_long_term']['color']}")
+                                    target['mid'].tooltip(res['mid_long_term']['signal'])
+
+                                    # 3. Chan Structure
                                     target['chan'].set_text(res['chan_info']['text'])
                                     target['chan'].classes(replace=f"text-[10px] font-bold {res['chan_info']['color']}")
-                                    target['chan'].tooltip(res['summary'])
+                                    # Enhanced Tooltip for Chan
+                                    chan_tooltip = f"{res['summary']}\nRSI: {res['last_rsi']}\n{res['boll_info']['text']}\n{res['breakout_info']['text']}"
+                                    target['chan'].tooltip(chan_tooltip).classes('whitespace-pre-line')
                                     
-                                    # 2. Breakout
-                                    target['breakout'].set_text(res['breakout_info']['text'])
-                                    target['breakout'].classes(replace=f"text-[10px] font-bold {res['breakout_info']['color']}")
-                                    
-                                    # 3. MACD
+                                    # 4. MACD
                                     target['macd'].set_text(res['macd_info']['text'])
                                     target['macd'].classes(replace=f"text-[10px] font-bold {res['macd_info']['color']}")
-                                    
-                                    # 4. Bollinger
+
+                                    # 5. RSI
+                                    target['rsi'].set_text(str(int(res['last_rsi'])))
+                                    if res['last_rsi'] > 70:
+                                        target['rsi'].classes(replace='text-[10px] text-red-500 font-bold')
+                                    elif res['last_rsi'] < 30:
+                                        target['rsi'].classes(replace='text-[10px] text-green-500 font-bold')
+                                    else:
+                                        target['rsi'].classes(replace='text-[10px] text-gray-500')
+
+                                    # 6. Bollinger
+                                    # Always show text
                                     target['boll'].set_text(res['boll_info']['text'])
                                     target['boll'].classes(replace=f"text-[10px] font-bold {res['boll_info']['color']}")
-                                    
-                                    # 5. RSI
-                                    target['rsi'].set_text(str(res['last_rsi']))
-                                    if res['last_rsi'] > 70:
-                                        target['rsi'].classes('text-red-500 font-bold')
-                                    elif res['last_rsi'] < 30:
-                                        target['rsi'].classes('text-green-500 font-bold')
-                                    else:
-                                        target['rsi'].classes('text-gray-400')
                                     
                                     # Yield to event loop to keep UI responsive
                                     await asyncio.sleep(0.05)
                                     
                                 except Exception as e:
                                     print(f"Analysis error for {target['name']}: {e}")
-                                    target['chan'].set_text('Error')
+                                    target['short'].set_text('Error')
                             
                             if force:
                                 if not btn_refresh_analysis.is_deleted:

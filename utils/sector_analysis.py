@@ -7,6 +7,7 @@ import pandas as pd
 import akshare as ak
 import numpy as np
 from utils.simulator_logic import calculate_macd, calculate_rsi, process_baohan, find_bi, calculate_bollinger_bands
+from utils.fund_radar import FundRadar
 
 class SectorAnalyzer:
     CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'sector_history_cache')
@@ -68,14 +69,20 @@ class SectorAnalyzer:
             return self._flow_cache
             
         try:
+            # Use FundRadar's robust rate-limited caller to handle anti-crawl
             # symbol="即时" is usually the default
-            df = ak.stock_fund_flow_industry(symbol="即时")
+            df = FundRadar._rate_limited_call(
+                ak.stock_fund_flow_industry, 
+                symbol="即时", 
+                _label="SectorAnalyzer_Realtime"
+            )
+            
             if df is not None and not df.empty:
                 self._flow_cache = df
                 self._flow_cache_time = now
                 return df
         except Exception as e:
-            print(f"[SectorAnalyzer] Real-time flow fetch failed: {e}")
+            print(f"[SectorAnalyzer] Real-time flow fetch wrapper failed: {e}")
             
         return None
 
@@ -202,7 +209,9 @@ class SectorAnalyzer:
                 "macd": None,
                 "rsi": None,
                 "last_rsi": 50,
-                "bi_points": []
+                "bi_points": [],
+                "short_term": {"status": "-", "color": "text-gray-400", "signal": "-"},
+                "mid_long_term": {"status": "-", "color": "text-gray-400", "signal": "-"}
             }
             
         # Ensure numeric types
@@ -216,6 +225,13 @@ class SectorAnalyzer:
         rsi = calculate_rsi(closes)
         last_rsi = rsi[-1] if rsi else 50
         boll = calculate_bollinger_bands(closes)
+        
+        # MA Calculation
+        series_close = pd.Series(closes)
+        ma5 = series_close.rolling(window=5).mean().fillna(0).tolist()
+        ma10 = series_close.rolling(window=10).mean().fillna(0).tolist()
+        ma20 = series_close.rolling(window=20).mean().fillna(0).tolist()
+        ma60 = series_close.rolling(window=60).mean().fillna(0).tolist()
         
         # 2. Chan Lun Bi
         # Convert df to list of dicts for process_baohan
@@ -233,6 +249,10 @@ class SectorAnalyzer:
         boll_info = {"text": "-", "color": "text-gray-400"}
         breakout_info = {"text": "-", "color": "text-gray-400"}
         chan_info = {"text": "-", "color": "text-gray-400"}
+        
+        # Short & Mid-Long Term Structures
+        short_term = {"status": "观望", "color": "text-gray-400", "signal": "无明显信号"}
+        mid_long_term = {"status": "震荡", "color": "text-gray-400", "signal": "趋势不明"}
         
         macd_signal = 0 # -1 Bear, 0 Neutral, 1 Bull
         
@@ -291,10 +311,10 @@ class SectorAnalyzer:
                 color = "text-green-600"
             elif last_close > last_mid:
                 boll_info["text"] = "中轨上方"
-                boll_info["color"] = "text-gray-600"
+                boll_info["color"] = "text-red-400 font-bold"
             else:
                 boll_info["text"] = "中轨下方"
-                boll_info["color"] = "text-gray-400"
+                boll_info["color"] = "text-green-400 font-bold"
         
         # RSI Analysis
         if last_rsi > 70:
@@ -308,8 +328,13 @@ class SectorAnalyzer:
             color = "text-green-500"
             
         # Chan Lun Bi & Breakout Analysis
+        last_bi_type = None
+        last_bi_price = 0
+        
         if bi_points:
             last_bi = bi_points[-1]
+            last_bi_type = last_bi['type']
+            last_bi_price = last_bi['price']
             
             # Default text and color based on last Bi type (Current Stroke Direction)
             if last_bi['type'] == 'bottom':
@@ -372,12 +397,161 @@ class SectorAnalyzer:
                          # Price went above top?
                          chan_info["text"] = "🔄 顶部震荡"
                          chan_info["color"] = "text-green-300"
+
+        # --- Short Term Analysis (Logic Enhancement) ---
+        # Focus: Last Bi direction + MACD Cross + MA5
+        st_score = 0
+        st_signals = []
+        
+        # 1. Bi Direction
+        if last_bi_type == 'bottom':
+            st_score += 1
+            st_signals.append("向上笔")
+        elif last_bi_type == 'top':
+            st_score -= 1
+            st_signals.append("向下笔")
+            
+        # 2. MACD Short Term
+        if macd_signal == 1: # Gold Cross
+            st_score += 1
+            st_signals.append("金叉")
+        elif macd_signal == -1: # Death Cross
+            st_score -= 1
+            st_signals.append("死叉")
+            
+        # 3. MA5 Relation
+        if closes[-1] > ma5[-1]:
+            st_score += 1
+        else:
+            st_score -= 1
+            
+        # Short Term Judgment
+        if st_score >= 2:
+            short_term["status"] = "买入机会"
+            short_term["color"] = "text-red-600 font-bold"
+            short_term["signal"] = " | ".join(st_signals)
+        elif st_score == 1:
+            short_term["status"] = "偏多震荡"
+            short_term["color"] = "text-red-400"
+            short_term["signal"] = " | ".join(st_signals)
+        elif st_score == -1:
+            short_term["status"] = "偏空震荡"
+            short_term["color"] = "text-green-400"
+            short_term["signal"] = " | ".join(st_signals)
+        elif st_score <= -2:
+            short_term["status"] = "卖出风险"
+            short_term["color"] = "text-green-600 font-bold"
+            short_term["signal"] = " | ".join(st_signals)
+        else:
+            short_term["status"] = "盘整观望"
+            short_term["color"] = "text-gray-500"
+            short_term["signal"] = "多空平衡"
+
+        # --- Medium Term Analysis (Nuanced Bull Market Logic) ---
+        # Focus: MA20 Trend (Primary) + MA60 (Support) + Momentum (MACD)
+        # Goal: Differentiate Acceleration, Trending, Pullback, Consolidation, Weakness
+        
+        medium_term = {"status": "震荡整理", "color": "text-gray-500", "signal": "趋势不明"}
+        mt_signals = []
+        
+        # 1. Primary Trend (MA20 Slope & Direction)
+        ma20_slope = 0
+        if len(ma20) > 5:
+            ma20_slope = (ma20[-1] - ma20[-5]) / ma20[-5] * 100 # % change over 5 days
+            
+        is_ma20_up = ma20_slope > 0.5 # Strong Up
+        is_ma20_flat = -0.5 <= ma20_slope <= 0.5
+        is_ma20_down = ma20_slope < -0.5
+        
+        # 2. Price Position relative to MA20
+        price_vs_ma20 = (closes[-1] - ma20[-1]) / ma20[-1] * 100
+        
+        # 3. MACD Momentum
+        macd_momentum = "neutral"
+        if macd['hist']:
+            if macd['hist'][-1] > 0 and macd['hist'][-1] > macd['hist'][-2]:
+                macd_momentum = "strong"
+            elif macd['hist'][-1] > 0 and macd['hist'][-1] < macd['hist'][-2]:
+                macd_momentum = "weakening"
+            elif macd['hist'][-1] < 0:
+                macd_momentum = "negative"
+
+        # Logic Tree
+        if is_ma20_up:
+            # Bullish Context
+            if price_vs_ma20 > 5: # Far above MA20
+                if macd_momentum == "strong":
+                    medium_term["status"] = "加速主升" # Accelerating
+                    medium_term["color"] = "text-red-600 font-black"
+                    mt_signals.append("均线发散 | 动能增强")
+                else:
+                    medium_term["status"] = "高位钝化" # High but momentum slowing
+                    medium_term["color"] = "text-orange-500 font-bold"
+                    mt_signals.append("乖离过大 | 动能减弱")
+            elif 0 <= price_vs_ma20 <= 5: # Near MA20 (Above)
+                if macd_momentum == "weakening" or macd_momentum == "negative":
+                    medium_term["status"] = "回踩支撑" # Pullback to support
+                    medium_term["color"] = "text-indigo-500 font-bold" # Opportunity color?
+                    mt_signals.append("缩量回调 | 关注支撑")
+                else:
+                    medium_term["status"] = "稳健上行" # Steady trend
+                    medium_term["color"] = "text-red-500 font-bold"
+                    mt_signals.append("依托均线 | 趋势健康")
+            else: # Below MA20 but MA20 is Up
+                medium_term["status"] = "破位警示" # Broken trend line?
+                medium_term["color"] = "text-green-600 font-bold"
+                mt_signals.append("跌破20日线 | 短期调整")
+                
+        elif is_ma20_flat:
+            # Consolidation Context
+            if price_vs_ma20 > 0:
+                medium_term["status"] = "蓄势待发" # Consolidation (Bullish bias)
+                medium_term["color"] = "text-red-400 font-bold"
+                mt_signals.append("均线粘合 | 多头蓄势")
+            else:
+                medium_term["status"] = "弱势震荡" # Consolidation (Bearish bias)
+                medium_term["color"] = "text-gray-500"
+                mt_signals.append("均线走平 | 缺乏方向")
+                
+        else: # MA20 Down
+            # Bearish Context
+            if price_vs_ma20 > 0:
+                medium_term["status"] = "超跌反弹" # Rebound
+                medium_term["color"] = "text-orange-400"
+                mt_signals.append("乖离修复 | 谨防回落")
+            else:
+                medium_term["status"] = "空头趋势" # Downtrend
+                medium_term["color"] = "text-green-600 font-bold"
+                mt_signals.append("均线压制 | 阴跌不止")
+
+        # Special Case: MA60 Check (Long Term Filter)
+        if closes[-1] < ma60[-1]:
+             # Downgrade status if below Bull/Bear line
+             if "主升" in medium_term["status"] or "上行" in medium_term["status"]:
+                 medium_term["status"] = "反弹受阻"
+                 medium_term["color"] = "text-orange-500"
+                 mt_signals.append("受制60日线")
+
+        medium_term["signal"] = " | ".join(mt_signals)
         
         # Combine Status
         if not details:
             details.append("无明显趋势")
             
         summary = f"{status} | " + " ".join(details)
+        
+        # Calculate Market Data
+        market_data = {
+            "close": closes[-1],
+            "change": (closes[-1] - closes[-2]) / closes[-2] * 100 if len(closes) > 1 else 0.0,
+            "volume": df['volume'].iloc[-1] if 'volume' in df.columns else 0,
+            "amount": df['amount'].iloc[-1] if 'amount' in df.columns else 0,
+            "date": df['date'].iloc[-1]
+        }
+        
+        # Re-calculate MA alignment for return data structure
+        ma_alignment_bull = (ma5[-1] > ma10[-1] > ma20[-1] > ma60[-1])
+        ma_alignment_bear = (ma5[-1] < ma10[-1] < ma20[-1] < ma60[-1])
         
         return {
             "status": status,
@@ -387,10 +561,25 @@ class SectorAnalyzer:
             "boll_info": boll_info,
             "breakout_info": breakout_info,
             "chan_info": chan_info,
+            "short_term": short_term,
+            "mid_long_term": medium_term, # Use new logic variable
             "macd": macd,
             "rsi": rsi,
             "last_rsi": round(last_rsi, 1),
-            "bi_points": bi_points
+            "bi_points": bi_points,
+            "ma_data": {
+                "ma5": ma5[-1],
+                "ma10": ma10[-1],
+                "ma20": ma20[-1],
+                "ma60": ma60[-1],
+                "alignment": "bull" if ma_alignment_bull else ("bear" if ma_alignment_bear else "none")
+            },
+            "market_data": market_data,
+            "bollinger_bands": {
+                "upper": boll['upper'][-1],
+                "middle": boll['middle'][-1],
+                "lower": boll['lower'][-1]
+            }
         }
 
 # Global Instance
