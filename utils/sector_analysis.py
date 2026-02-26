@@ -164,8 +164,9 @@ class SectorAnalyzer:
         """
         df = self.fetch_history(sector_name)
         
-        # Check if we need to append real-time data
-        # If df last date is not today, try to fetch spot
+        # Check if we need to append or update real-time data
+        # If df last date is not today, try to fetch spot. 
+        # If it IS today, it might be delayed/stale (THS API issue), so we update it with EM spot.
         if df is not None and not df.empty:
             last_date_str = str(df.iloc[-1]['date'])
             # Normalize date string (e.g., 2026-02-24 or 20260224)
@@ -173,17 +174,62 @@ class SectorAnalyzer:
             
             today_str = datetime.datetime.now().strftime("%Y%m%d")
             
-            if last_date_str != today_str:
-                # Try to get spot data
-                flow_df = self._get_realtime_flow_df()
-                if flow_df is not None:
-                    ths_name = self._get_ths_name(sector_name)
+            # Try to get spot data to Ensure Freshness
+            flow_df = self._get_realtime_flow_df()
+            if flow_df is not None:
+                ths_name = self._get_ths_name(sector_name)
+                # Note: flow_df uses EM names, but EM_TO_THS_MAP maps EM->THS.
+                # flow_df['行业'] contains EM names.
+                # We need to find the row where EM name maps to our 'ths_name'.
+                # OR, since we verified EM '电网设备' matches THS '电网设备', 
+                # and our map is EM->THS.
+                # Let's try to match by name directly first, then by map.
+                
+                target = pd.DataFrame()
+                
+                # 1. Direct match (EM name == THS name)
+                if ths_name in flow_df['行业'].values:
                     target = flow_df[flow_df['行业'] == ths_name]
-                    if not target.empty:
-                        try:
-                            current_price = float(target.iloc[0]['行业指数'])
+                else:
+                    # 2. Reverse Map lookup (Find EM name that maps to ths_name)
+                    # This is expensive, but list is small
+                    found_em_name = None
+                    for em_k, ths_v in self.EM_TO_THS_MAP.items():
+                        if ths_v == ths_name:
+                            found_em_name = em_k
+                            break
+                    if found_em_name and found_em_name in flow_df['行业'].values:
+                        target = flow_df[flow_df['行业'] == found_em_name]
+
+                if not target.empty:
+                    try:
+                        current_price = float(target.iloc[0]['行业指数'])
+                        
+                        if last_date_str == today_str:
+                            # Update existing Today row (Fix Stale Data)
+                            idx = df.index[-1]
+                            df.at[idx, 'close'] = current_price
+                            # Update High/Low if valid, else init
+                            current_high = df.at[idx, 'high']
+                            current_low = df.at[idx, 'low']
                             
-                            # Construct new row
+                            if pd.isna(current_high):
+                                df.at[idx, 'high'] = current_price
+                            else:
+                                df.at[idx, 'high'] = max(current_high, current_price)
+                                
+                            if pd.isna(current_low):
+                                df.at[idx, 'low'] = current_price
+                            else:
+                                df.at[idx, 'low'] = min(current_low, current_price)
+                                
+                            # If Open is NaN, set to Close (best guess for gap fix) or Keep NaN?
+                            # Better set to current to avoid plotting errors
+                            if pd.isna(df.at[idx, 'open']):
+                                df.at[idx, 'open'] = current_price
+                                
+                        else:
+                            # Append new row
                             new_row = pd.DataFrame([{
                                 'date': datetime.datetime.now().strftime("%Y-%m-%d"),
                                 'close': current_price,
@@ -193,10 +239,10 @@ class SectorAnalyzer:
                                 'volume': 0,
                                 'amount': 0
                             }])
-                            
                             df = pd.concat([df, new_row], ignore_index=True)
-                        except Exception as e:
-                            print(f"[SectorAnalyzer] Failed to append spot row for {sector_name}: {e}")
+                            
+                    except Exception as e:
+                        print(f"[SectorAnalyzer] Failed to update/append spot for {sector_name}: {e}")
 
         if df is None or df.empty:
             return {
