@@ -721,6 +721,158 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
                              detail_content.clear()
                              with detail_content:
+                                 # 0. K-Line Chart with Chan Lun
+                                 if 'chart_data' in res:
+                                     cd = res['chart_data']
+                                     # Prepare Candlestick Data: [Open, Close, Low, High]
+                                     # ECharts Candlestick: [open, close, low, high]
+                                     k_data = []
+                                     for i in range(len(cd['dates'])):
+                                         k_data.append([
+                                             cd['open'][i],
+                                             cd['close'][i],
+                                             cd['low'][i],
+                                             cd['high'][i]
+                                         ])
+                                     
+                                     # Prepare Bi Data & Mark Points
+                                     bi_line_data = []
+                                     mark_point_data = []
+                                     
+                                     if res['bi_points']:
+                                         for bi in res['bi_points']:
+                                             date_str = str(bi['date'])
+                                             price = bi['price']
+                                             bi_type = bi['type']
+                                             
+                                             bi_line_data.append([date_str, price])
+                                             
+                                             is_top = (bi_type == 'top')
+                                             mark_color = "#22c55e" if is_top else "#ef4444" 
+                                             
+                                              # Define mark point for this bi
+                                             mp = {
+                                                 "coord": [date_str, price],
+                                                 "value": f"{price:.2f}",
+                                                 "name": f"{'顶分' if is_top else '底分'}",
+                                                 "itemStyle": {"color": mark_color},
+                                                 "label": {
+                                                     "show": True,
+                                                     "position": "top" if is_top else "bottom",
+                                                     "formatter": "{b}\n{c}",
+                                                     "color": mark_color,
+                                                     "fontWeight": "bold",
+                                                     "fontSize": 11
+                                                 },
+                                                 "symbol": "arrow",
+                                                 "symbolSize": 12,
+                                                 # Rotate arrow: 180 (points down) for Top, 0 (points up) for Bottom
+                                                 "symbolRotate": 180 if is_top else 0,
+                                                 # Offset: Move arrow slightly away from the point
+                                                 "symbolOffset": [0, -12] if is_top else [0, 12]
+                                             }
+                                             mark_point_data.append(mp)
+                                     
+                                     chart_option = {
+                                         "animation": False,
+                                         "tooltip": {
+                                             "trigger": "axis",
+                                             "axisPointer": {"type": "cross"},
+                                             "backgroundColor": "rgba(255, 255, 255, 0.9)",
+                                             "borderColor": "#ccc",
+                                             "borderWidth": 1,
+                                             "textStyle": {"color": "#333"}
+                                         },
+                                         "legend": {
+                                             "data": ["日K", "MA5", "MA20", "缠论笔"],
+                                             "top": 0
+                                         },
+                                         "grid": {
+                                             "left": "2%",
+                                             "right": "2%",
+                                             "bottom": "10%",
+                                             "containLabel": True
+                                         },
+                                         "xAxis": {
+                                             "type": "category",
+                                             "data": cd['dates'],
+                                             "scale": True,
+                                             "boundaryGap": False,
+                                             "axisLine": {"onZero": False},
+                                             "splitLine": {"show": False},
+                                             "min": "dataMin",
+                                             "max": "dataMax"
+                                         },
+                                         "yAxis": {
+                                             "scale": True,
+                                             "splitArea": {"show": False},
+                                             "splitLine": {"show": True, "lineStyle": {"color": "#eee"}}
+                                         },
+                                         "dataZoom": [
+                                             {
+                                                 "type": "inside",
+                                                 "start": 70,
+                                                 "end": 100
+                                             },
+                                             {
+                                                 "show": True,
+                                                 "type": "slider",
+                                                 "top": "92%",
+                                                 "height": 20
+                                             }
+                                         ],
+                                         "series": [
+                                             {
+                                                 "name": "日K",
+                                                 "type": "candlestick",
+                                                 "data": k_data,
+                                                 "itemStyle": {
+                                                     "color": "#ef4444",
+                                                     "color0": "#22c55e",
+                                                     "borderColor": "#ef4444",
+                                                     "borderColor0": "#22c55e"
+                                                 }
+                                             },
+                                             {
+                                                 "name": "MA5",
+                                                 "type": "line",
+                                                 "data": cd['ma5'],
+                                                 "smooth": True,
+                                                 "showSymbol": False,
+                                                 "lineStyle": {"width": 1, "opacity": 0.6, "color": "#f59e0b"}
+                                             },
+                                             {
+                                                 "name": "MA20",
+                                                 "type": "line",
+                                                 "data": cd['ma20'],
+                                                 "smooth": True,
+                                                 "showSymbol": False,
+                                                 "lineStyle": {"width": 1, "opacity": 0.6, "color": "#8b5cf6"}
+                                             },
+                                             {
+                                                 "name": "缠论笔",
+                                                 "type": "line",
+                                                 "data": bi_line_data,
+                                                 "symbol": "circle",
+                                                 "symbolSize": 6,
+                                                 "lineStyle": {"color": "#3b82f6", "width": 2}, # Blue line for Bi
+                                                 "itemStyle": {"color": "#3b82f6", "borderColor": "#fff", "borderWidth": 1},
+                                                 "connectNulls": False, # Should connect points directly
+                                                 "markPoint": {
+                                                     "data": mark_point_data,
+                                                     "label": {
+                                                        "show": True,
+                                                        "formatter": "{b}\n{c}", 
+                                                     }
+                                                 }
+                                             }
+                                         ]
+                                     }
+                                     
+                                     with ui.card().classes('w-full p-4 rounded-2xl border border-gray-100 shadow-sm'):
+                                         ui.label('缠论 K 线结构图 (Chan Lun K-Line)').classes('text-base font-black text-gray-800 mb-2')
+                                         ui.echart(options=chart_option).classes('w-full h-[400px]')
+
                                  # 1. Top Cards (Short & Mid-Long)
                                  with ui.grid(columns=2).classes('w-full gap-6'):
                                      # Short Term Card

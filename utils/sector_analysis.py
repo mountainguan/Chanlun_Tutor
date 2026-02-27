@@ -621,6 +621,17 @@ class SectorAnalyzer:
                 "alignment": "bull" if ma_alignment_bull else ("bear" if ma_alignment_bear else "none")
             },
             "market_data": market_data,
+            "chart_data": {
+                "dates": df['date'].tolist(),
+                "open": df['open'].tolist(),
+                "close": df['close'].tolist(),
+                "high": df['high'].tolist(),
+                "low": df['low'].tolist(),
+                "ma5": ma5,
+                "ma10": ma10,
+                "ma20": ma20,
+                "ma60": ma60
+            },
             "bollinger_bands": {
                 "upper": boll['upper'][-1],
                 "middle": boll['middle'][-1],
