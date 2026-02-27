@@ -82,6 +82,11 @@ async def run_background_tasks():
 
 app.on_startup(run_background_tasks)
 
+# Enable Gzip compression to reduce the size of large static files (like index.js)
+# This significantly reduces transfer size (e.g. 1.4MB -> ~400KB)
+from starlette.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 # 挂载静态文件目录
 app.add_static_files('/static', os.path.join(BASE_DIR, 'static'))
 
