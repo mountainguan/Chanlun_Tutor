@@ -266,20 +266,22 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
                         state['update_btn'] = ui.button('更新数据', on_click=lambda: update_sector_data()).props('unelevated color=indigo icon=cloud_download')
 
                 # Treemap Logic
-                tm_ids = []; tm_labels = []; tm_parents = []; tm_values = []; tm_colors = []; tm_text = []; tm_textcolors = []
+                tm_ids = []; tm_labels = []; tm_parents = []; tm_values = []; tm_colors = []; tm_text = []; tm_textcolors = []; tm_customdata = []
                 has_group = 'group' in df_s.columns and df_s['group'].notna().any()
 
                 if has_group:
-                    tm_ids.append("ROOT"); tm_labels.append(""); tm_parents.append(""); tm_values.append(df_s['turnover_yi'].sum()); tm_colors.append('rgba(0,0,0,0)'); tm_textcolors.append('rgba(0,0,0,0)'); tm_text.append("")
+                    tm_ids.append("ROOT"); tm_labels.append(""); tm_parents.append(""); tm_values.append(df_s['turnover_yi'].sum()); tm_colors.append('rgba(0,0,0,0)'); tm_textcolors.append('rgba(0,0,0,0)'); tm_text.append(""); tm_customdata.append("全市场")
                     for g in df_s['group'].dropna().unique():
-                        sub = df_s[df_s['group'] == g]; tm_ids.append(f"G_{g}"); tm_labels.append(f"<b>{g}</b>"); tm_parents.append("ROOT"); tm_values.append(sub['turnover_yi'].sum()); tm_colors.append('rgba(0,0,0,0)'); tm_textcolors.append('#333333'); tm_text.append("")
+                        sub = df_s[df_s['group'] == g]; tm_ids.append(f"G_{g}"); tm_labels.append(f"<b>{g}</b>"); tm_parents.append("ROOT"); tm_values.append(sub['turnover_yi'].sum()); tm_colors.append('rgba(0,0,0,0)'); tm_textcolors.append('#333333'); tm_text.append(""); tm_customdata.append(g)
                     for _, r in df_s.iterrows():
                         tm_ids.append(r['name']); tm_labels.append(f"<b>{r['name']}</b>"); tm_parents.append(f"G_{r['group']}" if r['group'] else "ROOT"); tm_values.append(r['turnover_yi']); tm_colors.append(get_color_hex(r['temperature'])); tm_text.append(f"{r['temperature']:.0f}°")
                         tm_textcolors.append('white' if r['temperature'] < -30 or r['temperature'] > 50 else '#333333')
+                        tm_customdata.append(r['name'])
                 else:
                     for _, r in df_s.iterrows():
                         tm_ids.append(r['name']); tm_labels.append(f"<b>{r['name']}</b>"); tm_parents.append(""); tm_values.append(r['turnover_yi']); tm_colors.append(get_color_hex(r['temperature'])); tm_text.append(f"{r['temperature']:.0f}°")
                         tm_textcolors.append('white' if r['temperature'] < -30 or r['temperature'] > 50 else '#333333')
+                        tm_customdata.append(r['name'])
 
                 fig = go.Figure(go.Treemap(
                     ids=tm_ids, labels=tm_labels, parents=tm_parents, values=tm_values, text=tm_text, branchvalues="total" if has_group else None,
@@ -287,7 +289,8 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
                     textfont=dict(color=tm_textcolors), 
                     texttemplate="<b>%{label}</b><br>%{text}",
                     tiling=dict(pad=2),
-                    hovertemplate='<b>%{label}</b><br>成交额: %{value:.1f}亿<br>%{text}<extra></extra>'
+                    customdata=tm_customdata,
+                    hovertemplate='<b>%{customdata}</b><br>成交额: %{value:.1f}亿<br>%{text}<extra></extra>'
                 ))
                 
                 chart_height = 450 if is_mobile else 650
@@ -314,30 +317,27 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
                             ui.label('全市场板块热度明细').classes('font-bold text-lg')
                         ui.button('导出 Excel', icon='download', on_click=export).props('unelevated color=green-6')
                     
-                    # Prepare column definitions dynamically
-                    # Using 'flex' to make columns fill the available space
-                    grid_cols = [
-                        {'headerName': '板块名称', 'field': 'name', 'sortable': True, 'filter': True, 'pinned': 'left', 'width': 130},
-                        {'headerName': '归属行业', 'field': 'group', 'sortable': True, 'filter': True, 'flex': 1, 'minWidth': 110} if 'group' in df_s.columns else None,
-                        {'headerName': '情绪温度', 'field': 'temperature', 'sortable': True, 'filter': 'agNumberColumnFilter', 
-                         'cellStyle': {'fontWeight': 'bold', 'textAlign': 'center'}, 'minWidth': 100,
-                         'cellClassRules': {
-                             'text-red-600': 'x > 90',
-                             'text-red-400': 'x > 50 && x <= 90',
-                             'text-blue-400': 'x < 0 && x >= -40',
-                             'text-blue-700': 'x < -40',
-                         }},
-                        {'headerName': '量能得分', 'field': 'score_vol', 'sortable': True, 'minWidth': 100,
-                         'cellStyle': {'textAlign': 'center'},
-                         'cellClassRules': {'text-red-500': 'x > 0', 'text-blue-500': 'x <= 0'}} if 'score_vol' in df_s.columns else None,
-                        {'headerName': '融资得分', 'field': 'score_margin', 'sortable': True, 'minWidth': 100,
-                         'cellStyle': {'textAlign': 'center'},
-                         'cellClassRules': {'text-red-500': 'x > 0', 'text-blue-500': 'x <= 0'}} if 'score_margin' in df_s.columns else None,
-                        {'headerName': '成交(亿)', 'field': 'turnover_yi', 'sortable': True, 'minWidth': 110, 'cellStyle': {'textAlign': 'center'}},
-                        {'headerName': '数据状态', 'field': 'status', 'minWidth': 90, 'cellStyle': {'textAlign': 'center'}} if 'is_mock' in df_s.columns else None,
-                        {'headerName': '更新日期', 'field': 'date', 'sortable': True, 'minWidth': 110, 'cellStyle': {'textAlign': 'center'}},
+                    # Prepare column definitions for ui.table
+                    # ui.table uses Quasar QTable columns format
+                    table_columns = [
+                        {'name': 'name', 'label': '板块名称', 'field': 'name', 'sortable': True, 'align': 'left'},
+                        {'name': 'group', 'label': '归属行业', 'field': 'group', 'sortable': True, 'align': 'left'},
+                        {'name': 'temperature', 'label': '情绪温度', 'field': 'temperature', 'sortable': True, 'align': 'center'},
+                        {'name': 'score_vol', 'label': '量能得分', 'field': 'score_vol', 'sortable': True, 'align': 'center'},
+                        {'name': 'score_margin', 'label': '融资得分', 'field': 'score_margin', 'sortable': True, 'align': 'center'},
+                        {'name': 'turnover_yi', 'label': '成交(亿)', 'field': 'turnover_yi', 'sortable': True, 'align': 'center'},
+                        {'name': 'status', 'label': '数据状态', 'field': 'status', 'sortable': True, 'align': 'center'},
+                        {'name': 'date', 'label': '更新日期', 'field': 'date', 'sortable': True, 'align': 'center'},
                     ]
                     
+                    # Filter out columns that might not exist in data
+                    if 'group' not in df_s.columns: 
+                        table_columns = [c for c in table_columns if c['name'] != 'group']
+                    if 'score_vol' not in df_s.columns:
+                        table_columns = [c for c in table_columns if c['name'] not in ['score_vol', 'score_margin']]
+                    if 'is_mock' not in df_s.columns:
+                        table_columns = [c for c in table_columns if c['name'] != 'status']
+
                     # Prepare data records with extra status field
                     table_rows = df_s.to_dict('records')
                     for row in table_rows:
@@ -345,27 +345,48 @@ def render_sector_sentiment_panel(plotly_renderer, is_mobile=False):
                             row['status'] = '预估'
                         else:
                             row['status'] = '同步'
+                        # Ensure fields exist for table
+                        if 'group' not in row: row['group'] = '-'
+                        if 'score_vol' not in row: row['score_vol'] = 0
+                        if 'score_margin' not in row: row['score_margin'] = 0
+                        if 'status' not in row: row['status'] = '-'
 
-                    grid_cols = [c for c in grid_cols if c is not None]
+                    # Search Box
+                    with ui.row().classes('w-full px-4 pb-2 justify-end'):
+                         search_input = ui.input(placeholder='搜索板块...').props('dense outlined rounded search').classes('w-64')
+                         with search_input.add_slot('append'):
+                             ui.icon('search')
 
-                    ui.aggrid({
-                        'columnDefs': grid_cols,
-                        'rowData': table_rows,
-                        'pagination': True,
-                        'paginationPageSize': 20,
-                        'defaultColDef': {
-                            'resizable': True,
-                            'sortable': True,
-                            'filter': True,
-                            'flex': 1
-                        },
-                        'rowClassRules': {
-                            'bg-red-50': 'data.temperature > 90',
-                            'bg-red-100': 'data.temperature > 110', 
-                            'bg-blue-50': 'data.temperature < 0',
-                            'bg-purple-50': 'data.temperature < -40',
-                        }
-                    }).classes('w-full h-[650px]')
+                    # Replace AgGrid with ui.table (Quasar Table) to reduce bundle size (removes ~1.4MB JS dependency)
+                    table = ui.table(columns=table_columns, rows=table_rows, pagination=20).classes('w-full').bind_filter_from(search_input, 'value')
+                    
+                    # Custom rendering for Rows (Colors) and Cells (Colors)
+                    # Note: We use a single slot to handle the row and all its cells to replicate the conditional formatting
+                    table.add_slot('body', r'''
+                        <q-tr :props="props" :class="
+                            props.row.temperature > 110 ? 'bg-red-100' : 
+                            (props.row.temperature > 90 ? 'bg-red-50' : 
+                            (props.row.temperature < -40 ? 'bg-purple-50' : 
+                            (props.row.temperature < 0 ? 'bg-blue-50' : 'bg-white')))
+                        ">
+                            <q-td v-for="col in props.cols" :key="col.name" :props="props">
+                                <span v-if="col.name === 'temperature'" :class="
+                                    props.row.temperature > 90 ? 'text-red-600 font-bold' :
+                                    (props.row.temperature > 50 ? 'text-red-400 font-bold' :
+                                    (props.row.temperature < -40 ? 'text-blue-700 font-bold' :
+                                    (props.row.temperature < 0 ? 'text-blue-400 font-bold' : 'font-bold')))
+                                ">
+                                    {{ col.value }}
+                                </span>
+                                <span v-else-if="col.name === 'score_vol' || col.name === 'score_margin'" :class="col.value > 0 ? 'text-red-500' : 'text-blue-500'">
+                                    {{ col.value }}
+                                </span>
+                                <span v-else>
+                                    {{ col.value }}
+                                </span>
+                            </q-td>
+                        </q-tr>
+                    ''')
 
         except Exception as e:
             print(f"Sector Fail: {e}")

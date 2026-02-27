@@ -473,25 +473,16 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
                             'margin_pct': round(row['margin_ratio_pct'], 2) if 'margin_ratio_pct' in row else 0,
                             'is_estimated': row_is_est
                         })
-                    ui.aggrid({
-                        'columnDefs': [
-                            {'headerName': '日期', 'field': 'date', 'sortable': True},
-                            {'headerName': '温度', 'field': 'temp', 'sortable': True,
-                             'cellStyle': {'fontWeight': 'bold', 'color': '#5C6BC0', 'textAlign': 'center'}},
-                            {'headerName': '成交(万亿)', 'field': 'turnover', 'sortable': True, 'cellStyle': {'textAlign': 'center'}},
-                            {'headerName': '融资买入(亿)', 'field': 'margin_buy', 'sortable': True, 'cellStyle': {'textAlign': 'center'}},
-                            {'headerName': '融资占比(%)', 'field': 'margin_pct', 'sortable': True, 'cellStyle': {'textAlign': 'center'}},
-                        ],
-                        'rowData': rows,
-                        'rowClassRules': {'ag-row-estimated': 'data.is_estimated === true'},
-                        'pagination': True,
-                        'defaultColDef': {
-                            'sortable': True, 
-                            'filter': True,
-                            'flex': 1,
-                            'resizable': True
-                        }
-                    }).classes('w-full h-[500px]')
+                    ui.table(columns=[
+                            {'name': 'date', 'label': '日期', 'field': 'date', 'sortable': True, 'align': 'left'},
+                            {'name': 'temp', 'label': '温度', 'field': 'temp', 'sortable': True, 'align': 'center'},
+                            {'name': 'turnover', 'label': '成交(万亿)', 'field': 'turnover', 'sortable': True, 'align': 'center'},
+                            {'name': 'margin_buy', 'label': '融资买入(亿)', 'field': 'margin_buy', 'sortable': True, 'align': 'center'},
+                            {'name': 'margin_pct', 'label': '融资占比(%)', 'field': 'margin_pct', 'sortable': True, 'align': 'center'},
+                        ], 
+                        rows=rows, 
+                        pagination=20
+                    ).classes('w-full h-[500px] flat bordered')
 
     # Initial Load
     async def initial_load():
