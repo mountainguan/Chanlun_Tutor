@@ -6,7 +6,7 @@ import datetime
 import pandas as pd
 import akshare as ak
 import numpy as np
-from utils.simulator_logic import calculate_macd, calculate_rsi, process_baohan, find_bi, calculate_bollinger_bands
+from utils.simulator_logic import calculate_macd, calculate_rsi, process_baohan, find_bi, calculate_bollinger_bands, calculate_bi_and_centers
 from utils.fund_radar import FundRadar
 
 class SectorAnalyzer:
@@ -285,7 +285,11 @@ class SectorAnalyzer:
         processed_klines = process_baohan(klines)
         bi_points = find_bi(processed_klines)
         
-        # 3. Analysis & Judgment
+        # 3. Calculate Centers (Pivot Boxes)
+        # Using processed klines for consistency
+        _, centers = calculate_bi_and_centers(processed_klines)
+        
+        # 4. Analysis & Judgment
         status = "震荡"
         color = "text-gray-500"
         details = []
@@ -613,6 +617,7 @@ class SectorAnalyzer:
             "rsi": rsi,
             "last_rsi": round(last_rsi, 1),
             "bi_points": bi_points,
+            "centers": centers,
             "ma_data": {
                 "ma5": ma5[-1],
                 "ma10": ma10[-1],

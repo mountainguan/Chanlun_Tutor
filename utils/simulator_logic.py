@@ -619,6 +619,110 @@ def calculate_bi_and_zhongshu_shapes(klines):
 
     return shapes
 
+def calculate_bi_and_centers(klines):
+    """
+    计算笔和中枢，返回结构化数据（非图形Shapes）
+    """
+    # 1. 识别分型
+    fenxings = []
+    for i in range(2, len(klines)):
+        subset = klines[i-2 : i+1]
+        fx_type = identify_fenxing(subset)
+        if fx_type:
+            k2 = subset[1]
+            k2_idx = i - 1
+            val = k2['high'] if fx_type == 'top' else k2['low']
+            date = k2.get('date', '')
+            
+            if not fenxings:
+                fenxings.append({'index': k2_idx, 'type': fx_type, 'val': val, 'date': date})
+            else:
+                last = fenxings[-1]
+                if last['type'] != fx_type:
+                    if k2_idx - last['index'] >= 3:
+                        fenxings.append({'index': k2_idx, 'type': fx_type, 'val': val, 'date': date})
+                else:
+                    if fx_type == 'top':
+                        if val > last['val']:
+                            fenxings[-1] = {'index': k2_idx, 'type': fx_type, 'val': val, 'date': date}
+                    else:
+                        if val < last['val']:
+                            fenxings[-1] = {'index': k2_idx, 'type': fx_type, 'val': val, 'date': date}
+                            
+    # 2. 生成笔
+    bi_list = []
+    for i in range(len(fenxings) - 1):
+        p1 = fenxings[i]
+        p2 = fenxings[i+1]
+        bi_list.append({
+            'start_index': p1['index'],
+            'start_val': p1['val'],
+            'start_date': p1['date'],
+            'end_index': p2['index'],
+            'end_val': p2['val'],
+            'end_date': p2['date'],
+            'type': 'up' if p2['val'] > p1['val'] else 'down'
+        })
+        
+    # 3. 生成中枢
+    centers = []
+    if len(bi_list) >= 3:
+        raw_centers = []
+        for i in range(len(bi_list) - 2):
+            b1 = bi_list[i]
+            b2 = bi_list[i+1]
+            b3 = bi_list[i+2]
+            
+            min1, max1 = min(b1['start_val'], b1['end_val']), max(b1['start_val'], b1['end_val'])
+            min2, max2 = min(b2['start_val'], b2['end_val']), max(b2['start_val'], b2['end_val'])
+            min3, max3 = min(b3['start_val'], b3['end_val']), max(b3['start_val'], b3['end_val'])
+            
+            zg = min(max1, max2, max3)
+            zd = max(min1, min2, min3)
+            
+            if zg > zd:
+                raw_centers.append({
+                    'start_index': b1['end_index'], # 逻辑起点调整为 b1 的结束（即 b2 的开始），去除进入笔
+                    'end_index': b3['end_index'], 
+                    'visual_end_index': b2['end_index'], 
+                    'start_date': b1['end_date'], # 对应 b2.start_date
+                    'end_date': b3['end_date'],
+                    'visual_end_date': b2['end_date'],
+                    'zg': zg,
+                    'zd': zd,
+                    'is_up': b1['type'] == 'up' # 记录方向，后续可选用于颜色区分
+                })
+        
+        # 合并重叠的中枢
+        if raw_centers:
+            curr = raw_centers[0]
+            # 默认使用 visual_end 作为显示结束
+            curr['end_index'] = curr['visual_end_index']
+            curr['end_date'] = curr['visual_end_date']
+            
+            for next_c in raw_centers[1:]:
+                mn = max(curr['zd'], next_c['zd'])
+                mx = min(curr['zg'], next_c['zg'])
+                
+                if mn < mx:
+                    # 合并
+                    # 只要有重叠，就延伸到下一个中枢的视觉结束点
+                    curr['end_index'] = max(curr['end_index'], next_c['visual_end_index'])
+                    curr['end_date'] = next_c['visual_end_date'] 
+                    
+                    # 区间合并策略：取并集（保持最大包容性）
+                    curr['zd'] = min(curr['zd'], next_c['zd'])
+                    curr['zg'] = max(curr['zg'], next_c['zg'])
+                else:
+                    centers.append(curr)
+                    curr = next_c
+                    # 初始化新中枢的结束时间
+                    curr['end_index'] = curr['visual_end_index']
+                    curr['end_date'] = curr['visual_end_date']
+            centers.append(curr)
+            
+    return bi_list, centers
+
 def get_chanlun_shapes(klines, macd_data, current_index):
     """
     计算并返回K线对应的笔、中枢、分型和背驰形状

@@ -773,51 +773,143 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                              }
                                              mark_point_data.append(mp)
                                      
+                                     # Prepare MACD Data
+                                     macd = res.get('macd', {})
+                                     dif = macd.get('dif', [])
+                                     dea = macd.get('dea', [])
+                                     hist = macd.get('hist', [])
+                                     
+                                     macd_mark_points = []
+                                     if dif and dea:
+                                         for i in range(1, len(dif)):
+                                             # Golden Cross
+                                             if dif[i] > dea[i] and dif[i-1] <= dea[i-1]:
+                                                 macd_mark_points.append({
+                                                     "coord": [str(cd['dates'][i]), dif[i]],
+                                                     "value": "金叉",
+                                                     "itemStyle": {"color": "#ef4444"},
+                                                     "label": {"position": "bottom", "color": "#ef4444", "fontSize": 10, "fontWeight": "bold"}
+                                                 })
+                                             # Death Cross
+                                             elif dif[i] < dea[i] and dif[i-1] >= dea[i-1]:
+                                                 macd_mark_points.append({
+                                                     "coord": [str(cd['dates'][i]), dif[i]],
+                                                     "value": "死叉",
+                                                     "itemStyle": {"color": "#22c55e"},
+                                                     "label": {"position": "top", "color": "#22c55e", "fontSize": 10, "fontWeight": "bold"}
+                                                 })
+
+                                     # Prepare Centers (Zhongshu)
+                                     center_mark_areas = []
+                                     centers = res.get('centers', [])
+                                     
+                                     # Create a set for fast lookup and validation
+                                     valid_dates = set([str(d) for d in cd['dates']])
+                                     
+                                     for c in centers:
+                                         s_date = str(c['start_date'])
+                                         e_date = str(c['end_date'])
+                                         
+                                         # Validate dates exist in chart data to prevent ECharts from drawing full-width if missing
+                                         if s_date not in valid_dates or e_date not in valid_dates:
+                                             continue
+
+                                         center_mark_areas.append([
+                                             {
+                                                 "coord": [s_date, c['zg']],
+                                                 "itemStyle": {
+                                                     "color": "rgba(255, 165, 0, 0.15)",
+                                                     "borderWidth": 1,
+                                                     "borderType": "dashed",
+                                                     "borderColor": "rgba(255, 165, 0, 0.8)"
+                                                 }
+                                             },
+                                             {
+                                                 "coord": [e_date, c['zd']]
+                                             }
+                                         ])
+
                                      chart_option = {
                                          "animation": False,
                                          "tooltip": {
                                              "trigger": "axis",
-                                             "axisPointer": {"type": "cross"},
+                                             "axisPointer": {"type": "cross", "link": {"xAxisIndex": "all"}},
                                              "backgroundColor": "rgba(255, 255, 255, 0.9)",
                                              "borderColor": "#ccc",
                                              "borderWidth": 1,
                                              "textStyle": {"color": "#333"}
                                          },
+                                         "axisPointer": {"link": {"xAxisIndex": "all"}},
                                          "legend": {
-                                             "data": ["日K", "MA5", "MA20", "缠论笔"],
+                                             "data": ["日K", "MA5", "MA20", "缠论笔", "DIF", "DEA", "MACD"],
                                              "top": 0
                                          },
-                                         "grid": {
-                                             "left": "2%",
-                                             "right": "2%",
-                                             "bottom": "10%",
-                                             "containLabel": True
-                                         },
-                                         "xAxis": {
-                                             "type": "category",
-                                             "data": cd['dates'],
-                                             "scale": True,
-                                             "boundaryGap": False,
-                                             "axisLine": {"onZero": False},
-                                             "splitLine": {"show": False},
-                                             "min": "dataMin",
-                                             "max": "dataMax"
-                                         },
-                                         "yAxis": {
-                                             "scale": True,
-                                             "splitArea": {"show": False},
-                                             "splitLine": {"show": True, "lineStyle": {"color": "#eee"}}
-                                         },
+                                         "grid": [
+                                             {
+                                                 "left": "5%",
+                                                 "right": "5%",
+                                                 "top": "10%",
+                                                 "height": "55%",
+                                                 "containLabel": True
+                                             },
+                                             {
+                                                 "left": "5%",
+                                                 "right": "5%",
+                                                 "top": "75%",
+                                                 "height": "15%",
+                                                 "containLabel": True
+                                             }
+                                         ],
+                                         "xAxis": [
+                                             {
+                                                 "type": "category",
+                                                 "data": cd['dates'],
+                                                 "scale": True,
+                                                 "boundaryGap": False,
+                                                 "axisLine": {"onZero": False},
+                                                 "splitLine": {"show": False},
+                                                 "min": "dataMin",
+                                                 "max": "dataMax"
+                                             },
+                                             {
+                                                 "type": "category",
+                                                 "gridIndex": 1,
+                                                 "data": cd['dates'],
+                                                 "scale": True,
+                                                 "boundaryGap": False,
+                                                 "axisLine": {"onZero": False},
+                                                 "axisLabel": {"show": False},
+                                                 "axisTick": {"show": False},
+                                                 "splitLine": {"show": False},
+                                                 "min": "dataMin",
+                                                 "max": "dataMax"
+                                             }
+                                         ],
+                                         "yAxis": [
+                                             {
+                                                 "scale": True,
+                                                 "splitArea": {"show": False},
+                                                 "splitLine": {"show": True, "lineStyle": {"color": "#eee"}}
+                                             },
+                                             {
+                                                 "gridIndex": 1,
+                                                 "scale": True,
+                                                 "splitArea": {"show": False},
+                                                 "splitLine": {"show": False}
+                                             }
+                                         ],
                                          "dataZoom": [
                                              {
                                                  "type": "inside",
+                                                 "xAxisIndex": [0, 1],
                                                  "start": 70,
                                                  "end": 100
                                              },
                                              {
                                                  "show": True,
                                                  "type": "slider",
-                                                 "top": "92%",
+                                                 "xAxisIndex": [0, 1],
+                                                 "top": "94%",
                                                  "height": 20
                                              }
                                          ],
@@ -831,6 +923,16 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                                      "color0": "#22c55e",
                                                      "borderColor": "#ef4444",
                                                      "borderColor0": "#22c55e"
+                                                 },
+                                                 "markArea": {
+                                                     "data": center_mark_areas,
+                                                     "label": {
+                                                         "show": True,
+                                                         "position": "insideTopLeft",
+                                                         "formatter": "中枢",
+                                                         "color": "rgba(255, 165, 0, 0.8)",
+                                                         "fontSize": 10
+                                                     }
                                                  }
                                              },
                                              {
@@ -865,6 +967,36 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                                         "formatter": "{b}\n{c}", 
                                                      }
                                                  }
+                                             },
+                                             # MACD Series
+                                             {
+                                                 "name": "MACD",
+                                                 "type": "bar",
+                                                 "xAxisIndex": 1,
+                                                 "yAxisIndex": 1,
+                                                 "data": [{"value": h, "itemStyle": {"color": "#ef4444" if h > 0 else "#22c55e"}} for h in hist]
+                                             },
+                                             {
+                                                 "name": "DIF",
+                                                 "type": "line",
+                                                 "xAxisIndex": 1,
+                                                 "yAxisIndex": 1,
+                                                 "data": dif,
+                                                 "symbol": "none",
+                                                 "lineStyle": {"color": "#3b82f6", "width": 1},
+                                                 "markPoint": {
+                                                     "data": macd_mark_points,
+                                                     "symbolSize": 30
+                                                 }
+                                             },
+                                             {
+                                                 "name": "DEA",
+                                                 "type": "line",
+                                                 "xAxisIndex": 1,
+                                                 "yAxisIndex": 1,
+                                                 "data": dea,
+                                                 "symbol": "none",
+                                                 "lineStyle": {"color": "#f59e0b", "width": 1}
                                              }
                                          ]
                                      }
