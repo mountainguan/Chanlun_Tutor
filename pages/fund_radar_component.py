@@ -173,6 +173,201 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
         # 2. Status & Dashboard Area
         dashboard_content = ui.column().classes('w-full gap-6')
 
+        def render_attribution_section(df_input):
+             """
+             Render the Attribution Analysis Section (Shared by Single & Multi Day).
+             Redesigned V2: Improved layout stability, cleaner headers, better spacing.
+             """
+             # --- Attribution Analysis Header ---
+             # User requested consistent spacing. Using my-6 to ensure equal top/bottom margin.
+             with ui.card().classes('w-full p-0 rounded-xl shadow-sm border border-gray-200 bg-white overflow-hidden my-6'):
+                 # Header
+                 with ui.row().classes('w-full px-5 py-4 border-b border-gray-100 items-center justify-between bg-white'):
+                     with ui.row().classes('items-center gap-3'):
+                         ui.icon('analytics', color='indigo').classes('text-2xl')
+                         with ui.column().classes('gap-0'):
+                             ui.label('主力/散户流向归因分析').classes('font-black text-gray-900 text-lg leading-tight')
+                             ui.label('Attribution Analysis').classes('font-bold text-gray-400 text-xs tracking-wider uppercase')
+                     
+                     with ui.icon('help_outline', color='gray-400').classes('text-sm cursor-help hover:text-indigo-500 transition-colors'):
+                        ui.tooltip('资金归因分析 (阈值: 强度±2%, 涨跌±3%):\n[强流入] 合力拉升(大涨)、纯主力(温和)、吸筹(横盘)、洗盘(下跌)\n[强流出] 砸盘(大跌)、出货(阴跌)、诱多(上涨)\n[弱平衡] 散户扎堆(无强主力参与的大涨)').classes('text-xs whitespace-pre-line bg-gray-900 text-white p-2 rounded shadow-lg')
+
+                 # Get Attribution Data
+                 # Pass the selected duration to adjust thresholds dynamically
+                 duration = radar_state.get('duration', 1)
+                 attribution = radar.analyze_flow_attribution(df_input, days=duration)
+                 
+                 # Define all 8 quadrants config - Financial Colors
+                 all_quadrants = [
+                     # --- Positive Strength ---
+                     {
+                         "key": "joint_push",
+                         "title": "合力拉升", 
+                         "desc": "主力强流入 + 大涨",
+                         "color": "rose",      # Red (Up)
+                         "accent": "rose-600",
+                         "bg_header": "rose-50",
+                         "border_t": "border-t-4 border-rose-500",
+                         "icon": "rocket_launch"
+                     },
+                     {
+                         "key": "pure_main_force",
+                         "title": "纯主力拉升",
+                         "desc": "主力强流入 + 涨幅温和",
+                         "color": "indigo",    # Purple
+                         "accent": "indigo-600",
+                         "bg_header": "indigo-50",
+                         "border_t": "border-t-4 border-indigo-500",
+                         "icon": "trending_up"
+                     },
+                     {
+                         "key": "accumulation",
+                         "title": "主力吸筹",
+                         "desc": "主力强流入 + 横盘震荡",
+                         "color": "amber",     # Amber
+                         "accent": "amber-600",
+                         "bg_header": "amber-50",
+                         "border_t": "border-t-4 border-amber-500",
+                         "icon": "move_to_inbox"
+                     },
+                     {
+                         "key": "shakeout",
+                         "title": "主力洗盘",
+                         "desc": "主力强流入 + 下跌",
+                         "color": "violet",    # Violet (Opportunity?)
+                         "accent": "violet-600",
+                         "bg_header": "violet-50",
+                         "border_t": "border-t-4 border-violet-500",
+                         "icon": "waves"
+                     },
+                     # --- Negative Strength ---
+                     {
+                         "key": "panic_selling",
+                         "title": "合力砸盘",
+                         "desc": "主力强流出 + 大跌",
+                         "color": "emerald",   # Green (Down/Crash)
+                         "accent": "emerald-600",
+                         "bg_header": "emerald-50",
+                         "border_t": "border-t-4 border-emerald-500",
+                         "icon": "landslide"
+                     },
+                     {
+                         "key": "inst_exit",
+                         "title": "主力出货",
+                         "desc": "主力强流出 + 下跌",
+                         "color": "teal",      # Teal
+                         "accent": "teal-600",
+                         "bg_header": "teal-50",
+                         "border_t": "border-t-4 border-teal-500",
+                         "icon": "logout"
+                     },
+                     {
+                         "key": "bull_trap",
+                         "title": "主力诱多",
+                         "desc": "主力强流出 + 上涨",
+                         "color": "orange",    # Orange (Warning)
+                         "accent": "orange-600",
+                         "bg_header": "orange-50",
+                         "border_t": "border-t-4 border-orange-500",
+                         "icon": "warning"
+                     },
+                     # --- Mixed/Weak ---
+                     {
+                        "key": "retail_crowd",
+                        "title": "散户扎堆",
+                        "desc": "无强主力 + 大涨",
+                        "color": "lime",      # Lime (Risk)
+                        "accent": "lime-600",
+                        "bg_header": "lime-50",
+                        "border_t": "border-t-4 border-lime-500",
+                        "icon": "groups"
+                    }
+                 ]
+
+                 # Filter: Only show quadrants with data
+                 active_quadrants = [q for q in all_quadrants if len(attribution.get(q['key'], [])) > 0]
+                 
+                 # Limit: Max 4
+                 display_quadrants = active_quadrants[:4]
+                 
+                 if not display_quadrants:
+                     with ui.column().classes('w-full py-12 items-center justify-center text-gray-400 gap-3'):
+                         ui.icon('saved_search', size='3rem', color='gray-200')
+                         ui.label('当前无显著资金流向特征板块').classes('text-sm font-medium')
+                 else:
+                     n_cols = len(display_quadrants)
+                     col_map = {1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4'}
+                     cols_class = col_map.get(n_cols, 'grid-cols-4')
+                     
+                     with ui.grid().classes(f'w-full gap-0 divide-x divide-gray-100 bg-gray-50 {cols_class if not is_mobile else "grid-cols-1"}'): 
+                         for idx, q in enumerate(display_quadrants):
+                             items = attribution.get(q['key'], [])
+                             display_items = items[:8] if items else []
+                             
+                             color = q['color']
+                             accent = q['accent']
+                             bg_header = q['bg_header']
+                             border_t = q['border_t']
+                             
+                             # Column Container
+                             with ui.column().classes(f'w-full p-0 h-full bg-white relative min-h-[360px] {border_t}'):
+                                 # Column Header - Spacious
+                                 with ui.row().classes(f'w-full px-4 py-3 bg-{bg_header} border-b border-{color}-100 items-start justify-between h-16'):
+                                     with ui.row().classes('items-start gap-3'):
+                                         ui.icon(q['icon'], color=color).classes('text-xl mt-0.5')
+                                         with ui.column().classes('gap-0'):
+                                             ui.label(q['title']).classes(f'text-sm font-black text-{color}-900')
+                                             ui.label(q['desc']).classes(f'text-[10px] font-medium text-{color}-700 opacity-80 mt-0.5')
+                                     
+                                     if items:
+                                         ui.label(f'{len(items)}').classes(f'text-xs font-black bg-white text-{color}-600 px-2 py-0.5 border border-{color}-200 rounded-md shadow-sm')
+
+                                 # Table Header - Clean
+                                 with ui.row().classes('w-full px-3 py-2 bg-white border-b border-gray-100 text-[10px] text-gray-400 font-bold items-center h-8 uppercase tracking-wider'):
+                                     ui.label('板块').classes('flex-1 text-left pl-1')
+                                     with ui.row().classes('items-center gap-2 justify-end'):
+                                         ui.label('涨跌(%)').classes('w-12 text-right')
+                                         ui.label('净入(亿)').classes('w-14 text-right')
+                                         ui.label('强度(%)').classes('w-10 text-center')
+
+                                 # List Content - Better Alignment
+                                 with ui.column().classes('w-full p-0 gap-0 flex-1'): 
+                                     if not display_items:
+                                         # Should not happen given filter logic, but safe fallback
+                                         with ui.column().classes('w-full h-full items-center justify-center opacity-40 gap-3 py-12'):
+                                             ui.icon('inbox', size='3rem', color='gray-200')
+                                             ui.label('暂无板块').classes('text-xs font-medium text-gray-400')
+                                     else:
+                                         for i, item in enumerate(display_items):
+                                             bg_row = 'bg-white' if i % 2 == 0 else 'bg-gray-50/30'
+                                             with ui.row().classes(f'w-full items-center justify-between px-3 py-2 border-b border-gray-50 last:border-0 cursor-default group hover:bg-gray-50 transition-colors {bg_row} h-10'):
+                                                 # Name (Flex Grow)
+                                                 ui.label(item['name']).classes('text-xs font-bold text-gray-700 flex-1 truncate pl-1 pr-2')
+                                                 
+                                                 # Metrics Container (Fixed Widths)
+                                                 with ui.row().classes('items-center gap-2 justify-end'):
+                                                     # Change
+                                                     c_val = item['change']
+                                                     c_color = 'rose-600' if c_val > 0 else 'emerald-600'
+                                                     ui.label(f'{c_val:+.1f}%').classes(f'text-xs font-mono font-bold text-{c_color} w-12 text-right')
+                                                     
+                                                     # Net Flow
+                                                     n_val = item['net_flow']
+                                                     n_color = 'rose-600' if n_val > 0 else 'emerald-600'
+                                                     # Simplified flow format for space
+                                                     flow_str = f'{n_val:.0f}' if abs(n_val) >= 10 else f'{n_val:.1f}'
+                                                     ui.label(flow_str).classes(f'text-xs font-mono font-medium text-{n_color} w-14 text-right opacity-90')
+                                                     
+                                                     # Strength (Badge)
+                                                     s_val = item['strength']
+                                                     s_bg = 'bg-rose-50 text-rose-700' if s_val > 0 else 'bg-emerald-50 text-emerald-700'
+                                                     ui.label(f'{s_val:.0f}').classes(f'text-[10px] font-mono font-bold {s_bg} w-10 text-center rounded py-0.5')
+
+                                         # "More" indicator
+                                         if len(items) > 8:
+                                             with ui.row().classes('w-full justify-center py-2 bg-gray-50 border-t border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors'):
+                                                 ui.label(f'查看更多 ({len(items)-8})...').classes('text-[10px] font-bold text-gray-400 hover:text-indigo-500')
+
         def render_multi_day_view(df, dates, plot_func):
              """
              Render multi-day aggregated view with enhanced tech-minimalist styling.
@@ -319,6 +514,9 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                 ui.label(f'强度 {max_strength["资金强度"]*100:.1f}%').classes('text-xs bg-indigo-50 text-indigo-400 px-2 py-0.5 rounded font-bold')
                     else:
                         ui.label('等待数据同步...').classes('text-gray-300 text-sm italic py-8 text-center w-full')
+
+             # --- New Section: Attribution Analysis ---
+             render_attribution_section(df)
 
              # 2. Advanced Scatter Plot (Quadrant Analysis)
              with ui.column().classes('w-full gap-6'):  
@@ -1685,6 +1883,11 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
 
                 # --- 3. Sector Grid View (Tonghuashun Style) ---
                 render_sector_grid_view()
+
+                # --- 3.5 Attribution Analysis (Moved Here) ---
+                # Added check to ensure df_ths is not empty before rendering
+                if not df_ths.empty:
+                    render_attribution_section(df_ths)
 
 
                 # --- 4. Confrontation (Battlefield) Section (Moved to Top) ---

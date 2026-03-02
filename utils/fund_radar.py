@@ -392,7 +392,10 @@ class FundRadar:
         if should_fetch:
             throttle_key = f"global_fetch_{date_str}"
             # Check global throttle (prevent burst)
-            if self._check_throttle(throttle_key, cooldown=10): 
+            # Use stricter cooldown for auto-fetch to avoid spamming logs
+            cooldown = 30 if mode == 'BACKGROUND_AUTO' else 5 
+            
+            if self._check_throttle(throttle_key, cooldown=cooldown): 
                 new_data, success = self.fetch_and_save(date_str)
                 if success: 
                      cache_data = new_data
@@ -400,13 +403,11 @@ class FundRadar:
                      if date_str in FundRadar._next_retry_time:
                          del FundRadar._next_retry_time[date_str]
                 else:
-                    print(f"[FundRadar] Fetch failed.")
-                    # If this was a background attempt, schedule retry
-                    if mode == 'BACKGROUND_AUTO':
-                        print(f"[FundRadar] Background: Scheduling retry in 5 mins.")
-                        FundRadar._next_retry_time[date_str] = time.time() + 300
+                    # On failure, set retry time (e.g. 5 mins later)
+                    FundRadar._next_retry_time[date_str] = time.time() + 300
+                    print(f"[FundRadar] Fetch failed, retry scheduled in 5 mins.")
             else:
-                 print(f"[FundRadar] Fetch suppressed by global throttle (10s).")
+                 print(f"[FundRadar] Throttled {throttle_key}, skipping fetch.")
 
         # 4. Return Formatted Data
         if not cache_data:
@@ -432,6 +433,142 @@ class FundRadar:
         df_ths = normalize_df(df_ths, ['净流入', '总成交额', '成交额'])
 
         return df_sina, df_ths, market
+
+    def analyze_flow_attribution(self, df_sina, days=1):
+        """
+        对板块资金流向进行归因分析。
+        基于:
+        - 主力流入强度 (S) = 净流入 / 总成交额 * 100 (%)
+        - 板块涨跌幅 (C) (%)
+        
+        分类逻辑 (根据天数动态调整阈值):
+        
+        [强流入 S >= S_HIGH]
+        1. 合力拉升: C >= C_HIGH
+        2. 纯主力拉升: C_MOD <= C < C_HIGH
+        3. 主力吸筹: C_FLAT_LOW <= C < C_FLAT_HIGH
+        4. 主力洗盘: C < C_FLAT_LOW
+        
+        [强流出 S <= -S_HIGH]
+        5. 合力砸盘: C <= -C_HIGH
+        6. 主力出货: -C_HIGH < C <= -C_MOD
+        7. 诱多(拉高出货): C >= C_MOD
+        
+        [弱势/震荡 -S_HIGH < S < S_HIGH]
+        8. 散户扎堆: C >= C_HIGH (无强主力参与的大涨)
+        """
+        if df_sina is None or df_sina.empty:
+            return {}
+
+        result = {
+            "joint_push": [],      # 合力拉升
+            "pure_main_force": [], # 纯主力拉升
+            "accumulation": [],    # 主力吸筹
+            "shakeout": [],        # 主力洗盘
+            "panic_selling": [],   # 合力砸盘
+            "inst_exit": [],       # 主力出货
+            "bull_trap": [],       # 诱多
+            "retail_crowd": [],    # 散户扎堆
+        }
+
+        # Ensure columns exist
+        if '净流入' not in df_sina.columns:
+            return result
+
+        # --- Dynamic Thresholds based on Days ---
+        # As days increase, cumulative change increases significantly, but flow strength (ratio) remains relatively stable or dilutes.
+        # We need to scale change thresholds to avoid everything falling into "Retail Crowd" (Big Rise + Weak Flow).
+        
+        # Base Thresholds (1 Day)
+        BASE_S_HIGH = 2.0
+        BASE_C_HIGH = 3.0
+        BASE_C_MOD = 1.0
+        BASE_C_FLAT = 1.0
+        
+        # Scaling Factors
+        # Days: 1, 3, 5, 10, 20
+        # Change factor: sqrt(days) or custom map
+        # Custom map is safer for A-share characteristics
+        if days <= 1:
+            factor_c = 1.0
+            factor_s = 1.0
+        elif days <= 3:
+            factor_c = 1.8  # ~5.4%
+            factor_s = 0.9  # Slightly lower strength requirement for multi-day persistence
+        elif days <= 5:
+            factor_c = 2.5  # ~7.5%
+            factor_s = 0.8  # ~1.6%
+        elif days <= 10:
+            factor_c = 3.5  # ~10.5%
+            factor_s = 0.7  # ~1.4%
+        else: # >= 20
+            factor_c = 5.0  # ~15.0%
+            factor_s = 0.6  # ~1.2%
+
+        HIGH_STRENGTH = BASE_S_HIGH * factor_s
+        HIGH_CHANGE = BASE_C_HIGH * factor_c
+        MODERATE_CHANGE_LOW = BASE_C_MOD * factor_c
+        FLAT_CHANGE_LOW = -BASE_C_FLAT * factor_c
+        FLAT_CHANGE_HIGH = BASE_C_FLAT * factor_c
+
+        for _, row in df_sina.iterrows():
+            name = row.get('名称', '')
+            change = float(row.get('涨跌幅', 0))
+            net_flow = float(row.get('净流入', 0))
+            turnover = float(row.get('总成交额', 0)) if '总成交额' in row else float(row.get('成交额', 0))
+            
+            if turnover == 0:
+                strength = 0
+            else:
+                strength = (net_flow / turnover) * 100
+            
+            item = {
+                'name': name,
+                'change': change,
+                'net_flow': net_flow,
+                'strength': strength
+            }
+
+            # Logic
+            if strength >= HIGH_STRENGTH:
+                # Strong Inflow
+                if change >= HIGH_CHANGE:
+                    result["joint_push"].append(item)
+                elif MODERATE_CHANGE_LOW <= change < HIGH_CHANGE:
+                    result["pure_main_force"].append(item)
+                elif FLAT_CHANGE_LOW <= change < FLAT_CHANGE_HIGH:
+                    result["accumulation"].append(item)
+                elif change < FLAT_CHANGE_LOW:
+                    result["shakeout"].append(item)
+
+            elif strength <= -HIGH_STRENGTH:
+                # Strong Outflow
+                if change <= -HIGH_CHANGE:
+                    result["panic_selling"].append(item)
+                elif -HIGH_CHANGE < change <= -MODERATE_CHANGE_LOW:
+                    result["inst_exit"].append(item)
+                elif change >= MODERATE_CHANGE_LOW:
+                    result["bull_trap"].append(item)
+            
+            else:
+                # Middle Ground
+                # Retail Crowd: Any big rise without strong main force support
+                if change >= HIGH_CHANGE:
+                    result["retail_crowd"].append(item)
+        
+        # Sort each list by relevant metric
+        result["joint_push"].sort(key=lambda x: x['change'], reverse=True)
+        result["pure_main_force"].sort(key=lambda x: x['strength'], reverse=True)
+        result["accumulation"].sort(key=lambda x: x['strength'], reverse=True)
+        result["shakeout"].sort(key=lambda x: x['strength'], reverse=True) # Strong inflow
+        
+        result["panic_selling"].sort(key=lambda x: x['change'], reverse=False) # Biggest drop first
+        result["inst_exit"].sort(key=lambda x: x['strength'], reverse=False)   # Strongest outflow first
+        result["bull_trap"].sort(key=lambda x: x['change'], reverse=True)      # Biggest rise first
+        
+        result["retail_crowd"].sort(key=lambda x: x['change'], reverse=True)
+
+        return result
 
     def _check_throttle(self, key, cooldown=60):
         now = time.time()
