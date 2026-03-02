@@ -1140,18 +1140,18 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                     with ui.column().classes('w-full gap-0 border-t border-gray-200'):
                         
                         # 1. Main Table Header
-                        with ui.row().classes('w-full bg-gray-100 border-b border-gray-200 h-8 items-center gap-0'):
-                            ui.label('板块').classes('w-24 pl-4 text-[11px] font-bold text-gray-500')
+                        with ui.element('div').classes('w-full flex flex-row bg-gray-100 border-b border-gray-200 h-8 items-center gap-0'):
+                            ui.label('板块').classes('w-20 md:w-24 pl-4 flex items-center text-[11px] font-bold text-gray-500')
                             # Added Analysis Columns
-                            ui.label('短线机会').classes('w-24 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
-                            ui.label('中线趋势').classes('w-24 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
-                            ui.label('缠论结构').classes('w-24 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
-                            ui.label('MACD').classes('w-20 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
-                            ui.label('RSI').classes('w-12 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
-                            ui.label('布林').classes('w-16 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
+                            ui.label('短线机会').classes('gt-xs flex items-center justify-center w-24 text-[11px] font-bold text-gray-500 border-l border-gray-200')
+                            ui.label('中线趋势').classes('gt-xs flex items-center justify-center w-24 text-[11px] font-bold text-gray-500 border-l border-gray-200')
+                            ui.label('缠论结构').classes('gt-xs flex items-center justify-center w-24 text-[11px] font-bold text-gray-500 border-l border-gray-200')
+                            ui.label('MACD').classes('gt-xs flex items-center justify-center w-20 text-[11px] font-bold text-gray-500 border-l border-gray-200')
+                            ui.label('RSI').classes('gt-xs flex items-center justify-center w-12 text-[11px] font-bold text-gray-500 border-l border-gray-200')
+                            ui.label('布林').classes('gt-xs flex items-center justify-center w-16 text-[11px] font-bold text-gray-500 border-l border-gray-200')
                             
                             for d in dates:
-                                ui.label(d).classes('flex-1 text-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
+                                ui.label(d).classes('flex-1 flex items-center justify-center text-[11px] font-bold text-gray-500 border-l border-gray-200')
 
                         # 2. Render Rows
                         all_rows = [] # Store row objects to control visibility
@@ -1172,36 +1172,36 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                             
                             # Sector Rows
                             for sector in sectors:
-                                s_row = ui.row().classes('w-full border-b border-gray-100 h-9 items-center gap-0 hover:bg-gray-50 transition-colors group')
+                                s_row = ui.element('div').classes('w-full flex flex-row border-b border-gray-100 h-9 items-center gap-0 hover:bg-gray-50 transition-colors group')
                                 with s_row:
                                     # Name
-                                    with ui.row().classes('w-24 pl-4 h-full items-center border-r border-gray-100'):
+                                    with ui.element('div').classes('w-20 md:w-24 pl-4 h-full flex items-center border-r border-gray-100'):
                                         ui.label(sector['name']).classes('text-[11px] font-bold text-gray-700 truncate')
                                     
                                     # Analysis Placeholders
                                     
                                     # Short Term
-                                    with ui.row().classes('w-24 h-full items-center justify-center border-r border-gray-100 px-1'):
+                                    with ui.element('div').classes('gt-xs flex flex-row w-24 h-full items-center justify-center border-r border-gray-100 px-1'):
                                         lbl_short = ui.label('-').classes('text-[10px] text-gray-400')
                                         
                                     # Mid-Long Term
-                                    with ui.row().classes('w-24 h-full items-center justify-center border-r border-gray-100 px-1'):
+                                    with ui.element('div').classes('gt-xs flex flex-row w-24 h-full items-center justify-center border-r border-gray-100 px-1'):
                                         lbl_mid = ui.label('-').classes('text-[10px] text-gray-400')
 
                                     # Chan Lun Structure (Top/Bottom Fenxing)
-                                    with ui.row().classes('w-24 h-full items-center justify-center border-r border-gray-100 px-1'):
+                                    with ui.element('div').classes('gt-xs flex flex-row w-24 h-full items-center justify-center border-r border-gray-100 px-1'):
                                         lbl_chan = ui.label('-').classes('text-[10px] text-gray-400')
                                         
                                     # MACD
-                                    with ui.row().classes('w-20 h-full items-center justify-center border-r border-gray-100 px-1'):
+                                    with ui.element('div').classes('gt-xs flex flex-row w-20 h-full items-center justify-center border-r border-gray-100 px-1'):
                                         lbl_macd = ui.label('-').classes('text-[10px] text-gray-400')
                                     
                                     # RSI
-                                    with ui.row().classes('w-12 h-full items-center justify-center border-r border-gray-100 px-1'):
+                                    with ui.element('div').classes('gt-xs flex flex-row w-12 h-full items-center justify-center border-r border-gray-100 px-1'):
                                         lbl_rsi = ui.label('-').classes('text-[10px] text-gray-400')
 
                                     # Bollinger
-                                    with ui.row().classes('w-16 h-full items-center justify-center border-r border-gray-100 px-1'):
+                                    with ui.element('div').classes('gt-xs flex flex-row w-16 h-full items-center justify-center border-r border-gray-100 px-1'):
                                         lbl_boll = ui.label('-').classes('text-[10px] text-gray-400')
 
                                     analysis_targets.append({
