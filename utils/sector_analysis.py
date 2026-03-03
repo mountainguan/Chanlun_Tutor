@@ -63,11 +63,12 @@ class SectorAnalyzer:
         self._flow_cache_ttl = 60 # 60 seconds
 
     def _get_realtime_flow_df(self):
-        """Fetch real-time fund flow data with caching."""
+        """Fetch real-time fund flow data with caching and fallback."""
         now = time.time()
         if self._flow_cache is not None and (now - self._flow_cache_time) < self._flow_cache_ttl:
             return self._flow_cache
             
+        # 1. Try EM Fund Flow (Preferred for Index Value)
         try:
             # Use FundRadar's robust rate-limited caller to handle anti-crawl
             # symbol="即时" is usually the default
@@ -82,8 +83,25 @@ class SectorAnalyzer:
                 self._flow_cache_time = now
                 return df
         except Exception as e:
-            print(f"[SectorAnalyzer] Real-time flow fetch wrapper failed: {e}")
+            print(f"[SectorAnalyzer] EM Real-time flow fetch failed: {e}")
             
+        # 2. Fallback to THS Industry Summary (For Change % only)
+        # Only use this if EM failed.
+        print("[SectorAnalyzer] Falling back to THS Industry Summary...")
+        try:
+            df_fallback = FundRadar._rate_limited_call(
+                ak.stock_board_industry_summary_ths,
+                _label="SectorAnalyzer_Fallback"
+            )
+            if df_fallback is not None and not df_fallback.empty:
+                # Mark as fallback data to handle differently
+                df_fallback['_is_fallback_ths'] = True
+                self._flow_cache = df_fallback
+                self._flow_cache_time = now
+                return df_fallback
+        except Exception as e:
+             print(f"[SectorAnalyzer] THS Fallback fetch failed: {e}")
+
         return None
 
     def _get_ths_name(self, em_name):
@@ -178,64 +196,91 @@ class SectorAnalyzer:
             flow_df = self._get_realtime_flow_df()
             if flow_df is not None:
                 ths_name = self._get_ths_name(sector_name)
-                # Note: flow_df uses EM names, but EM_TO_THS_MAP maps EM->THS.
-                # flow_df['行业'] contains EM names.
-                # We need to find the row where EM name maps to our 'ths_name'.
-                # OR, since we verified EM '电网设备' matches THS '电网设备', 
-                # and our map is EM->THS.
-                # Let's try to match by name directly first, then by map.
+                current_price = None
                 
-                target = pd.DataFrame()
+                # Check source type
+                is_fallback = flow_df.attrs.get('is_fallback_ths', False) or '_is_fallback_ths' in flow_df.columns
                 
-                # 1. Direct match (EM name == THS name)
-                if ths_name in flow_df['行业'].values:
-                    target = flow_df[flow_df['行业'] == ths_name]
+                if is_fallback:
+                    # THS Fallback Logic: Use Change % to estimate price
+                    # THS Summary columns: ['板块', '涨跌幅', ...]
+                    target = flow_df[flow_df['板块'] == ths_name]
+                    if not target.empty:
+                        try:
+                            pct_change = float(target.iloc[0]['涨跌幅'])
+                            # Get yesterday's close from history df
+                            # If today is already in df (stale), use yesterday (index -2) or just use current close if it's actually yesterday's data?
+                            # last_date_str is df.iloc[-1]['date']
+                            
+                            # If last_date_str IS today, then df[-1] is potentially STALE today data or initialized data.
+                            # We should use df[-2] if available, or just trust df[-1] is "yesterday" if date mismatch?
+                            
+                            # Actually, if we are in this block, we want to UPDATE df[-1] or APPEND new row.
+                            # So we need a base price.
+                            
+                            if last_date_str == today_str:
+                                # df[-1] is today (stale/partial). We need yesterday's close.
+                                if len(df) > 1:
+                                    last_close = df.iloc[-2]['close']
+                                else:
+                                    last_close = df.iloc[-1]['open'] # Fallback
+                            else:
+                                # df[-1] is yesterday.
+                                last_close = df.iloc[-1]['close']
+                                
+                            current_price = last_close * (1 + pct_change / 100)
+                        except Exception as e:
+                            print(f"[SectorAnalyzer] Fallback calculation failed for {sector_name}: {e}")
                 else:
-                    # 2. Reverse Map lookup (Find EM name that maps to ths_name)
-                    # This is expensive, but list is small
-                    found_em_name = None
-                    for em_k, ths_v in self.EM_TO_THS_MAP.items():
-                        if ths_v == ths_name:
-                            found_em_name = em_k
-                            break
-                    if found_em_name and found_em_name in flow_df['行业'].values:
-                        target = flow_df[flow_df['行业'] == found_em_name]
+                    # EM Standard Logic: Use Direct Index Value
+                    # flow_df['行业'] contains EM names.
+                    target = pd.DataFrame()
+                    
+                    # 1. Direct match (EM name == THS name)
+                    if ths_name in flow_df['行业'].values:
+                        target = flow_df[flow_df['行业'] == ths_name]
+                    else:
+                        # 2. Reverse Map lookup
+                        found_em_name = None
+                        for em_k, ths_v in self.EM_TO_THS_MAP.items():
+                            if ths_v == ths_name:
+                                found_em_name = em_k
+                                break
+                        if found_em_name and found_em_name in flow_df['行业'].values:
+                            target = flow_df[flow_df['行业'] == found_em_name]
+                            
+                    if not target.empty:
+                        try:
+                            current_price = float(target.iloc[0]['行业指数'])
+                        except:
+                            pass
 
-                if not target.empty:
+                if current_price is not None:
                     try:
-                        current_price = float(target.iloc[0]['行业指数'])
-                        
                         if last_date_str == today_str:
-                            # Update existing Today row (Fix Stale Data)
+                            # Update existing Today row
                             idx = df.index[-1]
                             df.at[idx, 'close'] = current_price
-                            # Update High/Low if valid, else init
+                            # Update High/Low
                             current_high = df.at[idx, 'high']
                             current_low = df.at[idx, 'low']
                             
-                            if pd.isna(current_high):
-                                df.at[idx, 'high'] = current_price
-                            else:
-                                df.at[idx, 'high'] = max(current_high, current_price)
+                            if pd.isna(current_high): df.at[idx, 'high'] = current_price
+                            else: df.at[idx, 'high'] = max(current_high, current_price)
                                 
-                            if pd.isna(current_low):
-                                df.at[idx, 'low'] = current_price
-                            else:
-                                df.at[idx, 'low'] = min(current_low, current_price)
+                            if pd.isna(current_low): df.at[idx, 'low'] = current_price
+                            else: df.at[idx, 'low'] = min(current_low, current_price)
                                 
-                            # If Open is NaN, set to Close (best guess for gap fix) or Keep NaN?
-                            # Better set to current to avoid plotting errors
                             if pd.isna(df.at[idx, 'open']):
                                 df.at[idx, 'open'] = current_price
-                                
                         else:
                             # Append new row
                             new_row = pd.DataFrame([{
                                 'date': datetime.datetime.now().strftime("%Y-%m-%d"),
                                 'close': current_price,
-                                'open': current_price, # Approx
-                                'high': current_price, # Approx
-                                'low': current_price,  # Approx
+                                'open': current_price,
+                                'high': current_price,
+                                'low': current_price,
                                 'volume': 0,
                                 'amount': 0
                             }])

@@ -171,3 +171,82 @@ def get_sector_grid_data(cache_dir, days=6):
         # grid_data[category].sort(key=lambda x: x['total_inflow'], reverse=True)
 
     return dates, grid_data
+
+def get_sector_flow_history(sector_name, cache_dir, days=365):
+    """
+    Get historical flow data for a specific sector.
+    Returns a list of dicts: [{date, inflow, turnover, ratio, status, color_class}, ...]
+    """
+    # Normalize input name
+    target_name = normalize_sector_name(sector_name)
+    
+    files = [f for f in os.listdir(cache_dir) if f.startswith("sector_sina_") and f.endswith(".json")]
+    files.sort()
+    
+    # Take last N files
+    target_files = files[-days:] if len(files) >= days else files
+    
+    history = []
+    
+    for filename in target_files:
+        date_str = filename.replace("sector_sina_", "").replace(".json", "")
+        filepath = os.path.join(cache_dir, filename)
+        
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                sectors = data.get("sina_sectors", [])
+                
+                found = False
+                for s in sectors:
+                    name = s.get("名称")
+                    norm_name = normalize_sector_name(name)
+                    
+                    if norm_name == target_name:
+                        inflow = s.get("净流入", 0)
+                        turnover = s.get("总成交额", 0)
+                        ratio = (inflow / turnover * 100) if turnover > 0 else 0
+                        
+                        # Logic based on Ratio (Flow Intensity) - duplicated from above for consistency
+                        status = "-"
+                        color_class = "bg-gray-50 text-gray-300"
+                        
+                        if ratio > 8:
+                            status = "超入"
+                            color_class = "bg-red-600 text-white"
+                        elif ratio > 3:
+                            status = "强入"
+                            color_class = "bg-red-400 text-white"
+                        elif ratio > 0:
+                            status = "弱入"
+                            color_class = "bg-red-100 text-red-800"
+                        elif ratio < -8:
+                            status = "超出"
+                            color_class = "bg-green-600 text-white"
+                        elif ratio < -3:
+                            status = "强出"
+                            color_class = "bg-green-400 text-white"
+                        else: # ratio < 0
+                            status = "弱出"
+                            color_class = "bg-green-100 text-green-800"
+                            
+                        history.append({
+                            "date": date_str,
+                            "inflow": inflow,
+                            "turnover": turnover,
+                            "ratio": ratio,
+                            "status": status,
+                            "color_class": color_class
+                        })
+                        found = True
+                        break
+                
+                if not found:
+                    # If sector not found in this file (e.g. name change or missing data), skip or add empty?
+                    # Skip for now to avoid noise
+                    pass
+                    
+        except Exception as e:
+            print(f"Error reading {filepath}: {e}")
+            
+    return history

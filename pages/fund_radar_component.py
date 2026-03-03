@@ -3,6 +3,7 @@ import plotly.graph_objects as go
 from utils.fund_radar import FundRadar
 from utils.sector_grid_logic import get_sector_grid_data
 from utils.sector_analysis import sector_analyzer
+from pages.fund_flow_calendar_component import render_fund_flow_calendar
 import pandas as pd
 import numpy as np
 import datetime
@@ -1030,13 +1031,14 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                      chart_option = {
                                          "animation": False,
                                          "tooltip": {
-                                             "trigger": "axis",
-                                             "axisPointer": {"type": "cross", "link": {"xAxisIndex": "all"}},
-                                             "backgroundColor": "rgba(255, 255, 255, 0.9)",
-                                             "borderColor": "#ccc",
-                                             "borderWidth": 1,
-                                             "textStyle": {"color": "#333"}
-                                         },
+                                            "trigger": "axis",
+                                            "axisPointer": {"type": "cross", "link": {"xAxisIndex": "all"}},
+                                            "backgroundColor": "rgba(255, 255, 255, 0.9)",
+                                            "borderColor": "#ccc",
+                                            "borderWidth": 1,
+                                            "textStyle": {"color": "#333"},
+                                            "valueFormatter": "(value) => value.toFixed(1)"
+                                        },
                                          "axisPointer": {"link": {"xAxisIndex": "all"}},
                                          "legend": {
                                              "data": ["日K", "MA5", "MA20", "缠论笔", "DIF", "DEA", "MACD"],
@@ -1298,35 +1300,32 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                      ui.label('缠论结构分析 (Chan Lun Structure)').classes('text-base font-black text-indigo-900 mb-4 pb-2 border-b border-indigo-100 w-full')
                                      
                                      with ui.row().classes('w-full gap-8'):
-                                         # Left: Current Status
                                          with ui.column().classes('flex-1 gap-2'):
                                              ui.label('当前笔状态').classes('text-xs font-bold text-indigo-400 uppercase')
                                              ui.label(res['chan_info']['text']).classes(f"text-2xl font-black {res['chan_info']['color']}")
                                              ui.label(res['summary']).classes('text-sm text-gray-600 font-medium leading-relaxed mt-2 bg-white/50 p-3 rounded-lg border border-indigo-50')
-                                         
-                                         # Right: Recent Bi List
+
                                          with ui.column().classes('flex-1 gap-2'):
                                              ui.label('近期笔走势 (Recent Strokes)').classes('text-xs font-bold text-indigo-400 uppercase')
                                              if res['bi_points']:
-                                                 # Show last 5 points reversed
                                                  recent_bi = list(reversed(res['bi_points']))[:5]
                                                  with ui.column().classes('w-full gap-1'):
                                                      for i, bi in enumerate(recent_bi):
                                                          bi_type = "顶分型 (Top)" if bi['type'] == 'top' else "底分型 (Bottom)"
                                                          bi_color = "text-green-600" if bi['type'] == 'top' else "text-red-600"
                                                          bi_icon = "arrow_downward" if bi['type'] == 'top' else "arrow_upward"
-                                                         
                                                          with ui.row().classes('w-full justify-between items-center bg-white/60 px-3 py-1.5 rounded border border-indigo-50/50'):
                                                              with ui.row().classes('items-center gap-2'):
                                                                  ui.label(f"{len(res['bi_points'])-i}").classes('text-[10px] font-bold text-gray-300 w-4')
                                                                  ui.icon(bi_icon, size='xs', color=bi_color.split('-')[1])
                                                                  ui.label(bi_type).classes(f"text-xs font-bold {bi_color}")
-                                                             
                                                              with ui.row().classes('items-center gap-4'):
                                                                  ui.label(f"{bi['price']:.2f}").classes('text-xs font-mono font-bold text-gray-700')
                                                                  ui.label(str(bi['date'])).classes('text-[10px] text-gray-400 font-mono')
                                              else:
                                                  ui.label('暂无笔结构数据').classes('text-sm text-gray-400 italic')
+
+                                 await render_fund_flow_calendar(name, radar.cache_dir)
 
                         # Start async load
                         run_in_bg(load_detail)

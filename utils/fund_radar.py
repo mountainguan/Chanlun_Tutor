@@ -109,7 +109,7 @@ class FundRadar:
                     'timed out', 'connection', 'reset by peer'
                 ])
                 if is_anticrawl_parse:
-                    print(f"[AntiCrawl] {_label} blocked by THS (NoneType parse error), attempt {attempt}/{_retry_max}")
+                    print(f"[AntiCrawl] {_label} blocked by Source (NoneType parse error), attempt {attempt}/{_retry_max}")
                 
                 with cls._api_lock:
                     cls._api_error_count += 1
