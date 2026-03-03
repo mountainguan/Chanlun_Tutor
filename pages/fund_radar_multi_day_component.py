@@ -5,160 +5,174 @@ import numpy as np
 
 
 def render_attribution_section(radar, radar_state, df_input, is_mobile=False):
-    with ui.card().classes('w-full p-0 rounded-xl shadow-sm border border-gray-200 bg-white overflow-hidden my-6'):
-        with ui.row().classes('w-full px-5 py-4 border-b border-gray-100 items-center justify-between bg-white'):
-            with ui.row().classes('items-center gap-3'):
-                ui.icon('analytics', color='indigo').classes('text-2xl')
-                with ui.column().classes('gap-0'):
-                    ui.label('主力/散户流向归因分析').classes('font-black text-gray-900 text-lg leading-tight')
-                    ui.label('Attribution Analysis').classes('font-bold text-gray-400 text-xs tracking-wider uppercase')
-
-            with ui.icon('help_outline', color='gray-400').classes('text-sm cursor-help hover:text-indigo-500 transition-colors'):
-                ui.tooltip('资金归因分析 (阈值: 强度±2%, 涨跌±3%):\n[强流入] 合力拉升(大涨)、纯主力(温和)、吸筹(横盘)、洗盘(下跌)\n[强流出] 砸盘(大跌)、出货(阴跌)、诱多(上涨)\n[弱平衡] 散户扎堆(无强主力参与的大涨)').classes('text-xs whitespace-pre-line bg-gray-900 text-white p-2 rounded shadow-lg')
-
+    with ui.card().classes('w-full p-0 rounded-xl shadow-sm border border-slate-300 bg-white overflow-hidden'):
         duration = radar_state.get('duration', 1)
         attribution = radar.analyze_flow_attribution(df_input, days=duration)
         all_quadrants = [
-            {
-                "key": "joint_push",
-                "title": "合力拉升",
-                "desc": "主力强流入 + 大涨",
-                "color": "rose",
-                "accent": "rose-600",
-                "bg_header": "rose-50",
-                "border_t": "border-t-4 border-rose-500",
-                "icon": "rocket_launch",
-            },
-            {
-                "key": "pure_main_force",
-                "title": "纯主力拉升",
-                "desc": "主力强流入 + 涨幅温和",
-                "color": "indigo",
-                "accent": "indigo-600",
-                "bg_header": "indigo-50",
-                "border_t": "border-t-4 border-indigo-500",
-                "icon": "trending_up",
-            },
-            {
-                "key": "accumulation",
-                "title": "主力吸筹",
-                "desc": "主力强流入 + 横盘震荡",
-                "color": "amber",
-                "accent": "amber-600",
-                "bg_header": "amber-50",
-                "border_t": "border-t-4 border-amber-500",
-                "icon": "move_to_inbox",
-            },
-            {
-                "key": "shakeout",
-                "title": "主力洗盘",
-                "desc": "主力强流入 + 下跌",
-                "color": "violet",
-                "accent": "violet-600",
-                "bg_header": "violet-50",
-                "border_t": "border-t-4 border-violet-500",
-                "icon": "waves",
-            },
-            {
-                "key": "panic_selling",
-                "title": "合力砸盘",
-                "desc": "主力强流出 + 大跌",
-                "color": "emerald",
-                "accent": "emerald-600",
-                "bg_header": "emerald-50",
-                "border_t": "border-t-4 border-emerald-500",
-                "icon": "landslide",
-            },
-            {
-                "key": "inst_exit",
-                "title": "主力出货",
-                "desc": "主力强流出 + 下跌",
-                "color": "teal",
-                "accent": "teal-600",
-                "bg_header": "teal-50",
-                "border_t": "border-t-4 border-teal-500",
-                "icon": "logout",
-            },
-            {
-                "key": "bull_trap",
-                "title": "主力诱多",
-                "desc": "主力强流出 + 上涨",
-                "color": "orange",
-                "accent": "orange-600",
-                "bg_header": "orange-50",
-                "border_t": "border-t-4 border-orange-500",
-                "icon": "warning",
-            },
-            {
-                "key": "retail_crowd",
-                "title": "散户扎堆",
-                "desc": "无强主力 + 大涨",
-                "color": "lime",
-                "accent": "lime-600",
-                "bg_header": "lime-50",
-                "border_t": "border-t-4 border-lime-500",
-                "icon": "groups",
-            },
+            {"key": "joint_push", "title": "合力拉升", "desc": "主力强流入 + 大涨", "theme": "rose", "icon": "rocket_launch"},
+            {"key": "pure_main_force", "title": "纯主力拉升", "desc": "主力强流入 + 涨幅温和", "theme": "indigo", "icon": "trending_up"},
+            {"key": "accumulation", "title": "主力吸筹", "desc": "主力强流入 + 横盘震荡", "theme": "amber", "icon": "workspace_premium"},
+            {"key": "shakeout", "title": "主力洗盘", "desc": "主力强流入 + 下跌", "theme": "violet", "icon": "waves"},
+            {"key": "panic_selling", "title": "合力砸盘", "desc": "主力强流出 + 大跌", "theme": "emerald", "icon": "landslide"},
+            {"key": "inst_exit", "title": "主力出货", "desc": "主力强流出 + 下跌", "theme": "teal", "icon": "logout"},
+            {"key": "bull_trap", "title": "主力诱多", "desc": "主力强流出 + 上涨", "theme": "orange", "icon": "warning"},
+            {"key": "retail_crowd", "title": "散户扎堆", "desc": "无强主力 + 大涨", "theme": "lime", "icon": "groups"},
         ]
         active_quadrants = [q for q in all_quadrants if len(attribution.get(q['key'], [])) > 0]
-        display_quadrants = active_quadrants[:4]
+        total_sector_count = sum(len(attribution.get(q['key'], [])) for q in all_quadrants)
+        switch_state = {'mode': 'active', 'page': 0}
 
-        if not display_quadrants:
-            with ui.column().classes('w-full py-12 items-center justify-center text-gray-400 gap-3'):
-                ui.icon('saved_search', size='3rem', color='gray-200')
-                ui.label('当前无显著资金流向特征板块').classes('text-sm font-medium')
-        else:
-            n_cols = len(display_quadrants)
-            col_map = {1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4'}
-            cols_class = col_map.get(n_cols, 'grid-cols-4')
-            with ui.grid().classes(f'w-full gap-0 divide-x divide-gray-100 bg-gray-50 {cols_class if not is_mobile else "grid-cols-1"}'):
-                for q in display_quadrants:
-                    items = attribution.get(q['key'], [])
-                    display_items = items[:8] if items else []
-                    color = q['color']
-                    bg_header = q['bg_header']
-                    border_t = q['border_t']
-                    with ui.column().classes(f'w-full p-0 h-full bg-white relative min-h-[360px] {border_t}'):
-                        with ui.row().classes(f'w-full px-4 py-3 bg-{bg_header} border-b border-{color}-100 items-start justify-between h-16'):
-                            with ui.row().classes('items-start gap-3'):
-                                ui.icon(q['icon'], color=color).classes('text-xl mt-0.5')
-                                with ui.column().classes('gap-0'):
-                                    ui.label(q['title']).classes(f'text-sm font-black text-{color}-900')
-                                    ui.label(q['desc']).classes(f'text-[10px] font-medium text-{color}-700 opacity-80 mt-0.5')
-                            if items:
-                                ui.label(f'{len(items)}').classes(f'text-xs font-black bg-white text-{color}-600 px-2 py-0.5 border border-{color}-200 rounded-md shadow-sm')
+        with ui.column().classes('w-full bg-white border-b border-slate-200'):
+            with ui.row().classes('w-full px-4 py-2.5 items-center justify-between'):
+                with ui.row().classes('items-center gap-2'):
+                    with ui.element('div').classes('w-8 h-8 rounded-md bg-indigo-50 border border-indigo-100 flex items-center justify-center'):
+                        ui.icon('query_stats', color='indigo').classes('text-base')
+                    with ui.column().classes('gap-0'):
+                        ui.label('主力/散户流向归因分析').classes('font-black text-slate-800 text-sm md:text-base leading-tight')
+                        ui.label('ATTRIBUTION MATRIX').classes('font-bold text-slate-400 text-[10px] tracking-[0.14em] leading-tight')
+                with ui.row().classes('items-center gap-2'):
+                    ui.label(f'{duration}D').classes('text-[10px] font-black text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-full px-2 py-0.5')
+                    ui.label(f'活跃 {len(active_quadrants)}').classes('text-[10px] font-black text-cyan-700 bg-cyan-50 border border-cyan-200 rounded-full px-2 py-0.5')
+                    with ui.icon('help_outline', color='gray-500').classes('text-sm cursor-help hover:text-indigo-500 transition-colors'):
+                        ui.tooltip('资金归因分析 (阈值: 强度±2%, 涨跌±3%):\n[强流入] 合力拉升(大涨)、纯主力(温和)、吸筹(横盘)、洗盘(下跌)\n[强流出] 砸盘(大跌)、出货(阴跌)、诱多(上涨)\n[弱平衡] 散户扎堆(无强主力参与的大涨)').classes('text-xs whitespace-pre-line bg-gray-900 text-white p-2 rounded shadow-lg')
 
-                        with ui.row().classes('w-full px-3 py-2 bg-white border-b border-gray-100 text-[10px] text-gray-400 font-bold items-center h-8 uppercase tracking-wider'):
-                            ui.label('板块').classes('flex-1 text-left pl-1')
-                            with ui.row().classes('items-center gap-2 justify-end'):
-                                ui.label('涨跌(%)').classes('w-12 text-right')
-                                ui.label('净入(亿)').classes('w-14 text-right')
-                                ui.label('强度(%)').classes('w-10 text-center')
+            with ui.row().classes('w-full px-4 py-1.5 border-t border-slate-100 items-center justify-between bg-slate-50/70'):
+                with ui.row().classes('items-center gap-1.5'):
+                    btn_active = ui.button('活跃象限', on_click=lambda: set_mode('active')).props('dense flat size=sm').classes('text-[11px] font-bold rounded px-2 py-0.5')
+                    btn_all = ui.button('全部象限', on_click=lambda: set_mode('all')).props('dense flat size=sm').classes('text-[11px] font-bold rounded px-2 py-0.5')
+                    ui.label(f'覆盖 {total_sector_count}').classes('text-[10px] text-slate-500 font-bold ml-1')
+                with ui.row().classes('items-center gap-1'):
+                    btn_prev = ui.button(icon='chevron_left', on_click=lambda: prev_page()).props('flat dense round size=sm color=grey-7')
+                    page_label = ui.label('1 / 1').classes('text-[11px] text-slate-500 font-black min-w-[48px] text-center')
+                    btn_next = ui.button(icon='chevron_right', on_click=lambda: next_page()).props('flat dense round size=sm color=grey-7')
 
-                        with ui.column().classes('w-full p-0 gap-0 flex-1'):
-                            if not display_items:
-                                with ui.column().classes('w-full h-full items-center justify-center opacity-40 gap-3 py-12'):
-                                    ui.icon('inbox', size='3rem', color='gray-200')
-                                    ui.label('暂无板块').classes('text-xs font-medium text-gray-400')
-                            else:
-                                for i, item in enumerate(display_items):
-                                    bg_row = 'bg-white' if i % 2 == 0 else 'bg-gray-50/30'
-                                    with ui.row().classes(f'w-full items-center justify-between px-3 py-2 border-b border-gray-50 last:border-0 cursor-default group hover:bg-gray-50 transition-colors {bg_row} h-10'):
-                                        ui.label(item['name']).classes('text-xs font-bold text-gray-700 flex-1 truncate pl-1 pr-2')
-                                        with ui.row().classes('items-center gap-2 justify-end'):
-                                            c_val = item['change']
-                                            c_color = 'rose-600' if c_val > 0 else 'emerald-600'
-                                            ui.label(f'{c_val:+.1f}%').classes(f'text-xs font-mono font-bold text-{c_color} w-12 text-right')
-                                            n_val = item['net_flow']
-                                            n_color = 'rose-600' if n_val > 0 else 'emerald-600'
-                                            flow_str = f'{n_val:.0f}' if abs(n_val) >= 10 else f'{n_val:.1f}'
-                                            ui.label(flow_str).classes(f'text-xs font-mono font-medium text-{n_color} w-14 text-right opacity-90')
-                                            s_val = item['strength']
-                                            s_bg = 'bg-rose-50 text-rose-700' if s_val > 0 else 'bg-emerald-50 text-emerald-700'
-                                            ui.label(f'{s_val:.0f}').classes(f'text-[10px] font-mono font-bold {s_bg} w-10 text-center rounded py-0.5')
-                                if len(items) > 8:
-                                    with ui.row().classes('w-full justify-center py-2 bg-gray-50 border-t border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors'):
-                                        ui.label(f'查看更多 ({len(items)-8})...').classes('text-[10px] font-bold text-gray-400 hover:text-indigo-500')
+        quick_tabs = ui.row().classes('w-full px-3 py-1 gap-1.5 border-b border-slate-100 bg-white flex-wrap')
+        grid_container = ui.column().classes('w-full')
+
+        def get_source_quadrants():
+            return active_quadrants if switch_state['mode'] == 'active' else all_quadrants
+
+        def goto_quadrant(q_key):
+            switch_state['mode'] = 'all'
+            source = all_quadrants
+            page_size = 1 if is_mobile else 4
+            idx = next((i for i, q in enumerate(source) if q['key'] == q_key), 0)
+            switch_state['page'] = idx // page_size
+            render_grid()
+
+        def set_mode(mode):
+            switch_state['mode'] = mode
+            switch_state['page'] = 0
+            render_grid()
+
+        def prev_page():
+            if switch_state['page'] > 0:
+                switch_state['page'] -= 1
+                render_grid()
+
+        def next_page():
+            source = get_source_quadrants()
+            page_size = 1 if is_mobile else 4
+            total_pages = max(1, int(np.ceil(len(source) / page_size)))
+            if switch_state['page'] < total_pages - 1:
+                switch_state['page'] += 1
+                render_grid()
+
+        def render_quick_tabs():
+            quick_tabs.clear()
+            with quick_tabs:
+                for q in all_quadrants:
+                    count = len(attribution.get(q['key'], []))
+                    color = q['theme']
+                    btn_cls = f'text-[10px] font-bold rounded border px-2 py-0.5 text-{color}-700 border-{color}-200 bg-{color}-50/60'
+                    if count == 0:
+                        btn_cls = 'text-[10px] font-bold rounded border px-2 py-0.5 text-slate-400 border-slate-200 bg-slate-50'
+                    ui.button(f'{q["title"]} {count}', on_click=lambda k=q['key']: goto_quadrant(k)).props('dense flat size=sm').classes(btn_cls)
+
+        def render_grid():
+            source = get_source_quadrants()
+            page_size = 1 if is_mobile else 4
+            total_pages = max(1, int(np.ceil(len(source) / page_size)))
+            switch_state['page'] = max(0, min(switch_state['page'], total_pages - 1))
+            page_start = switch_state['page'] * page_size
+            display_quadrants = source[page_start:page_start + page_size]
+
+            page_label.set_text(f'{switch_state["page"] + 1} / {total_pages}')
+            btn_prev.set_visibility(total_pages > 1)
+            btn_next.set_visibility(total_pages > 1)
+            btn_active.classes(replace='text-[11px] font-bold rounded px-2 py-0.5 text-white bg-indigo-600' if switch_state['mode'] == 'active' else 'text-[11px] font-bold rounded px-2 py-0.5 text-slate-600 bg-white border border-slate-200')
+            btn_all.classes(replace='text-[11px] font-bold rounded px-2 py-0.5 text-white bg-indigo-600' if switch_state['mode'] == 'all' else 'text-[11px] font-bold rounded px-2 py-0.5 text-slate-600 bg-white border border-slate-200')
+
+            grid_container.clear()
+            with grid_container:
+                if not display_quadrants:
+                    with ui.column().classes('w-full py-10 items-center justify-center text-slate-500 gap-3 bg-slate-50'):
+                        ui.icon('saved_search', size='3rem', color='gray-300')
+                        ui.label('当前无显著资金流向特征板块').classes('text-sm font-medium')
+                    return
+
+                n_cols = len(display_quadrants)
+                col_map = {1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4'}
+                cols_class = col_map.get(n_cols, 'grid-cols-4')
+                with ui.grid().classes(f'w-full gap-2 p-2 bg-white border-y border-slate-200 {cols_class if not is_mobile else "grid-cols-1"}'):
+                    for q in display_quadrants:
+                        items = attribution.get(q['key'], [])
+                        display_items = items[:8] if items else []
+                        theme = q['theme']
+                        avg_strength = np.mean([i['strength'] for i in items]) if items else 0
+                        flow_sum = sum(i['net_flow'] for i in items) if items else 0
+
+                        with ui.column().classes('w-full p-0 h-full bg-white min-h-[220px] rounded-lg border border-slate-300 overflow-hidden relative'):
+                            ui.element('div').classes(f'absolute left-0 top-0 bottom-0 w-[2px] bg-{theme}-200')
+                            with ui.row().classes(f'w-full px-3 py-2 bg-{theme}-50/70 border-b border-{theme}-100 items-center justify-between'):
+                                with ui.row().classes('items-center gap-2'):
+                                    with ui.element('div').classes(f'w-7 h-7 rounded-md bg-white border border-{theme}-200 flex items-center justify-center'):
+                                        ui.icon(q['icon'], color=theme).classes('text-base')
+                                    with ui.column().classes('gap-0'):
+                                        ui.label(q['title']).classes(f'text-base font-black text-{theme}-700 leading-tight')
+                                        ui.label(q['desc']).classes(f'text-[10px] font-bold text-{theme}-500 leading-tight')
+                                ui.label(f'{len(items)}').classes(f'text-[11px] font-black px-2 py-0.5 rounded border border-{theme}-200 text-{theme}-700 bg-white')
+
+                            with ui.row().classes('w-full px-3 py-1 bg-white border-b border-slate-100 items-center justify-between text-[10px]'):
+                                flow_cls = 'text-rose-600' if flow_sum > 0 else 'text-emerald-600'
+                                density_cls = f'text-{theme}-600' if avg_strength >= 0 else 'text-slate-500'
+                                ui.label(f'净流合计 {flow_sum:+.1f} 亿').classes(f'font-bold {flow_cls}')
+                                ui.label(f'密度 {avg_strength:+.1f}').classes(f'font-bold {density_cls}')
+
+                            with ui.row().classes('w-full px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-[10px] text-slate-500 font-bold items-center uppercase'):
+                                ui.label('板块').classes('flex-1 text-left')
+                                with ui.row().classes('items-center gap-2 justify-end'):
+                                    ui.label('涨跌(%)').classes('w-12 text-right')
+                                    ui.label('净入(亿)').classes('w-14 text-right')
+                                    ui.label('强度').classes('w-10 text-center')
+
+                            with ui.column().classes('w-full p-0 gap-0'):
+                                if not display_items:
+                                    with ui.column().classes('w-full items-center justify-center gap-3 py-8'):
+                                        ui.icon('inbox', size='2.4rem', color='gray-300')
+                                        ui.label('暂无板块').classes('text-xs font-medium text-slate-400')
+                                else:
+                                    for i, item in enumerate(display_items):
+                                        bg_row = 'bg-white' if i % 2 == 0 else 'bg-slate-100/70'
+                                        with ui.row().classes(f'w-full items-center justify-between px-3 py-1.5 border-b border-slate-100 last:border-0 hover:bg-indigo-50/30 transition-colors {bg_row}'):
+                                            ui.label(item['name']).classes('text-xs font-bold text-slate-800 flex-1 truncate pr-2')
+                                            with ui.row().classes('items-center gap-2 justify-end'):
+                                                c_val = item['change']
+                                                c_color = 'text-rose-600' if c_val > 0 else 'text-emerald-600'
+                                                ui.label(f'{c_val:+.1f}%').classes(f'text-xs font-mono font-black {c_color} w-12 text-right')
+                                                n_val = item['net_flow']
+                                                n_color = 'text-rose-600' if n_val > 0 else 'text-emerald-600'
+                                                flow_str = f'{n_val:.0f}' if abs(n_val) >= 10 else f'{n_val:.1f}'
+                                                ui.label(flow_str).classes(f'text-xs font-mono font-semibold {n_color} w-14 text-right')
+                                                s_val = item['strength']
+                                                s_bg = f'bg-{theme}-50 text-{theme}-700 border border-{theme}-200' if s_val > 0 else 'bg-slate-50 text-slate-700 border border-slate-200'
+                                                ui.label(f'{s_val:.0f}').classes(f'text-[10px] font-mono font-black {s_bg} w-10 text-center rounded')
+                                    if len(items) > 8:
+                                        with ui.row().classes('w-full justify-center py-1.5 bg-slate-50 border-t border-slate-100 cursor-pointer hover:bg-indigo-50 transition-colors'):
+                                            ui.label(f'查看更多 ({len(items)-8})...').classes('text-[10px] font-bold text-slate-500 hover:text-indigo-600')
+
+        render_quick_tabs()
+        render_grid()
 
 
 def render_multi_day_view(radar, radar_state, df, dates, plot_func, is_mobile=False, date_value=''):
