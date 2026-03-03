@@ -27,6 +27,19 @@ def _fetch_stock_info(code):
         print(f"Fetch info failed for {code}: {e}")
         return None
 
+@lru_cache(maxsize=1)
+def _fetch_code_name_map():
+    try:
+        df = ak.stock_info_a_code_name()
+        if df is None or df.empty:
+            return {}
+        codes = df['code'].astype(str).str.zfill(6)
+        names = df['name'].astype(str)
+        return dict(zip(codes, names))
+    except Exception as e:
+        print(f"Fetch code-name map failed: {e}")
+        return {}
+
 @lru_cache(maxsize=100)
 def _fetch_gdhs(code):
     try:
@@ -94,35 +107,38 @@ class MoneyFlow:
         return info
 
     def get_stock_name(self, code):
-        # 1. Try Akshare Info
-        info = self.get_stock_info(code)
-        name = info.get('股票简称')
-        if name:
-            return name
-            
-        # 2. Fallback to Sina (Very light and robust)
+        code = str(code).strip().zfill(6)
+
         try:
             prefix = 'sh' if code.startswith('6') or code.startswith('9') else 'sz'
             if code.startswith('8') or code.startswith('4'): 
                 prefix = 'bj'
-            
-            # Special handling for Beijing/Nord
-            # Sina might use different prefixes for newer exchanges, but standard A share is sh/sz.
-            # Beijing might differ. But let's try standard first.
-            
+
             url = f"http://hq.sinajs.cn/list={prefix}{code}"
             headers = {'Referer': 'http://finance.sina.com.cn'}
-            r = requests.get(url, headers=headers, timeout=2)
+            r = requests.get(url, headers=headers, timeout=1.2)
             if r.status_code == 200:
-                # var hq_str_sh600519="贵州茅台,..."
-                val = r.text.split('=')[1].strip().strip('";')
+                parts = r.text.split('=', 1)
+                if len(parts) < 2:
+                    return None
+                val = parts[1].strip().strip('";')
                 if val:
-                    parts = val.split(',')
-                    if len(parts) > 1:
-                        return parts[0]
+                    quote_parts = val.split(',')
+                    if len(quote_parts) > 1 and quote_parts[0]:
+                        return quote_parts[0]
         except Exception as e:
             print(f"Sina name fetch failed: {e}")
-            
+
+        name_map = _fetch_code_name_map()
+        name = name_map.get(code)
+        if name:
+            return name
+
+        info = self.get_stock_info(code)
+        name = info.get('股票简称')
+        if name:
+            return name
+
         return None
 
     def guess_market(self, code):
@@ -142,6 +158,7 @@ class MoneyFlow:
         if force_update:
             _fetch_akshare_data.cache_clear() 
             _fetch_stock_info.cache_clear()
+            _fetch_code_name_map.cache_clear()
             _fetch_gdhs.cache_clear()
             _fetch_daily_hist.cache_clear()
         
