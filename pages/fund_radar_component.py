@@ -927,13 +927,15 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                      # ECharts Candlestick: [open, close, low, high]
                                      k_data = []
                                      for i in range(len(cd['dates'])):
-                                         k_data.append([
-                                             cd['open'][i],
-                                             cd['close'][i],
-                                             cd['low'][i],
-                                             cd['high'][i]
-                                         ])
-                                     
+                                         o = None if pd.isna(cd['open'][i]) else round(float(cd['open'][i]), 1)
+                                         c = None if pd.isna(cd['close'][i]) else round(float(cd['close'][i]), 1)
+                                         l = None if pd.isna(cd['low'][i]) else round(float(cd['low'][i]), 1)
+                                         h = None if pd.isna(cd['high'][i]) else round(float(cd['high'][i]), 1)
+                                         k_data.append([o, c, l, h])
+
+                                     ma5_data = [None if pd.isna(v) else round(float(v), 1) for v in cd.get('ma5', [])]
+                                     ma20_data = [None if pd.isna(v) else round(float(v), 1) for v in cd.get('ma20', [])]
+
                                      # Prepare Bi Data & Mark Points
                                      bi_line_data = []
                                      mark_point_data = []
@@ -974,25 +976,27 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                      
                                      # Prepare MACD Data
                                      macd = res.get('macd', {})
-                                     dif = macd.get('dif', [])
-                                     dea = macd.get('dea', [])
-                                     hist = macd.get('hist', [])
+                                     raw_dif = macd.get('dif', [])
+                                     raw_dea = macd.get('dea', [])
+                                     dif = [None if pd.isna(v) else round(float(v), 1) for v in raw_dif]
+                                     dea = [None if pd.isna(v) else round(float(v), 1) for v in raw_dea]
+                                     hist = [None if pd.isna(v) else round(float(v), 1) for v in macd.get('hist', [])]
                                      
                                      macd_mark_points = []
-                                     if dif and dea:
-                                         for i in range(1, len(dif)):
+                                     if raw_dif and raw_dea:
+                                         for i in range(1, len(raw_dif)):
                                              # Golden Cross
-                                             if dif[i] > dea[i] and dif[i-1] <= dea[i-1]:
+                                             if raw_dif[i] > raw_dea[i] and raw_dif[i-1] <= raw_dea[i-1]:
                                                  macd_mark_points.append({
-                                                     "coord": [str(cd['dates'][i]), dif[i]],
+                                                     "coord": [str(cd['dates'][i]), None if pd.isna(raw_dif[i]) else round(float(raw_dif[i]), 1)],
                                                      "value": "金叉",
                                                      "itemStyle": {"color": "#ef4444"},
                                                      "label": {"position": "bottom", "color": "#ef4444", "fontSize": 10, "fontWeight": "bold"}
                                                  })
                                              # Death Cross
-                                             elif dif[i] < dea[i] and dif[i-1] >= dea[i-1]:
+                                             elif raw_dif[i] < raw_dea[i] and raw_dif[i-1] >= raw_dea[i-1]:
                                                  macd_mark_points.append({
-                                                     "coord": [str(cd['dates'][i]), dif[i]],
+                                                     "coord": [str(cd['dates'][i]), None if pd.isna(raw_dif[i]) else round(float(raw_dif[i]), 1)],
                                                      "value": "死叉",
                                                      "itemStyle": {"color": "#22c55e"},
                                                      "label": {"position": "top", "color": "#22c55e", "fontSize": 10, "fontWeight": "bold"}
@@ -1036,8 +1040,7 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                             "backgroundColor": "rgba(255, 255, 255, 0.9)",
                                             "borderColor": "#ccc",
                                             "borderWidth": 1,
-                                            "textStyle": {"color": "#333"},
-                                            "valueFormatter": "(value) => value.toFixed(1)"
+                                            "textStyle": {"color": "#333"}
                                         },
                                          "axisPointer": {"link": {"xAxisIndex": "all"}},
                                          "legend": {
@@ -1135,22 +1138,22 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                                                      }
                                                  }
                                              },
-                                             {
-                                                 "name": "MA5",
-                                                 "type": "line",
-                                                 "data": cd['ma5'],
-                                                 "smooth": True,
-                                                 "showSymbol": False,
-                                                 "lineStyle": {"width": 1, "opacity": 0.6, "color": "#f59e0b"}
-                                             },
-                                             {
-                                                 "name": "MA20",
-                                                 "type": "line",
-                                                 "data": cd['ma20'],
-                                                 "smooth": True,
-                                                 "showSymbol": False,
-                                                 "lineStyle": {"width": 1, "opacity": 0.6, "color": "#8b5cf6"}
-                                             },
+                                            {
+                                                "name": "MA5",
+                                                "type": "line",
+                                                "data": ma5_data,
+                                                "smooth": True,
+                                                "showSymbol": False,
+                                                "lineStyle": {"width": 1, "opacity": 0.6, "color": "#f59e0b"}
+                                            },
+                                            {
+                                                "name": "MA20",
+                                                "type": "line",
+                                                "data": ma20_data,
+                                                "smooth": True,
+                                                "showSymbol": False,
+                                                "lineStyle": {"width": 1, "opacity": 0.6, "color": "#8b5cf6"}
+                                            },
                                              {
                                                  "name": "缠论笔",
                                                  "type": "line",
