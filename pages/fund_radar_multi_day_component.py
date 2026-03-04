@@ -18,8 +18,18 @@ def render_attribution_section(radar, radar_state, df_input, is_mobile=False):
             {"key": "bull_trap", "title": "主力诱多", "desc": "主力强流出 + 上涨", "theme": "orange", "icon": "warning"},
             {"key": "retail_crowd", "title": "散户扎堆", "desc": "无强主力 + 大涨", "theme": "lime", "icon": "groups"},
         ]
-        active_quadrants = [q for q in all_quadrants if len(attribution.get(q['key'], [])) > 0]
+        quadrant_metrics = {}
+        for q in all_quadrants:
+            items = attribution.get(q['key'], [])
+            count = len(items)
+            flow_sum = sum(i['net_flow'] for i in items) if items else 0
+            avg_strength = np.mean([abs(i['strength']) for i in items]) if items else 0
+            score = count * 100 + abs(flow_sum) + avg_strength * 10
+            quadrant_metrics[q['key']] = {'count': count, 'score': score}
+        active_quadrants = [q for q in all_quadrants if quadrant_metrics[q['key']]['count'] > 0]
+        active_quadrants.sort(key=lambda q: quadrant_metrics[q['key']]['score'], reverse=True)
         total_sector_count = sum(len(attribution.get(q['key'], [])) for q in all_quadrants)
+        dominant_quadrant = active_quadrants[0] if active_quadrants else None
         switch_state = {'mode': 'active', 'page': 0}
 
         with ui.column().classes('w-full bg-white border-b border-slate-200'):
@@ -41,6 +51,9 @@ def render_attribution_section(radar, radar_state, df_input, is_mobile=False):
                     btn_active = ui.button('活跃象限', on_click=lambda: set_mode('active')).props('dense flat size=sm').classes('text-[11px] font-bold rounded px-2 py-0.5')
                     btn_all = ui.button('全部象限', on_click=lambda: set_mode('all')).props('dense flat size=sm').classes('text-[11px] font-bold rounded px-2 py-0.5')
                     ui.label(f'覆盖 {total_sector_count}').classes('text-[10px] text-slate-500 font-bold ml-1')
+                    if dominant_quadrant is not None:
+                        ui.label(f'主导 {dominant_quadrant["title"]}').classes('text-[10px] text-indigo-500 font-bold')
+                    mode_hint_label = ui.label('').classes('text-[10px] text-slate-400 font-bold')
                 with ui.row().classes('items-center gap-1'):
                     btn_prev = ui.button(icon='chevron_left', on_click=lambda: prev_page()).props('flat dense round size=sm color=grey-7')
                     page_label = ui.label('1 / 1').classes('text-[11px] text-slate-500 font-black min-w-[48px] text-center')
@@ -53,10 +66,13 @@ def render_attribution_section(radar, radar_state, df_input, is_mobile=False):
             return active_quadrants if switch_state['mode'] == 'active' else all_quadrants
 
         def goto_quadrant(q_key):
-            switch_state['mode'] = 'all'
-            source = all_quadrants
+            source = get_source_quadrants()
             page_size = 1 if is_mobile else 4
-            idx = next((i for i, q in enumerate(source) if q['key'] == q_key), 0)
+            idx = next((i for i, q in enumerate(source) if q['key'] == q_key), None)
+            if idx is None:
+                switch_state['mode'] = 'all'
+                source = all_quadrants
+                idx = next((i for i, q in enumerate(source) if q['key'] == q_key), 0)
             switch_state['page'] = idx // page_size
             render_grid()
 
@@ -80,8 +96,9 @@ def render_attribution_section(radar, radar_state, df_input, is_mobile=False):
 
         def render_quick_tabs():
             quick_tabs.clear()
+            tab_source = active_quadrants if switch_state['mode'] == 'active' else all_quadrants
             with quick_tabs:
-                for q in all_quadrants:
+                for q in tab_source:
                     count = len(attribution.get(q['key'], []))
                     color = q['theme']
                     btn_cls = f'text-[10px] font-bold rounded border px-2 py-0.5 text-{color}-700 border-{color}-200 bg-{color}-50/60'
@@ -89,6 +106,96 @@ def render_attribution_section(radar, radar_state, df_input, is_mobile=False):
                         btn_cls = 'text-[10px] font-bold rounded border px-2 py-0.5 text-slate-400 border-slate-200 bg-slate-50'
                     ui.button(f'{q["title"]} {count}', on_click=lambda k=q['key']: goto_quadrant(k)).props('dense flat size=sm').classes(btn_cls)
 
+        def get_main_quadrant(quadrants):
+            priority = ['panic_selling', 'inst_exit', 'bull_trap', 'shakeout']
+            for key in priority:
+                matched = next((q for q in quadrants if q['key'] == key), None)
+                if matched is not None:
+                    return matched
+            return quadrants[0] if quadrants else None
+
+        def sort_quadrant_items(q_key, items):
+            positive_keys = {'joint_push', 'pure_main_force', 'accumulation'}
+            reverse = q_key in positive_keys
+            return sorted(items, key=lambda x: x.get('net_flow', 0), reverse=reverse)
+
+        def render_quadrant_card(q, is_primary=False, highlight_focus=False):
+            items = sort_quadrant_items(q['key'], attribution.get(q['key'], []))
+            item_count = len(items)
+            is_empty_all_mode = switch_state['mode'] == 'all' and item_count == 0
+            is_desktop = not is_mobile
+            if is_desktop:
+                card_height_cls = 'h-[360px]'
+            else:
+                card_height_cls = 'min-h-[230px]' if is_primary else 'min-h-[176px]'
+            display_items = items
+            theme = q['theme']
+            avg_strength = np.mean([i['strength'] for i in items]) if items else 0
+            flow_sum = sum(i['net_flow'] for i in items) if items else 0
+            card_cls = f'w-full p-0 bg-white {card_height_cls} rounded-lg border border-slate-300 overflow-hidden relative flex flex-col'
+            title_cls = f'text-lg font-black text-{theme}-700 leading-tight'
+            desc_cls = f'text-[11px] font-bold text-{theme}-500 leading-tight'
+            stat_cls = 'text-xs font-black px-2 py-0.5 rounded border bg-white'
+            row_pad = 'py-2' if is_primary else 'py-1.5'
+            if not is_primary:
+                title_cls = f'text-sm font-black text-{theme}-700 leading-tight'
+                desc_cls = f'text-[10px] font-bold text-{theme}-500 leading-tight'
+                stat_cls = 'text-[11px] font-black px-2 py-0.5 rounded border bg-white'
+            if is_empty_all_mode:
+                card_cls = f'{card_cls} opacity-70'
+            if highlight_focus:
+                card_cls = card_cls.replace('border-slate-300', 'border-indigo-300 ring-1 ring-indigo-100')
+
+            with ui.column().classes(card_cls):
+                ui.element('div').classes(f'absolute left-0 top-0 bottom-0 w-[2px] bg-{theme}-200')
+                with ui.row().classes(f'w-full px-3 py-2 bg-{theme}-50/70 border-b border-{theme}-100 items-center justify-between'):
+                    with ui.row().classes('items-center gap-2'):
+                        with ui.element('div').classes(f'w-7 h-7 rounded-md bg-white border border-{theme}-200 flex items-center justify-center'):
+                            ui.icon(q['icon'], color=theme).classes('text-base')
+                        with ui.column().classes('gap-0'):
+                            ui.label(q['title']).classes(title_cls)
+                            ui.label(q['desc']).classes(desc_cls)
+                    with ui.row().classes('items-center gap-1.5'):
+                        if highlight_focus:
+                            focus_share = (item_count / total_sector_count * 100) if total_sector_count > 0 else 0
+                            ui.label('焦点').classes('text-[10px] font-black px-1.5 py-0.5 rounded border border-indigo-200 text-indigo-700 bg-indigo-50')
+                            ui.label(f'{focus_share:.0f}%').classes('text-[10px] font-black px-1.5 py-0.5 rounded border border-indigo-200 text-indigo-700 bg-white')
+                        ui.label(f'{len(items)}').classes(f'{stat_cls} border-{theme}-200 text-{theme}-700')
+
+                with ui.row().classes('w-full px-3 py-1 bg-white border-b border-slate-100 items-center justify-between text-[10px]'):
+                    flow_cls = 'text-rose-600' if flow_sum > 0 else 'text-emerald-600'
+                    density_cls = f'text-{theme}-600' if avg_strength >= 0 else 'text-slate-500'
+                    ui.label(f'净流合计 {flow_sum:+.1f} 亿').classes(f'font-bold {flow_cls}')
+                    ui.label(f'密度 {avg_strength:+.1f}').classes(f'font-bold {density_cls}')
+
+                with ui.row().classes('w-full px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-[10px] text-slate-500 font-bold items-center uppercase'):
+                    ui.label('板块').classes('flex-1 text-left')
+                    with ui.row().classes('items-center gap-2 justify-end'):
+                        ui.label('涨跌(%)').classes('w-12 text-right')
+                        ui.label('净入(亿)').classes('w-14 text-right')
+                        ui.label('强度').classes('w-10 text-center')
+
+                with ui.column().classes('w-full p-0 gap-0 overflow-y-auto flex-1 min-h-0'):
+                    if not display_items:
+                        with ui.column().classes('w-full items-center justify-center gap-3 py-8'):
+                            ui.icon('inbox', size='2.4rem', color='gray-300')
+                            ui.label('暂无板块').classes('text-xs font-medium text-slate-400')
+                    else:
+                        for i, item in enumerate(display_items):
+                            bg_row = 'bg-white' if i % 2 == 0 else 'bg-slate-100/70'
+                            with ui.row().classes(f'w-full items-center justify-between px-3 {row_pad} border-b border-slate-100 last:border-0 hover:bg-indigo-50/30 transition-colors {bg_row}'):
+                                ui.label(item['name']).classes('text-xs font-bold text-slate-800 flex-1 truncate pr-2')
+                                with ui.row().classes('items-center gap-2 justify-end'):
+                                    c_val = item['change']
+                                    c_color = 'text-rose-600' if c_val > 0 else 'text-emerald-600'
+                                    ui.label(f'{c_val:+.1f}%').classes(f'text-xs font-mono font-black {c_color} w-12 text-right')
+                                    n_val = item['net_flow']
+                                    n_color = 'text-rose-600' if n_val > 0 else 'text-emerald-600'
+                                    flow_str = f'{n_val:.0f}' if abs(n_val) >= 10 else f'{n_val:.1f}'
+                                    ui.label(flow_str).classes(f'text-xs font-mono font-semibold {n_color} w-14 text-right')
+                                    s_val = item['strength']
+                                    s_bg = f'bg-{theme}-50 text-{theme}-700 border border-{theme}-200' if s_val > 0 else 'bg-slate-50 text-slate-700 border border-slate-200'
+                                    ui.label(f'{s_val:.0f}').classes(f'text-[10px] font-mono font-black {s_bg} w-10 text-center rounded')
         def render_grid():
             source = get_source_quadrants()
             page_size = 1 if is_mobile else 4
@@ -100,8 +207,11 @@ def render_attribution_section(radar, radar_state, df_input, is_mobile=False):
             page_label.set_text(f'{switch_state["page"] + 1} / {total_pages}')
             btn_prev.set_visibility(total_pages > 1)
             btn_next.set_visibility(total_pages > 1)
+            mode_hint = f'活跃模式 {len(active_quadrants)}/8' if switch_state['mode'] == 'active' else '全部模式 8/8'
+            mode_hint_label.set_text(mode_hint)
             btn_active.classes(replace='text-[11px] font-bold rounded px-2 py-0.5 text-white bg-indigo-600' if switch_state['mode'] == 'active' else 'text-[11px] font-bold rounded px-2 py-0.5 text-slate-600 bg-white border border-slate-200')
             btn_all.classes(replace='text-[11px] font-bold rounded px-2 py-0.5 text-white bg-indigo-600' if switch_state['mode'] == 'all' else 'text-[11px] font-bold rounded px-2 py-0.5 text-slate-600 bg-white border border-slate-200')
+            render_quick_tabs()
 
             grid_container.clear()
             with grid_container:
@@ -114,62 +224,19 @@ def render_attribution_section(radar, radar_state, df_input, is_mobile=False):
                 n_cols = len(display_quadrants)
                 col_map = {1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4'}
                 cols_class = col_map.get(n_cols, 'grid-cols-4')
-                with ui.grid().classes(f'w-full gap-2 p-2 bg-white border-y border-slate-200 {cols_class if not is_mobile else "grid-cols-1"}'):
-                    for q in display_quadrants:
-                        items = attribution.get(q['key'], [])
-                        display_items = items[:8] if items else []
-                        theme = q['theme']
-                        avg_strength = np.mean([i['strength'] for i in items]) if items else 0
-                        flow_sum = sum(i['net_flow'] for i in items) if items else 0
-
-                        with ui.column().classes('w-full p-0 h-full bg-white min-h-[220px] rounded-lg border border-slate-300 overflow-hidden relative'):
-                            ui.element('div').classes(f'absolute left-0 top-0 bottom-0 w-[2px] bg-{theme}-200')
-                            with ui.row().classes(f'w-full px-3 py-2 bg-{theme}-50/70 border-b border-{theme}-100 items-center justify-between'):
-                                with ui.row().classes('items-center gap-2'):
-                                    with ui.element('div').classes(f'w-7 h-7 rounded-md bg-white border border-{theme}-200 flex items-center justify-center'):
-                                        ui.icon(q['icon'], color=theme).classes('text-base')
-                                    with ui.column().classes('gap-0'):
-                                        ui.label(q['title']).classes(f'text-base font-black text-{theme}-700 leading-tight')
-                                        ui.label(q['desc']).classes(f'text-[10px] font-bold text-{theme}-500 leading-tight')
-                                ui.label(f'{len(items)}').classes(f'text-[11px] font-black px-2 py-0.5 rounded border border-{theme}-200 text-{theme}-700 bg-white')
-
-                            with ui.row().classes('w-full px-3 py-1 bg-white border-b border-slate-100 items-center justify-between text-[10px]'):
-                                flow_cls = 'text-rose-600' if flow_sum > 0 else 'text-emerald-600'
-                                density_cls = f'text-{theme}-600' if avg_strength >= 0 else 'text-slate-500'
-                                ui.label(f'净流合计 {flow_sum:+.1f} 亿').classes(f'font-bold {flow_cls}')
-                                ui.label(f'密度 {avg_strength:+.1f}').classes(f'font-bold {density_cls}')
-
-                            with ui.row().classes('w-full px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-[10px] text-slate-500 font-bold items-center uppercase'):
-                                ui.label('板块').classes('flex-1 text-left')
-                                with ui.row().classes('items-center gap-2 justify-end'):
-                                    ui.label('涨跌(%)').classes('w-12 text-right')
-                                    ui.label('净入(亿)').classes('w-14 text-right')
-                                    ui.label('强度').classes('w-10 text-center')
-
-                            with ui.column().classes('w-full p-0 gap-0'):
-                                if not display_items:
-                                    with ui.column().classes('w-full items-center justify-center gap-3 py-8'):
-                                        ui.icon('inbox', size='2.4rem', color='gray-300')
-                                        ui.label('暂无板块').classes('text-xs font-medium text-slate-400')
-                                else:
-                                    for i, item in enumerate(display_items):
-                                        bg_row = 'bg-white' if i % 2 == 0 else 'bg-slate-100/70'
-                                        with ui.row().classes(f'w-full items-center justify-between px-3 py-1.5 border-b border-slate-100 last:border-0 hover:bg-indigo-50/30 transition-colors {bg_row}'):
-                                            ui.label(item['name']).classes('text-xs font-bold text-slate-800 flex-1 truncate pr-2')
-                                            with ui.row().classes('items-center gap-2 justify-end'):
-                                                c_val = item['change']
-                                                c_color = 'text-rose-600' if c_val > 0 else 'text-emerald-600'
-                                                ui.label(f'{c_val:+.1f}%').classes(f'text-xs font-mono font-black {c_color} w-12 text-right')
-                                                n_val = item['net_flow']
-                                                n_color = 'text-rose-600' if n_val > 0 else 'text-emerald-600'
-                                                flow_str = f'{n_val:.0f}' if abs(n_val) >= 10 else f'{n_val:.1f}'
-                                                ui.label(flow_str).classes(f'text-xs font-mono font-semibold {n_color} w-14 text-right')
-                                                s_val = item['strength']
-                                                s_bg = f'bg-{theme}-50 text-{theme}-700 border border-{theme}-200' if s_val > 0 else 'bg-slate-50 text-slate-700 border border-slate-200'
-                                                ui.label(f'{s_val:.0f}').classes(f'text-[10px] font-mono font-black {s_bg} w-10 text-center rounded')
-                                    if len(items) > 8:
-                                        with ui.row().classes('w-full justify-center py-1.5 bg-slate-50 border-t border-slate-100 cursor-pointer hover:bg-indigo-50 transition-colors'):
-                                            ui.label(f'查看更多 ({len(items)-8})...').classes('text-[10px] font-bold text-slate-500 hover:text-indigo-600')
+                if not is_mobile and len(display_quadrants) > 1:
+                    main_quadrant = get_main_quadrant(display_quadrants)
+                    secondary_quadrants = [q for q in display_quadrants if q['key'] != main_quadrant['key']] if main_quadrant else []
+                    ordered_quadrants = [main_quadrant] + secondary_quadrants if main_quadrant is not None else secondary_quadrants
+                    with ui.grid().classes(f'w-full gap-2 p-2 bg-white border-y border-slate-200 {cols_class} items-start'):
+                        for q in ordered_quadrants:
+                            is_focus = main_quadrant is not None and q['key'] == main_quadrant['key']
+                            render_quadrant_card(q, is_primary=False, highlight_focus=is_focus)
+                else:
+                    with ui.grid().classes(f'w-full gap-2 p-2 bg-white border-y border-slate-200 {cols_class if not is_mobile else "grid-cols-1"} items-start'):
+                        for q in display_quadrants:
+                            is_single_primary = (not is_mobile and len(display_quadrants) == 1)
+                            render_quadrant_card(q, is_primary=is_single_primary, highlight_focus=(dominant_quadrant is not None and q['key'] == dominant_quadrant['key']))
 
         render_quick_tabs()
         render_grid()
