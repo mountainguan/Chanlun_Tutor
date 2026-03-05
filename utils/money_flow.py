@@ -21,9 +21,74 @@ def _allow_log(key, cooldown_sec=180):
 
 # Using a simple memory cache for the current session run
 # This will be cleared when the server restarts, satisfying "not stored on server disk"
+def _fetch_em_fund_flow_direct(code, limit=1000):
+    for attempt in range(3):
+        try:
+            c_str = str(code).zfill(6)
+            # Determine secid
+            if c_str.startswith(('6', '9')):
+                secid = f"1.{c_str}"
+            else:
+                secid = f"0.{c_str}"
+                
+            cb_val = f"jQuery{random.randint(1000000000000000000, 9999999999999999999)}_{int(time.time() * 1000)}"
+            _val = int(time.time() * 1000)
+                
+            url = f"https://push2his.eastmoney.com/api/qt/stock/fflow/kline/get?cb={cb_val}&lmt={limit}&klt=101&secid={secid}&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65&ut=b2884a393a59ad64002292a3e90d46a5&_={_val}"
+            headers = {
+                "User-Agent": f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{random.randint(110, 122)}.0.0.0 Safari/537.36",
+                "Referer": "https://quote.eastmoney.com/",
+                "Accept": "*/*",
+                "Connection": "close"
+            }
+            
+            res = requests.get(url, headers=headers, timeout=5)
+            if res.status_code != 200:
+                time.sleep(1)
+                continue
+                
+            text = res.text
+            if "(" not in text or ")" not in text:
+                time.sleep(1)
+                continue
+                
+            json_str = text[text.find("(")+1 : text.rfind(")")]
+            data = json.loads(json_str)
+            
+            if not (data and data.get('data') and data['data'].get('klines')):
+                time.sleep(1)
+                continue
+                
+            klines = data['data']['klines']
+            rows = []
+            for k in klines:
+                parts = k.split(',')
+                # f51: date, f52: main, f53: small, f54: mid, f55: large, f56: super large
+                rows.append({
+                    '日期': parts[0],
+                    '主力净流入-净额': float(parts[1]),
+                    '小单净流入-净额': float(parts[2]),
+                    '中单净流入-净额': float(parts[3]),
+                    '大单净流入-净额': float(parts[4]),
+                    '超大单净流入-净额': float(parts[5]),
+                })
+            return pd.DataFrame(rows)
+        except Exception as e:
+            if attempt == 2:
+                print(f"Direct EM Fund Flow fetch failed for {code}: {e}")
+            else:
+                time.sleep(random.uniform(0.5, 1.5))
+    return None
+
 @lru_cache(maxsize=100)
 def _fetch_akshare_data(code, market):
+    # 优先使用带抗反爬和降级的直连方式
+    df = _fetch_em_fund_flow_direct(code)
+    if df is not None and not df.empty:
+        return df
+
     try:
+        # Fallback
         df = ak.stock_individual_fund_flow(stock=code, market=market)
         return df
     except Exception as e:
@@ -193,9 +258,10 @@ def _fetch_sina_kline_direct(code, scale=240, datalen=1000):
 
 @lru_cache(maxsize=100)
 def _fetch_daily_hist(code, start_date, end_date):
-    # Try Direct EM first
-    df = _fetch_em_kline_direct(code, klt=101)
+    # Try Sina Direct FIRST for Buy/Sell Assistant (better stability, less anti-scraping)
+    df = _fetch_sina_kline_direct(code, scale=240)
     if df is not None and not df.empty:
+        # Standardize date format to YYYYMMDD
         df['日期'] = df['日期'].str.replace('-', '')
         if start_date:
             df = df[df['日期'] >= start_date]
@@ -203,11 +269,9 @@ def _fetch_daily_hist(code, start_date, end_date):
             df = df[df['日期'] <= end_date]
         return df
 
-    # Try Sina Direct (Fallback 1)
-    df = _fetch_sina_kline_direct(code, scale=240)
+    # Try Direct EM second
+    df = _fetch_em_kline_direct(code, klt=101)
     if df is not None and not df.empty:
-        # Standardize date format to YYYYMMDD
-        # Sina returns YYYY-MM-DD usually in 'day' field which we renamed to '日期'
         df['日期'] = df['日期'].str.replace('-', '')
         if start_date:
             df = df[df['日期'] >= start_date]
@@ -224,7 +288,22 @@ def _fetch_daily_hist(code, start_date, end_date):
 
 @lru_cache(maxsize=300)
 def _fetch_kline_hist(code, period, start_date, end_date):
-    # Try Direct EM first
+    # Fallback to Sina Direct FIRST
+    scale_map = {
+        '5m': 5,
+        '15m': 15,
+        '30m': 30,
+        '60m': 60,
+        '120m': 60,
+        'day': 240,
+        'week': 240,
+    }
+    if period in scale_map:
+        df = _fetch_sina_kline_direct(code, scale=scale_map[period])
+        if df is not None and not df.empty:
+            return df
+            
+    # Try Direct EM second
     klt_map = {
         'day': 101,
         'week': 102,
@@ -240,21 +319,6 @@ def _fetch_kline_hist(code, period, start_date, end_date):
         df = _fetch_em_kline_direct(code, klt=klt_map[period])
         if df is not None and not df.empty:
              return df
-
-    # Fallback to Sina Direct
-    scale_map = {
-        '5m': 5,
-        '15m': 15,
-        '30m': 30,
-        '60m': 60,
-        '120m': 60,
-        'day': 240,
-        'week': 240,
-    }
-    if period in scale_map:
-        df = _fetch_sina_kline_direct(code, scale=scale_map[period])
-        if df is not None and not df.empty:
-            return df
 
     try:
         period_map = {
