@@ -10,7 +10,7 @@ def render_mood_tabs(active_tab, on_nav, is_mobile):
     tabs_config = [
         ('market', '大盘温度'),
         ('sector', '板块温度'),
-        ('money', '资金流向'),
+        ('money', '个股医生'),
         ('radar', '主力雷达'),
         ('national', '国家队筛选'),
     ]

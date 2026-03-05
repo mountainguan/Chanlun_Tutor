@@ -220,6 +220,12 @@ def process_baohan(klines_data):
         curr = processed[i]
         prev = result[-1]
         
+        # Ensure dates are initialized
+        if 'high_date' not in prev: prev['high_date'] = prev['date']
+        if 'low_date' not in prev: prev['low_date'] = prev['date']
+        curr_high_date = curr.get('high_date', curr['date'])
+        curr_low_date = curr.get('low_date', curr['date'])
+        
         # 判断包含关系: (High1 >= High2 and Low1 <= Low2) or (High2 >= High1 and Low2 <= Low1)
         is_included = (prev['high'] >= curr['high'] and prev['low'] <= curr['low']) or \
                       (curr['high'] >= prev['high'] and curr['low'] <= prev['low'])
@@ -227,16 +233,40 @@ def process_baohan(klines_data):
         if is_included:
             # 处理包含
             if direction == 1: # 向上趋势，取高高，低高
-                new_high = max(prev['high'], curr['high'])
-                new_low = max(prev['low'], curr['low'])
+                if curr['high'] >= prev['high']:
+                    new_high = curr['high']
+                    new_high_date = curr_high_date
+                else:
+                    new_high = prev['high']
+                    new_high_date = prev['high_date']
+                    
+                if curr['low'] >= prev['low']: # Low should be max(L1, L2)
+                    new_low = curr['low']
+                    new_low_date = curr_low_date
+                else:
+                    new_low = prev['low']
+                    new_low_date = prev['low_date']
             else: # 向下趋势，取低低，高低
-                new_high = min(prev['high'], curr['high'])
-                new_low = min(prev['low'], curr['low'])
+                if curr['high'] <= prev['high']: # High should be min(H1, H2)
+                    new_high = curr['high']
+                    new_high_date = curr_high_date
+                else:
+                    new_high = prev['high']
+                    new_high_date = prev['high_date']
+                    
+                if curr['low'] <= prev['low']:
+                    new_low = curr['low']
+                    new_low_date = curr_low_date
+                else:
+                    new_low = prev['low']
+                    new_low_date = prev['low_date']
             
             # 更新前一根K线（合并）
             result[-1]['high'] = new_high
             result[-1]['low'] = new_low
-            # date通常取后一根的date
+            result[-1]['high_date'] = new_high_date
+            result[-1]['low_date'] = new_low_date
+            # date通常取后一根的date (logical time)
             result[-1]['date'] = curr['date']
             result[-1]['original'] = curr['original'] # Keep reference to latest
             
@@ -247,6 +277,9 @@ def process_baohan(klines_data):
             elif curr['low'] < prev['low']:
                 direction = -1
             
+            # Initialize dates for new independent bar
+            curr['high_date'] = curr_high_date
+            curr['low_date'] = curr_low_date
             result.append(curr)
             
     return result
@@ -267,10 +300,14 @@ def find_bi(processed_klines):
         k2 = processed_klines[i]
         k3 = processed_klines[i+1]
         
+        # Use real dates if available, else logical date
+        k2_high_date = k2.get('high_date', k2['date'])
+        k2_low_date = k2.get('low_date', k2['date'])
+        
         if k2['high'] > k1['high'] and k2['high'] > k3['high']:
-            fx_list.append({'type': 'top', 'index': i, 'price': k2['high'], 'date': k2['date']})
+            fx_list.append({'type': 'top', 'index': i, 'price': k2['high'], 'date': k2_high_date})
         elif k2['low'] < k1['low'] and k2['low'] < k3['low']:
-            fx_list.append({'type': 'bottom', 'index': i, 'price': k2['low'], 'date': k2['date']})
+            fx_list.append({'type': 'bottom', 'index': i, 'price': k2['low'], 'date': k2_low_date})
             
     if not fx_list:
         return []
@@ -305,12 +342,14 @@ def find_bi(processed_klines):
                     last_bi = fx
         else:
             # Different type, check distance
-            if fx['index'] - last_bi['index'] >= 4:
+            # Standard Chan Lun (New Pen): Top and Bottom fractals must be separated by at least one K-line (index diff >= 4).
+            # Old Pen (Common): Top and Bottom fractals just need to be non-overlapping (index diff >= 3).
+            # We use Old Pen (>=3) here to be consistent with visualization expectations and capture more turns.
+            if fx['index'] - last_bi['index'] >= 3:
                 bi_points.append(fx)
                 last_bi = fx
             else:
-                # Distance too short, ignore? Or maybe the previous one was wrong?
-                # This is complex. Simplified: Ignore current if too close.
+                # Distance too short, ignore
                 pass
                 
     return bi_points

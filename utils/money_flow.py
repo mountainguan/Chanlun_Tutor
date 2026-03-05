@@ -2,7 +2,20 @@ import pandas as pd
 import akshare as ak
 import datetime
 import requests
+import time
 from functools import lru_cache
+import numpy as np
+from utils.simulator_logic import calculate_macd, calculate_rsi, process_baohan, find_bi, calculate_bi_and_centers
+
+_LOG_TS = {}
+
+def _allow_log(key, cooldown_sec=180):
+    now = time.time()
+    last = _LOG_TS.get(key, 0)
+    if (now - last) < cooldown_sec:
+        return False
+    _LOG_TS[key] = now
+    return True
 
 # Using a simple memory cache for the current session run
 # This will be cleared when the server restarts, satisfying "not stored on server disk"
@@ -51,8 +64,17 @@ def _fetch_gdhs(code):
         # Fallback
         df = ak.stock_zh_a_gdhs(symbol=code)
         return df
+    except TypeError:
+        # Catch TypeError specifically (e.g. 'NoneType' object is not subscriptable)
+        print(f"Fetch gdhs warning for {code}: No data returned (TypeError/NoneType).")
+        return None
     except Exception as e:
-        print(f"Fetch gdhs failed for {code}: {e}")
+        # Check if the error message matches the known 'NoneType' issue which usually means data not found or API change
+        # Log it as a warning but don't crash or clutter with stack trace if it's just missing data
+        if "NoneType" in str(e):
+            print(f"Fetch gdhs warning for {code}: No data returned (NoneType).")
+        else:
+            print(f"Fetch gdhs failed for {code}: {e}")
         return None
 
 
@@ -81,6 +103,94 @@ def _fetch_daily_hist(code, start_date, end_date):
         return df
     except Exception as e:
         print(f"Fetch daily hist failed for {code}: {e}")
+        return None
+
+@lru_cache(maxsize=300)
+def _fetch_kline_hist(code, period, start_date, end_date):
+    symbol = f"{'sh' if str(code).startswith(('6', '9')) else 'sz'}{str(code).zfill(6)}"
+    if str(code).startswith(('8', '4')):
+        symbol = f"bj{str(code).zfill(6)}"
+
+    try:
+        scale_map = {
+            '5m': 5,
+            '15m': 15,
+            '30m': 30,
+            '60m': 60,
+            '120m': 60,
+            'day': 240,
+            'week': 240,
+        }
+        if period in scale_map:
+            api_url = (
+                "https://quotes.sina.cn/cn/api/json_v2.php/"
+                f"CN_MarketDataService.getKLineData?symbol={symbol}&scale={scale_map[period]}&ma=no&datalen=1600"
+            )
+            resp = requests.get(api_url, timeout=5)
+            raw = resp.json()
+            if raw:
+                return pd.DataFrame(raw)
+    except Exception as e:
+        print(f"Fetch sina kline failed for {code} {period}: {e}")
+
+    try:
+        period_map = {
+            'day': 'daily',
+            'week': 'weekly',
+        }
+        if period in period_map:
+            return ak.stock_zh_a_hist(
+                symbol=code,
+                period=period_map[period],
+                start_date=start_date,
+                end_date=end_date,
+                adjust="qfq"
+            )
+        minute_map = {
+            '5m': '5',
+            '15m': '15',
+            '30m': '30',
+            '60m': '60',
+            '120m': '60',
+        }
+        if period in minute_map:
+            return ak.stock_zh_a_hist_min_em(
+                symbol=code,
+                period=minute_map[period],
+                adjust="qfq"
+            )
+        return None
+    except Exception as e:
+        print(f"Fetch kline failed for {code} {period}: {e}")
+        return None
+
+def _fetch_sina_quote(symbol):
+    try:
+        url = f"http://hq.sinajs.cn/list={symbol}"
+        headers = {'Referer': 'http://finance.sina.com.cn'}
+        r = requests.get(url, headers=headers, timeout=1.2)
+        if r.status_code != 200:
+            return None
+        parts = r.text.split('=', 1)
+        if len(parts) < 2:
+            return None
+        val = parts[1].strip().strip('";')
+        if not val:
+            return None
+        q = val.split(',')
+        if len(q) < 10:
+            return None
+        now = datetime.datetime.now()
+        return {
+            'date': pd.to_datetime(now.date()),
+            'open': float(q[1]),
+            'close': float(q[3]),
+            'high': float(q[4]),
+            'low': float(q[5]),
+            'volume': float(q[8]),
+            'amount': float(q[9]),
+        }
+    except Exception:
         return None
 
 class MoneyFlow:
@@ -151,6 +261,323 @@ class MoneyFlow:
         elif code.startswith('8') or code.startswith('4'):
             return 'bj'
         return 'sh' # default
+
+    def _normalize_kline_df(self, df):
+        if df is None or df.empty:
+            return pd.DataFrame()
+        col_map = {
+            '日期': 'date',
+            '时间': 'date',
+            'day': 'date',
+            '开盘': 'open',
+            '开盘价': 'open',
+            '收盘': 'close',
+            '收盘价': 'close',
+            '最高': 'high',
+            '最高价': 'high',
+            '最低': 'low',
+            '最低价': 'low',
+            '成交量': 'volume',
+            '成交额': 'amount',
+        }
+        out = df.copy()
+        out = out.rename(columns={k: v for k, v in col_map.items() if k in out.columns})
+        if 'date' not in out.columns:
+            return pd.DataFrame()
+        out['date'] = pd.to_datetime(out['date'], errors='coerce')
+        out = out.dropna(subset=['date'])
+        for col in ['open', 'close', 'high', 'low', 'volume', 'amount']:
+            if col in out.columns:
+                out[col] = pd.to_numeric(out[col], errors='coerce')
+            else:
+                out[col] = np.nan
+        out = out.dropna(subset=['open', 'close', 'high', 'low'])
+        out = out.sort_values('date')
+        out = out.drop_duplicates(subset=['date'], keep='last')
+        out.set_index('date', inplace=True)
+        return out[['open', 'high', 'low', 'close', 'volume', 'amount']]
+
+    def _to_120m(self, df):
+        if df is None or df.empty:
+            return pd.DataFrame()
+        if not isinstance(df.index, pd.DatetimeIndex):
+            return pd.DataFrame()
+        agg = df.resample('120min', label='right', closed='right').agg({
+            'open': 'first',
+            'high': 'max',
+            'low': 'min',
+            'close': 'last',
+            'volume': 'sum',
+            'amount': 'sum',
+        })
+        return agg.dropna(subset=['open', 'close', 'high', 'low'])
+
+    def _tdx_sma(self, series, n, m=1):
+        clean = pd.to_numeric(series, errors='coerce').fillna(0.0)
+        if clean.empty:
+            return clean
+        result = []
+        prev = float(clean.iloc[0])
+        for val in clean:
+            prev = (m * float(val) + (n - m) * prev) / n
+            result.append(prev)
+        return pd.Series(result, index=clean.index)
+
+    def get_kline_data(self, code, period='day', force_update=False):
+        if force_update:
+            _fetch_kline_hist.cache_clear()
+        end_dt = datetime.datetime.now()
+        if period in ['day', 'week']:
+            start_dt = end_dt - datetime.timedelta(days=900)
+            raw_df = _fetch_kline_hist(code, period, start_dt.strftime('%Y%m%d'), end_dt.strftime('%Y%m%d'))
+        else:
+            raw_df = _fetch_kline_hist(code, period, '', '')
+        df = self._normalize_kline_df(raw_df)
+        if period == 'day':
+            try:
+                start_recent = (end_dt - datetime.timedelta(days=10)).strftime('%Y%m%d')
+                end_recent = end_dt.strftime('%Y%m%d')
+                recent_ak = ak.stock_zh_a_hist(symbol=code, period='daily', start_date=start_recent, end_date=end_recent, adjust='qfq')
+                recent_df = self._normalize_kline_df(recent_ak)
+                if not recent_df.empty:
+                    df = pd.concat([df, recent_df]).sort_index()
+                    df = df[~df.index.duplicated(keep='last')]
+            except Exception as e:
+                if _allow_log(f"recent_daily_fallback_{code}", cooldown_sec=300):
+                    print(f"Fetch recent daily fallback failed for {code}: {e}")
+
+            symbol = f"{'sh' if str(code).startswith(('6', '9')) else 'sz'}{str(code).zfill(6)}"
+            if str(code).startswith(('8', '4')):
+                symbol = f"bj{str(code).zfill(6)}"
+            quote_row = _fetch_sina_quote(symbol)
+            if quote_row and quote_row['close'] > 0:
+                qd = quote_row['date']
+                if qd not in df.index or abs(float(df.loc[qd, 'close']) - quote_row['close']) > 1e-8:
+                    df.loc[qd, ['open', 'high', 'low', 'close', 'volume', 'amount']] = [
+                        quote_row['open'], quote_row['high'], quote_row['low'], quote_row['close'], quote_row['volume'], quote_row['amount']
+                    ]
+                df = df.sort_index()
+
+        if period == '120m':
+            df = self._to_120m(df)
+        elif period == 'week' and not df.empty:
+            df = df.resample('W-FRI').agg({
+                'open': 'first',
+                'high': 'max',
+                'low': 'min',
+                'close': 'last',
+                'volume': 'sum',
+                'amount': 'sum',
+            }).dropna(subset=['open', 'high', 'low', 'close'])
+        return df
+
+    def build_buy_sell_assistant(self, kline_df):
+        if kline_df is None or kline_df.empty:
+            return {'kline': pd.DataFrame(), 'analysis': {}}
+        df = kline_df.copy()
+        close = df['close']
+        high = df['high']
+        low = df['low']
+        volume = df['volume'].fillna(0).copy()
+        
+        # Optimization: Intraday Volume Projection
+        # If the last bar is today and market is open/mid-day, volume is partial.
+        # We project it to avoid false negatives in VUP check.
+        try:
+            last_idx = df.index[-1]
+            last_dt = pd.to_datetime(last_idx) if isinstance(last_idx, (str, datetime.date, datetime.datetime)) else pd.to_datetime(df.iloc[-1]['date'])
+            now = datetime.datetime.now()
+            
+            # Check if last bar is today
+            if last_dt.date() == now.date():
+                morning_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
+                morning_close = now.replace(hour=11, minute=30, second=0, microsecond=0)
+                afternoon_open = now.replace(hour=13, minute=0, second=0, microsecond=0)
+                afternoon_close = now.replace(hour=15, minute=0, second=0, microsecond=0)
+                
+                elapsed_minutes = 0
+                if now > morning_open and now < afternoon_close:
+                    if now <= morning_close:
+                        elapsed_minutes = (now - morning_open).total_seconds() / 60
+                    elif now <= afternoon_open:
+                        elapsed_minutes = 120 # Full morning
+                    else:
+                        elapsed_minutes = 120 + (now - afternoon_open).total_seconds() / 60
+                    
+                    if elapsed_minutes > 10: # Avoid noise at open
+                        factor = 240.0 / elapsed_minutes
+                        # Apply reasonable cap to factor (e.g. max 5x)
+                        factor = min(factor, 5.0)
+                        # Only adjust for logic calculation, not for display
+                        volume.iloc[-1] = volume.iloc[-1] * factor
+        except Exception as e:
+            # print(f"Volume projection failed: {e}")
+            pass
+
+        ma60 = close.rolling(60, min_periods=1).mean()
+        qsup = ma60 > ma60.shift(1)
+        qsx = close.ewm(span=13, adjust=False).mean()
+        vup = volume > (volume.rolling(20, min_periods=1).mean() * 1.5)
+        tpm = (close > qsx) & (close.shift(1) <= qsx.shift(1)) & vup
+        llv9 = low.rolling(9, min_periods=1).min()
+        hhv9 = high.rolling(9, min_periods=1).max()
+        rsv1 = ((close - llv9) / (hhv9 - llv9).replace(0, pd.NA) * 100).fillna(0)
+        k1 = self._tdx_sma(rsv1, 3, 1)
+        d1 = self._tdx_sma(k1, 3, 1)
+        j1 = 3 * k1 - 2 * d1
+        cdm = (j1.shift(1) < 0) & (j1 > j1.shift(1)) & qsup
+        ma10 = close.rolling(10, min_periods=1).mean()
+        gll = ((close - ma10) / ma10.replace(0, pd.NA) * 100).fillna(0)
+        avggl = (((close - ma10).abs() / ma10.replace(0, pd.NA) * 100).fillna(0)).rolling(60, min_periods=1).mean()
+        glv = avggl * 2.5
+        glm = (gll < -glv) & (close > low)
+        zhm = (tpm | cdm | glm).fillna(False)
+        pdm = (qsx > close) & (qsx.shift(1) <= close.shift(1))
+        cbm = (j1.shift(1) > 100) & (j1 < j1.shift(1)) & (~qsup)
+        gls = (gll > glv) & (close < high)
+        zhs = (pdm | cbm | gls).fillna(False)
+        ph = pd.concat([(high - low), close * 0.005], axis=1).max(axis=1).fillna(0)
+        buy_y = low - ph * 0.6
+        sell_y = high + ph * 0.6
+        wave_pct = ((close - qsx) / qsx.replace(0, pd.NA) * 100).fillna(0)
+        ma5 = close.rolling(5, min_periods=1).mean()
+        ma10_line = close.rolling(10, min_periods=1).mean()
+        ma20 = close.rolling(20, min_periods=1).mean()
+        ma30 = close.rolling(30, min_periods=1).mean()
+        ma60_line = close.rolling(60, min_periods=1).mean()
+        macd = calculate_macd(close.ffill().bfill().tolist())
+        dif = pd.Series(macd.get('dif', []), index=df.index[-len(macd.get('dif', [])):]) if macd.get('dif') else pd.Series(0.0, index=df.index)
+        dea = pd.Series(macd.get('dea', []), index=df.index[-len(macd.get('dea', [])):]) if macd.get('dea') else pd.Series(0.0, index=df.index)
+        hist = pd.Series(macd.get('hist', []), index=df.index[-len(macd.get('hist', [])):]) if macd.get('hist') else pd.Series(0.0, index=df.index)
+        dif = dif.reindex(df.index).fillna(0.0)
+        dea = dea.reindex(df.index).fillna(0.0)
+        hist = hist.reindex(df.index).fillna(0.0)
+        golden_cross = (dif > dea) & (dif.shift(1) <= dea.shift(1))
+        dead_cross = (dif < dea) & (dif.shift(1) >= dea.shift(1))
+        out = df.copy()
+        out['qsx'] = qsx
+        out['buy_signal'] = zhm
+        out['sell_signal'] = zhs
+        out['buy_y'] = buy_y
+        out['sell_y'] = sell_y
+        out['wave_pct'] = wave_pct
+        out['ma5'] = ma5
+        out['ma10'] = ma10_line
+        out['ma20'] = ma20
+        out['ma30'] = ma30
+        out['ma60'] = ma60_line
+        out['dif'] = dif
+        out['dea'] = dea
+        out['macd_hist'] = hist
+        out['golden_cross'] = golden_cross.fillna(False)
+        out['dead_cross'] = dead_cross.fillna(False)
+        analysis = self.build_chanlun_assistant(df, zhm, zhs, wave_pct)
+        return {'kline': out, 'analysis': analysis}
+
+    def build_chanlun_assistant(self, df, buy_signal=None, sell_signal=None, wave_pct=None):
+        if df is None or df.empty:
+            return {
+                'structure': '数据缺失',
+                'short_term': '无信号',
+                'mid_term': '无信号',
+                'macd': '-',
+                'rsi': 50.0,
+                'last_signal': '暂无',
+                'summary': '暂无可用K线',
+                'ma_alignment': '未知',
+                'support_price': None,
+                'pressure_price': None,
+                'buy_zone': '-',
+                'sell_zone': '-',
+                'risk_line': '-',
+                'action_plan': [],
+                'bi_points': []
+            }
+        closes = pd.to_numeric(df['close'], errors='coerce').ffill().bfill().tolist()
+        macd = calculate_macd(closes)
+        rsi = calculate_rsi(closes)
+        rsi_last = float(rsi[-1]) if rsi else 50.0
+        records = df.reset_index().rename(columns={'index': 'date'}).to_dict('records')
+        processed = process_baohan(records)
+        bi_points = find_bi(processed)
+        _, centers = calculate_bi_and_centers(processed)
+        series_close = pd.Series(closes)
+        ma5 = series_close.rolling(5, min_periods=1).mean()
+        ma10 = series_close.rolling(10, min_periods=1).mean()
+        ma20 = pd.Series(closes).rolling(20, min_periods=1).mean()
+        ma60 = pd.Series(closes).rolling(60, min_periods=1).mean()
+        trend_up = closes[-1] > ma20.iloc[-1] > ma60.iloc[-1]
+        trend_down = closes[-1] < ma20.iloc[-1] < ma60.iloc[-1]
+        if trend_up:
+            mid_term = '多头趋势'
+        elif trend_down:
+            mid_term = '空头趋势'
+        else:
+            mid_term = '震荡整理'
+        short_term = '观望'
+        if macd.get('dif') and macd.get('dea'):
+            if macd['dif'][-1] > macd['dea'][-1]:
+                short_term = '短线偏多'
+            else:
+                short_term = '短线偏空'
+        structure = f'笔{len(bi_points)} / 中枢{len(centers)}'
+        if len(bi_points) >= 2:
+            tail = bi_points[-1]['type']
+            structure = f'{structure} · 最近{ "底分型" if tail == "bottom" else "顶分型"}'
+        if ma5.iloc[-1] > ma10.iloc[-1] > ma20.iloc[-1] > ma60.iloc[-1]:
+            ma_alignment = '多头排列'
+        elif ma5.iloc[-1] < ma10.iloc[-1] < ma20.iloc[-1] < ma60.iloc[-1]:
+            ma_alignment = '空头排列'
+        else:
+            ma_alignment = '均线缠绕'
+        last_signal = '暂无'
+        if buy_signal is not None and sell_signal is not None and len(df) > 0:
+            buy_idx = list(df.index[buy_signal]) if hasattr(buy_signal, '__iter__') else []
+            sell_idx = list(df.index[sell_signal]) if hasattr(sell_signal, '__iter__') else []
+            if buy_idx or sell_idx:
+                last_buy = buy_idx[-1] if buy_idx else pd.Timestamp.min
+                last_sell = sell_idx[-1] if sell_idx else pd.Timestamp.min
+                last_signal = f'最近信号：{"买" if last_buy > last_sell else "卖"}'
+        support_price = float(ma20.iloc[-1])
+        risk_price = float(ma60.iloc[-1])
+        pressure_price = float(pd.to_numeric(df['high'], errors='coerce').tail(30).max())
+        buy_low = support_price * 0.992
+        buy_high = support_price * 1.012
+        sell_low = pressure_price * 0.988
+        sell_high = pressure_price * 1.012
+        action_plan = [
+            f"回踩{buy_low:.2f}~{buy_high:.2f}分批关注，跌破{risk_price:.2f}降低仓位",
+            f"反弹至{sell_low:.2f}~{sell_high:.2f}可分批止盈，突破后看量能决定是否续持",
+            f"当前为{ma_alignment}，建议单次仓位不超过3成并按信号逐步加减"
+        ]
+        wave_val = float(wave_pct.iloc[-1]) if wave_pct is not None and not wave_pct.empty else 0.0
+        summary = f'{mid_term}，{short_term}，{ma_alignment}，波段值{wave_val:+.2f}%'
+        bi_render = []
+        for p in bi_points[-50:]: # Increase to last 50 points to be safe
+            date_val = p.get('date')
+            # Preserve full datetime string for matching
+            bi_render.append({
+                'type': p.get('type', ''),
+                'price': float(p.get('price', 0)),
+                'date': str(date_val)
+            })
+        return {
+            'structure': structure,
+            'short_term': short_term,
+            'mid_term': mid_term,
+            'macd': '金叉' if macd.get('dif') and macd.get('dea') and macd['dif'][-1] > macd['dea'][-1] else '死叉',
+            'rsi': round(rsi_last, 1),
+            'last_signal': last_signal,
+            'summary': summary,
+            'ma_alignment': ma_alignment,
+            'support_price': round(support_price, 2),
+            'pressure_price': round(pressure_price, 2),
+            'buy_zone': f'{buy_low:.2f} ~ {buy_high:.2f}',
+            'sell_zone': f'{sell_low:.2f} ~ {sell_high:.2f}',
+            'risk_line': f'{risk_price:.2f}',
+            'action_plan': action_plan,
+            'bi_points': bi_render
+        }
 
     def get_flow_data(self, code, force_update=False):
         market = self.guess_market(code)
@@ -258,6 +685,9 @@ class MoneyFlow:
                 
                 # Check for duplicate indices in hist_df which can cause errors
                 hist_df = hist_df[~hist_df.index.duplicated(keep='first')]
+                for col in ['开盘', '收盘', '最高', '最低', '成交量', '成交额']:
+                    if col in hist_df.columns:
+                        hist_df[col] = pd.to_numeric(hist_df[col], errors='coerce')
 
                 # P_avg = Amount (Yuan) / (Volume (Hands) * 100)
                 common_indices = df.index.intersection(hist_df.index)
@@ -267,6 +697,16 @@ class MoneyFlow:
                     amt = hist_sub['成交额']
                     vwap = amt / vol.replace(0, 1) 
                     p_avg_series = vwap
+                    kline_col_map = {
+                        '开盘': 'open',
+                        '收盘': 'close',
+                        '最高': 'high',
+                        '最低': 'low',
+                        '成交量': 'volume',
+                    }
+                    for src, dst in kline_col_map.items():
+                        if src in hist_sub.columns:
+                            df.loc[common_indices, dst] = hist_sub[src].values
             
             # Fallback P_avg
             if p_avg_series is None:
