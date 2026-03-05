@@ -1,4 +1,6 @@
 import pandas as pd
+import json
+import random
 import akshare as ak
 import datetime
 import requests
@@ -78,27 +80,142 @@ def _fetch_gdhs(code):
         return None
 
 
+def _fetch_em_kline_direct(code, klt=101, limit=1000):
+    for attempt in range(3):
+        try:
+            c_str = str(code)
+            # Determine secid
+            if c_str.startswith(('6', '9')):
+                secid = f"1.{c_str}"
+            elif c_str.startswith(('0', '3')):
+                secid = f"0.{c_str}"
+            elif c_str.startswith(('8', '4')):
+                secid = f"0.{c_str}"
+            else:
+                secid = f"0.{c_str}"
+                
+            cb_val = f"jQuery{random.randint(1000000000000000000, 9999999999999999999)}_{int(time.time() * 1000)}"
+            _val = int(time.time() * 1000)
+            
+            # User provided: ut=fa5fd1943c7b386f172d6893dbfba10b
+            url = (
+                f"https://push2his.eastmoney.com/api/qt/stock/kline/get?cb={cb_val}&secid={secid}"
+                "&ut=fa5fd1943c7b386f172d6893dbfba10b"
+                "&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"
+                f"&klt={klt}&fqt=1&end=20500101&lmt={limit}"
+                f"&_={_val}"
+            )
+            
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Referer": "https://quote.eastmoney.com/",
+                "Accept": "*/*",
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                "Connection": "close"
+            }
+            
+            res = requests.get(url, headers=headers, timeout=5)
+            if res.status_code != 200:
+                time.sleep(1)
+                continue
+                
+            text = res.text
+            if "(" not in text or ")" not in text:
+                time.sleep(1)
+                continue
+                
+            json_str = text[text.find("(")+1 : text.rfind(")")]
+            data = json.loads(json_str)
+            
+            if not (data and data.get('data') and data['data'].get('klines')):
+                # Data payload is invalid or empty
+                time.sleep(1)
+                continue
+                
+            klines = data['data']['klines']
+            rows = []
+            for k in klines:
+                parts = k.split(',')
+                # f51: Date, f52: Open, f53: Close, f54: High, f55: Low, f56: Vol, f57: Amount
+                rows.append({
+                    '日期': parts[0],
+                    '开盘': float(parts[1]),
+                    '收盘': float(parts[2]),
+                    '最高': float(parts[3]),
+                    '最低': float(parts[4]),
+                    '成交量': float(parts[5]),
+                    '成交额': float(parts[6]),
+                })
+            return pd.DataFrame(rows)
+        except Exception as e:
+            if attempt == 2:
+                print(f"Direct EM fetch failed for {code} klt={klt}: {e}")
+            else:
+                time.sleep(random.uniform(0.5, 1.5))
+    return None
+
+def _fetch_sina_kline_direct(code, scale=240, datalen=1000):
+    try:
+        symbol = f"{'sh' if str(code).startswith(('6', '9')) else 'sz'}{str(code).zfill(6)}"
+        if str(code).startswith(('8', '4')):
+            symbol = f"bj{str(code).zfill(6)}"
+            
+        api_url = (
+            "https://quotes.sina.cn/cn/api/json_v2.php/"
+            f"CN_MarketDataService.getKLineData?symbol={symbol}&scale={scale}&ma=no&datalen={datalen}"
+        )
+        headers = {
+             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        resp = requests.get(api_url, headers=headers, timeout=5)
+        raw = resp.json()
+        if raw:
+            df = pd.DataFrame(raw)
+            # Normalize Sina data to match EM/Akshare format
+            # Sina: day, open, high, low, close, volume
+            df.rename(columns={'day': '日期', 'open': '开盘', 'high': '最高', 'low': '最低', 'close': '收盘', 'volume': '成交量'}, inplace=True)
+            # Ensure numeric types
+            for col in ['开盘', '最高', '最低', '收盘', '成交量']:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+            # Add '成交额' if missing (Sina doesn't return amount usually in kline, only volume)
+            # We can approximate or leave it NaN?
+            if '成交额' not in df.columns:
+                 # Approximation: Amount = Volume * Close (Roughly)
+                 # Or just leave it as None/0
+                 df['成交额'] = df['成交量'] * df['收盘']
+            
+            return df
+    except Exception as e:
+        print(f"Sina direct fetch failed for {code}: {e}")
+        return None
+
 @lru_cache(maxsize=100)
 def _fetch_daily_hist(code, start_date, end_date):
+    # Try Direct EM first
+    df = _fetch_em_kline_direct(code, klt=101)
+    if df is not None and not df.empty:
+        df['日期'] = df['日期'].str.replace('-', '')
+        if start_date:
+            df = df[df['日期'] >= start_date]
+        if end_date:
+            df = df[df['日期'] <= end_date]
+        return df
+
+    # Try Sina Direct (Fallback 1)
+    df = _fetch_sina_kline_direct(code, scale=240)
+    if df is not None and not df.empty:
+        # Standardize date format to YYYYMMDD
+        # Sina returns YYYY-MM-DD usually in 'day' field which we renamed to '日期'
+        df['日期'] = df['日期'].str.replace('-', '')
+        if start_date:
+            df = df[df['日期'] >= start_date]
+        if end_date:
+            df = df[df['日期'] <= end_date]
+        return df
+
     try:
-        # qfq: 前复权 (Forward Adjusted) is usually better for analyzing returns, 
-        # but for absolute P_avg (VWAP), unadjusted 'None' or 'qfq' might matter if splits occurred.
-        # Akshare hist usually provides '成交额' and '成交量'. 
-        # For VWAP = Amount / Volume, splits don't affect Ratio much on same day, 
-        # but price level matches the adjusted close?
-        # Let's use 'qfq' to align with typical 'Close' analysis, though 'Amount' is nominal currency.
-        # Actually for P_avg in formula $F_{net} / (P \times S)$, $F_{net}$ is nominal Yuan.
-        # So $P$ should be nominal price (unadjusted) ideally? 
-        # Or if $F_{net}$ is adjusted? No, standard flows are nominal.
-        # So we should probably use Unadjusted price for P_avg if possible, OR
-        # if input F_net is huge, P must be real price.
-        # Let's use default (unadjusted) or check flow data nature. 
-        # Standard flow is usually nominal capital.
-        # Let's try 'qfq' first as it handles gaps better for visual trends, but strictly nominal is correct for Amount/Shares math.
-        # However, Volume is in Hands.
-        # Let's stick to adjusted="qfq" for consistency with charts, 
-        # or "None" for strict math? 
-        # Given "stock_zh_a_hist" default usually works. Let's try explicit adjust="qfq".
         df = ak.stock_zh_a_hist(symbol=code, period="daily", start_date=start_date, end_date=end_date, adjust="qfq")
         return df
     except Exception as e:
@@ -107,31 +224,37 @@ def _fetch_daily_hist(code, start_date, end_date):
 
 @lru_cache(maxsize=300)
 def _fetch_kline_hist(code, period, start_date, end_date):
-    symbol = f"{'sh' if str(code).startswith(('6', '9')) else 'sz'}{str(code).zfill(6)}"
-    if str(code).startswith(('8', '4')):
-        symbol = f"bj{str(code).zfill(6)}"
+    # Try Direct EM first
+    klt_map = {
+        'day': 101,
+        'week': 102,
+        'month': 103,
+        '5m': 5,
+        '15m': 15,
+        '30m': 30,
+        '60m': 60,
+        '120m': 60,
+    }
+    
+    if period in klt_map:
+        df = _fetch_em_kline_direct(code, klt=klt_map[period])
+        if df is not None and not df.empty:
+             return df
 
-    try:
-        scale_map = {
-            '5m': 5,
-            '15m': 15,
-            '30m': 30,
-            '60m': 60,
-            '120m': 60,
-            'day': 240,
-            'week': 240,
-        }
-        if period in scale_map:
-            api_url = (
-                "https://quotes.sina.cn/cn/api/json_v2.php/"
-                f"CN_MarketDataService.getKLineData?symbol={symbol}&scale={scale_map[period]}&ma=no&datalen=1600"
-            )
-            resp = requests.get(api_url, timeout=5)
-            raw = resp.json()
-            if raw:
-                return pd.DataFrame(raw)
-    except Exception as e:
-        print(f"Fetch sina kline failed for {code} {period}: {e}")
+    # Fallback to Sina Direct
+    scale_map = {
+        '5m': 5,
+        '15m': 15,
+        '30m': 30,
+        '60m': 60,
+        '120m': 60,
+        'day': 240,
+        'week': 240,
+    }
+    if period in scale_map:
+        df = _fetch_sina_kline_direct(code, scale=scale_map[period])
+        if df is not None and not df.empty:
+            return df
 
     try:
         period_map = {
@@ -282,6 +405,9 @@ class MoneyFlow:
         }
         out = df.copy()
         out = out.rename(columns={k: v for k, v in col_map.items() if k in out.columns})
+        # Remove duplicate columns if any (e.g. if source has both 'amount' and '成交额' mapping to 'amount')
+        out = out.loc[:, ~out.columns.duplicated()]
+        
         if 'date' not in out.columns:
             return pd.DataFrame()
         out['date'] = pd.to_datetime(out['date'], errors='coerce')
