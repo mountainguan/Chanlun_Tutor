@@ -619,7 +619,7 @@ class MoneyFlow:
                         # Apply reasonable cap to factor (e.g. max 5x)
                         factor = min(factor, 5.0)
                         # Only adjust for logic calculation, not for display
-                        volume.iloc[-1] = volume.iloc[-1] * factor
+                        volume.iloc[-1] = int(volume.iloc[-1] * factor)
         except Exception as e:
             # print(f"Volume projection failed: {e}")
             pass
