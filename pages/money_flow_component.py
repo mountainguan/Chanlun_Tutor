@@ -206,7 +206,7 @@ def render_money_flow_panel(plotly_renderer=None):
 
         # === Left Column: Subscription Management ===
         # Modified: Full width on mobile, fixed width on PC. Height auto on mobile (scrollable list inside limitation?), fixed on PC.
-        with ui.card().classes('w-full md:w-[320px] flex-none p-4 gap-4 bg-white rounded-xl shadow-sm border border-gray-200 h-auto md:h-[700px] flex flex-col'):
+        with ui.card().classes('w-full md:w-[320px] flex-none p-4 gap-4 bg-white rounded-xl shadow-sm border border-gray-200 h-auto md:h-[600px] flex flex-col'):
             with ui.row().classes('w-full items-center justify-between'):
                 ui.label('我的自选股').classes('text-xl font-bold text-gray-800 tracking-tight')
                 ui.button(icon='settings', on_click=open_group_manager).props('flat round dense color=grey-7').tooltip('管理分组')
@@ -293,12 +293,7 @@ def render_money_flow_panel(plotly_renderer=None):
                     ('60m', '60分钟'),
                     ('120m', '120分钟'),
                 ]
-                kline_window_options = ['近60个', '近120个', '近180个', '全部']
-                
-                # Ensure default state if not set
-                if 'kline_window' not in state:
-                    state['kline_window'] = '近60个'
-                
+
                 async def set_time_range(val):
                     state['time_range'] = val
                     render_header_controls()
@@ -314,11 +309,6 @@ def render_money_flow_panel(plotly_renderer=None):
                 async def set_period(val):
                     state['assistant_period'] = val
                     render_header_controls()
-                    if state['selected_code']:
-                        await render_chart(state['selected_code'], state['selected_name'])
-
-                async def set_kline_window(val):
-                    state['kline_window'] = val
                     if state['selected_code']:
                         await render_chart(state['selected_code'], state['selected_name'])
 
@@ -349,15 +339,6 @@ def render_money_flow_panel(plotly_renderer=None):
                                 .props(f'flat dense no-caps size=sm') \
                                 .classes(f'px-3 rounded-full transition-all font-bold {btn_cls}')
 
-                def render_kline_window_controls():
-                    with ui.row().classes('bg-slate-100 rounded-full p-1 gap-1 border border-slate-200'):
-                        for opt in kline_window_options:
-                            is_active = (state.get('kline_window', '近60个') == opt)
-                            btn_cls = 'bg-white text-slate-800 shadow-sm' if is_active else 'text-slate-500 hover:text-slate-700'
-                            ui.button(opt, on_click=lambda o=opt: set_kline_window(o)) \
-                                .props(f'flat dense no-caps size=sm') \
-                                .classes(f'px-3 rounded-full transition-all font-bold {btn_cls}')
-
                 def render_sync_btn():
                     async def update_btn_click():
                         if state['selected_code']:
@@ -373,8 +354,6 @@ def render_money_flow_panel(plotly_renderer=None):
                         render_indicator_controls()
                         if state['indicator'] == '买卖助手':
                             render_period_controls()
-                            # render_time_controls() # 移除旧的近1月/近3月等
-                            render_kline_window_controls() # 增加近60个/120个等
                             render_sync_btn()
                         else:
                             render_time_controls() # 散户数量仍使用时间跨度
@@ -573,9 +552,8 @@ def render_money_flow_panel(plotly_renderer=None):
                     kdf['boll_lower'] = kdf['boll_mid'] - 2 * _std
 
                 # Slice for display AFTER calculation
-                window_map = {'近60个': 60, '近120个': 120, '近180个': 180, '全部': None}
-                bar_count = window_map.get(state.get('kline_window', '近60个'))
-                
+                bar_count = 180
+
                 start_idx = 0
                 full_len = len(kdf)
                 if bar_count and full_len > bar_count:
@@ -821,7 +799,7 @@ def render_money_flow_panel(plotly_renderer=None):
 
                 # 6. Layout 布局优化
                 fig.update_layout(
-                    height=700, # 强制图表总高度固定为700px（主图70%, 副图25%, 留些给图例和间距）
+                    height=600, # 强制图表总高度固定为600px（主图70%, 副图25%, 留些给图例和间距）
                     margin=dict(l=10, r=10, t=30, b=10),
                     paper_bgcolor=COLOR_BG,
                     plot_bgcolor=COLOR_BG,
@@ -906,11 +884,15 @@ def render_money_flow_panel(plotly_renderer=None):
                     mirror=True,
                     tickfont=dict(color=COLOR_TEXT, size=10)
                 )
-                
-                fig.update_xaxes(**common_axis_config, zeroline=False, type='category', tickmode='auto', nticks=8)
+
+                # 计算默认可见区间 (最后 60 个)，供 rangeslider 使用
+                total_points = len(x_labels)
+                default_range = [max(0, total_points - 60 - 0.5), total_points - 1 + 0.5] if total_points > 0 else None
+
+                fig.update_xaxes(**common_axis_config, zeroline=False, type='category', tickmode='auto', nticks=8, range=default_range)
                 fig.update_yaxes(**common_axis_config, zeroline=False, row=1, col=1)
                 fig.update_yaxes(**common_axis_config, zeroline=True, zerolinecolor=COLOR_GRID, row=2, col=1)
-                
+
                 # 移除主图X轴标签（因为共享）
                 fig.update_xaxes(showticklabels=False, row=1, col=1)
 
@@ -918,11 +900,11 @@ def render_money_flow_panel(plotly_renderer=None):
             
             if state['indicator'] == '散户数量':
                 # 散户数量模式：全屏图表
-                with ui.card().classes('w-full p-0 shadow-sm border border-slate-100 rounded-xl overflow-hidden').style('height: 700px;'):
+                with ui.card().classes('w-full p-0 shadow-sm border border-slate-100 rounded-xl overflow-hidden').style('height: 600px;'):
                      plot_func(fig).classes('w-full h-full')
             else:
                 # 买卖助手模式：左图右分析布局，强制给定高度
-                with ui.row().classes('w-full gap-3 items-stretch no-wrap').style('height: 700px;'):
+                with ui.row().classes('w-full gap-3 items-stretch no-wrap').style('height: 600px;'):
                     # 左侧：图表 (占据大部分空间)
                     with ui.card().classes('flex-grow h-full min-w-0 p-0 shadow-sm border border-slate-100 rounded-xl overflow-hidden relative'):
                         plot_func(fig).classes('w-full h-full z-0')
