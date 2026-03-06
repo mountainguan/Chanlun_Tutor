@@ -202,7 +202,7 @@ def render_money_flow_panel(plotly_renderer=None):
     # -- UI Containers --
     # We create the structure first
     # Modified for Mobile: Stack vertically
-    with ui.row().classes('w-full items-stretch gap-6 flex-col md:flex-row'):
+    with ui.row().classes('w-full items-stretch gap-6 flex-col md:flex-row md:flex-nowrap'):
 
         # === Left Column: Subscription Management ===
         # Modified: Full width on mobile, fixed width on PC. Height auto on mobile (scrollable list inside limitation?), fixed on PC.
@@ -272,17 +272,14 @@ def render_money_flow_panel(plotly_renderer=None):
         
         # === Right Column: Charts ===
         # Mobile: Lower height or auto
-        with ui.column().classes('flex-grow h-[500px] md:h-[700px] gap-4 min-w-0'):
+        with ui.column().classes('flex-grow h-auto md:h-auto gap-4 min-w-0'):
             # Header
-            with ui.row().classes('w-full justify-between items-center bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex-none'):
-                with ui.row().classes('items-center gap-3'):
+            with ui.row().classes('w-full justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex-none gap-4 md:flex-nowrap'):
+                with ui.row().classes('items-center gap-3 flex-shrink-0'):
                     ui.icon('analytics', color='primary').classes('text-3xl')
                     header_label = ui.label('请选择左侧股票查看个股医生指标').classes('text-2xl font-bold text-gray-800 tracking-tight')
                 
-                # Create controls container outside of the header row block to avoid context issues?
-                # No, it should be inside the header row.
-                # Let's try defining the container explicitly.
-                controls_container = ui.row().classes('items-center gap-3')
+                controls_container = ui.row().classes('items-center gap-2 flex-nowrap overflow-x-auto custom-scrollbar pb-1')
             
             with controls_container:
                 # Time Range Selector - Chip style
@@ -568,6 +565,13 @@ def render_money_flow_panel(plotly_renderer=None):
                             continue
                 raw_bi_points = valid_bi_points
 
+                if not kdf.empty:
+                    _closes = pd.to_numeric(kdf.get('close'), errors='coerce').ffill().bfill()
+                    kdf['boll_mid'] = _closes.rolling(window=20, min_periods=2).mean().ffill().bfill()
+                    _std = _closes.rolling(window=20, min_periods=2).std().fillna(0)
+                    kdf['boll_upper'] = kdf['boll_mid'] + 2 * _std
+                    kdf['boll_lower'] = kdf['boll_mid'] - 2 * _std
+
                 # Slice for display AFTER calculation
                 window_map = {'近60个': 60, '近120个': 120, '近180个': 180, '全部': None}
                 bar_count = window_map.get(state.get('kline_window', '近60个'))
@@ -619,6 +623,9 @@ def render_money_flow_panel(plotly_renderer=None):
                 macd_hist = pd.to_numeric(kdf.get('macd_hist'), errors='coerce').fillna(0)
                 dif = pd.to_numeric(kdf.get('dif'), errors='coerce').fillna(0)
                 dea = pd.to_numeric(kdf.get('dea'), errors='coerce').fillna(0)
+                boll_mid = kdf.get('boll_mid', pd.Series(0, index=kdf.index))
+                boll_upper = kdf.get('boll_upper', pd.Series(0, index=kdf.index))
+                boll_lower = kdf.get('boll_lower', pd.Series(0, index=kdf.index))
                 macd_colors = ['#ef4444' if v >= 0 else '#10b981' for v in macd_hist]
                 gc_mask = kdf.get('golden_cross', pd.Series(False, index=kdf.index)).fillna(False).values
                 dc_mask = kdf.get('dead_cross', pd.Series(False, index=kdf.index)).fillna(False).values
@@ -641,13 +648,29 @@ def render_money_flow_panel(plotly_renderer=None):
                 fig = make_subplots(
                     rows=2, cols=1,
                     shared_xaxes=True,
-                    vertical_spacing=0.06,
-                    subplot_titles=('买卖助手趋势', 'MACD动能'),
-                    row_heights=[0.7, 0.3]
+                    vertical_spacing=0.05, # 压缩主副图间距
+                    row_heights=[0.75, 0.25] # 主副图区域分配，因为底部还有滑块被单独计算
                 )
                 
+                visible_macd = []
+                visible_boll = []
+
+                def _add_trace(trace, row, col, kind='all'):
+                    fig.add_trace(trace, row=row, col=col)
+                    if kind == 'all':
+                        visible_macd.append(True)
+                        visible_boll.append(True)
+                    elif kind == 'macd':
+                        visible_macd.append(True)
+                        visible_boll.append(False)
+                        fig.data[-1].visible = True
+                    elif kind == 'boll':
+                        visible_macd.append(False)
+                        visible_boll.append(True)
+                        fig.data[-1].visible = False
+                
                 # 1. K线图
-                fig.add_trace(go.Candlestick(
+                _add_trace(go.Candlestick(
                     x=x_labels,
                     open=kdf['open'],
                     high=kdf['high'],
@@ -661,11 +684,11 @@ def render_money_flow_panel(plotly_renderer=None):
                 ), row=1, col=1)
 
                 # 2. 均线
-                fig.add_trace(go.Scatter(x=x_labels, y=kdf['ma5'], mode='lines', line=dict(color=COLOR_MA5, width=1), name='MA5'), row=1, col=1)
-                fig.add_trace(go.Scatter(x=x_labels, y=kdf['ma10'], mode='lines', line=dict(color=COLOR_MA10, width=1), name='MA10'), row=1, col=1)
-                fig.add_trace(go.Scatter(x=x_labels, y=kdf['ma20'], mode='lines', line=dict(color=COLOR_MA20, width=1), name='MA20'), row=1, col=1)
-                fig.add_trace(go.Scatter(x=x_labels, y=kdf['ma30'], mode='lines', line=dict(color=COLOR_MA30, width=1), name='MA30'), row=1, col=1)
-                fig.add_trace(go.Scatter(x=x_labels, y=kdf['ma60'], mode='lines', line=dict(color=COLOR_MA60, width=1.2, dash='dot'), name='MA60'), row=1, col=1)
+                _add_trace(go.Scatter(x=x_labels, y=kdf['ma5'], mode='lines', line=dict(color=COLOR_MA5, width=1), name='MA5'), row=1, col=1)
+                _add_trace(go.Scatter(x=x_labels, y=kdf['ma10'], mode='lines', line=dict(color=COLOR_MA10, width=1), name='MA10'), row=1, col=1)
+                _add_trace(go.Scatter(x=x_labels, y=kdf['ma20'], mode='lines', line=dict(color=COLOR_MA20, width=1), name='MA20'), row=1, col=1)
+                _add_trace(go.Scatter(x=x_labels, y=kdf['ma30'], mode='lines', line=dict(color=COLOR_MA30, width=1), name='MA30'), row=1, col=1)
+                _add_trace(go.Scatter(x=x_labels, y=kdf['ma60'], mode='lines', line=dict(color=COLOR_MA60, width=1.2, dash='dot'), name='MA60'), row=1, col=1)
 
                 # 3. 缠论笔与分型
                 # bi_points already filtered and formatted above
@@ -674,7 +697,7 @@ def render_money_flow_panel(plotly_renderer=None):
                     bi_x = [p['date'] for p in bi_points]
                     bi_y = [p['price'] for p in bi_points]
                     # 笔线
-                    fig.add_trace(go.Scatter(
+                    _add_trace(go.Scatter(
                         x=bi_x,
                         y=bi_y,
                         mode='lines+markers',
@@ -691,13 +714,13 @@ def render_money_flow_panel(plotly_renderer=None):
                     bot_y = [p['price'] for p in bi_points if p.get('type') == 'bottom']
                     
                     if top_x:
-                        fig.add_trace(go.Scatter(
+                        _add_trace(go.Scatter(
                             x=top_x, y=top_y, mode='markers',
                             marker=dict(size=6, color=COLOR_DOWN, symbol='circle-open', line=dict(width=1.5)),
                             name='顶分型', showlegend=False
                         ), row=1, col=1)
                     if bot_x:
-                        fig.add_trace(go.Scatter(
+                        _add_trace(go.Scatter(
                             x=bot_x, y=bot_y, mode='markers',
                             marker=dict(size=6, color=COLOR_UP, symbol='circle-open', line=dict(width=1.5)),
                             name='底分型', showlegend=False
@@ -709,7 +732,7 @@ def render_money_flow_panel(plotly_renderer=None):
                 
                 # 增强买卖点显示
                 if buy_mask.any():
-                    fig.add_trace(go.Scatter(
+                    _add_trace(go.Scatter(
                         x=x_labels[buy_mask],
                         y=kdf['buy_y'][buy_mask],
                         mode='markers+text',
@@ -725,7 +748,7 @@ def render_money_flow_panel(plotly_renderer=None):
                         name='买点'
                     ), row=1, col=1)
                 if sell_mask.any():
-                    fig.add_trace(go.Scatter(
+                    _add_trace(go.Scatter(
                         x=x_labels[sell_mask],
                         y=kdf['sell_y'][sell_mask],
                         mode='markers+text',
@@ -741,39 +764,70 @@ def render_money_flow_panel(plotly_renderer=None):
                         name='卖点'
                     ), row=1, col=1)
 
-                # 5. MACD 子图
-                fig.add_trace(go.Bar(
+                # 5. 副图指标（MACD）
+                _add_trace(go.Bar(
                     x=x_labels,
                     y=macd_hist,
                     marker_color=macd_colors,
                     name='MACD柱',
                     marker_line_width=0, # 去掉柱子边框
                     hovertemplate='%{y:.3f}<extra></extra>'
-                ), row=2, col=1)
-                fig.add_trace(go.Scatter(x=x_labels, y=dif, mode='lines', line=dict(color=COLOR_MA10, width=1.5), name='DIF'), row=2, col=1)
-                fig.add_trace(go.Scatter(x=x_labels, y=dea, mode='lines', line=dict(color=COLOR_MA5, width=1.5), name='DEA'), row=2, col=1)
-                
-                # 金叉死叉
+                ), row=2, col=1, kind='macd')
+                _add_trace(go.Scatter(x=x_labels, y=dif, mode='lines', line=dict(color=COLOR_MA10, width=1.5), name='DIF'), row=2, col=1, kind='macd')
+                _add_trace(go.Scatter(x=x_labels, y=dea, mode='lines', line=dict(color=COLOR_MA5, width=1.5), name='DEA'), row=2, col=1, kind='macd')
+
                 if gc_mask.any():
-                    fig.add_trace(go.Scatter(
+                    _add_trace(go.Scatter(
                         x=x_labels[gc_mask], y=dif[gc_mask], mode='markers',
                         marker=dict(color=COLOR_UP, size=6, symbol='diamond'),
                         name='金叉', showlegend=False
-                    ), row=2, col=1)
+                    ), row=2, col=1, kind='macd')
                 if dc_mask.any():
-                    fig.add_trace(go.Scatter(
+                    _add_trace(go.Scatter(
                         x=x_labels[dc_mask], y=dif[dc_mask], mode='markers',
                         marker=dict(color=COLOR_DOWN, size=6, symbol='diamond'),
                         name='死叉', showlegend=False
-                    ), row=2, col=1)
+                    ), row=2, col=1, kind='macd')
+
+                # 副图指标（布林线）
+                # 使用自定义Bar伪造K线，完全避开 Plotly 底层 Candlestick 组件在控制隐藏时引发的 Margin 塌陷 Bug
+                kline_colors = ['rgba(239,68,68,0.7)' if c >= o else 'rgba(34,197,94,0.7)' for c, o in zip(kdf['close'], kdf['open'])]
+                body_y = [max(abs(c - o), 0.01) for c, o in zip(kdf['close'], kdf['open'])] # 保证十字星也有极小的一点高度
+                body_base = [min(c, o) for c, o in zip(kdf['close'], kdf['open'])]
+                
+                # 辅助K线：影线 (High-Low)
+                _add_trace(go.Bar(
+                    x=x_labels, y=kdf['high'] - kdf['low'], base=kdf['low'],
+                    marker_color=kline_colors, width=0.1, # 细线
+                    name='K线(辅)影线', showlegend=False, hoverinfo='skip'
+                ), row=2, col=1, kind='boll')
+                
+                # 辅助K线：实体 (Open-Close)
+                _add_trace(go.Bar(
+                    x=x_labels, y=body_y, base=body_base,
+                    marker_color=kline_colors, width=0.6, # 宽条
+                    name='K线(辅)实体', showlegend=False, hoverinfo='skip'
+                ), row=2, col=1, kind='boll')
+
+                _add_trace(go.Scatter(
+                    x=x_labels, y=boll_upper, mode='lines', line=dict(color=COLOR_MA20, width=1.5), name='BOLL上轨'
+                ), row=2, col=1, kind='boll')
+                _add_trace(go.Scatter(
+                    x=x_labels, y=boll_mid, mode='lines', line=dict(color=COLOR_MA60, width=1.3), name='BOLL中轨'
+                ), row=2, col=1, kind='boll')
+                _add_trace(go.Scatter(
+                    x=x_labels, y=boll_lower, mode='lines', line=dict(color=COLOR_MA10, width=1.5), name='BOLL下轨'
+                ), row=2, col=1, kind='boll')
 
                 # 6. Layout 布局优化
                 fig.update_layout(
+                    height=700, # 强制图表总高度固定为700px（主图70%, 副图25%, 留些给图例和间距）
                     margin=dict(l=10, r=10, t=30, b=10),
                     paper_bgcolor=COLOR_BG,
                     plot_bgcolor=COLOR_BG,
                     hovermode='x unified',
                     xaxis_rangeslider_visible=False,
+                    xaxis2_rangeslider_visible=True, # 开启副图自带的滑块 (5%)
                     # 图例样式
                     legend=dict(
                         orientation='h',
@@ -786,14 +840,60 @@ def render_money_flow_panel(plotly_renderer=None):
                         itemwidth=30
                     ),
                     font=dict(family="Roboto, 'Segoe UI', 'Microsoft YaHei', sans-serif", color=COLOR_TEXT, size=11),
+                    # 构建主副图中间的切换按钮
+                    updatemenus=[
+                        dict(
+                            type="buttons",
+                            direction="right",
+                            active=0,
+                            x=0.01,
+                            y=0.258, # 精确定位在主副图之间（无遮挡）
+                            xanchor="left",
+                            yanchor="middle",
+                            pad={"r": 10, "t": 0, "b": 0},
+                            showactive=True,
+                            buttons=list([
+                                dict(
+                                    label="MACD",
+                                    method="update",
+                                    args=[
+                                        {"visible": visible_macd},
+                                        {"yaxis2.autorange": True}
+                                    ]
+                                ),
+                                dict(
+                                    label="BOLL",
+                                    method="update",
+                                    args=[
+                                        {"visible": visible_boll},
+                                        {"yaxis2.autorange": True}
+                                    ]
+                                )
+                            ]),
+                            bgcolor="#F8FAFC",
+                            bordercolor="#E2E8F0",
+                            font=dict(color="#475569", size=11)
+                        )
+                    ],
                     # 分隔线
                     shapes=[
                         dict(
                             type='line', xref='paper', yref='paper',
-                            x0=0, x1=1, y0=0.32, y1=0.32, # 主副图分隔
+                            x0=0, x1=1, y0=0.26, y1=0.26, # 主副图分隔
                             line=dict(color=COLOR_GRID, width=1)
                         )
                     ]
+                )
+                
+                # 滑块范围及副图设置
+                fig.update_xaxes(
+                    rangeslider=dict(
+                        visible=True,
+                        thickness=0.06, # 占据约5%-6%的高度
+                        bgcolor="#F8FAFC",
+                        bordercolor="#E2E8F0"
+                    ),
+                    row=2, col=1
                 )
                 
                 # 坐标轴优化
@@ -818,14 +918,14 @@ def render_money_flow_panel(plotly_renderer=None):
             
             if state['indicator'] == '散户数量':
                 # 散户数量模式：全屏图表
-                with ui.card().classes('w-full h-full p-0 shadow-sm border border-slate-100 rounded-xl overflow-hidden'):
+                with ui.card().classes('w-full p-0 shadow-sm border border-slate-100 rounded-xl overflow-hidden').style('height: 700px;'):
                      plot_func(fig).classes('w-full h-full')
             else:
-                # 买卖助手模式：左图右分析布局
-                with ui.row().classes('w-full h-full gap-3 items-stretch no-wrap'):
+                # 买卖助手模式：左图右分析布局，强制给定高度
+                with ui.row().classes('w-full gap-3 items-stretch no-wrap').style('height: 700px;'):
                     # 左侧：图表 (占据大部分空间)
-                    with ui.card().classes('flex-grow h-full min-w-0 p-0 shadow-sm border border-slate-100 rounded-xl overflow-hidden'):
-                        plot_func(fig).classes('w-full h-full')
+                    with ui.card().classes('flex-grow h-full min-w-0 p-0 shadow-sm border border-slate-100 rounded-xl overflow-hidden relative'):
+                        plot_func(fig).classes('w-full h-full z-0')
                     
                     # 右侧：缠论分析面板 (固定宽度)
                     with ui.card().classes('w-80 h-full p-4 shadow-sm border border-slate-100 rounded-xl bg-white overflow-y-auto flex-shrink-0 flex flex-col gap-3'):
