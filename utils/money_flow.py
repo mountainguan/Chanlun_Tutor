@@ -100,12 +100,32 @@ import concurrent.futures
 @lru_cache(maxsize=100)
 def _fetch_stock_info(code):
     try:
-        # Timeout wrapper is handled by caller
-        df = ak.stock_individual_info_em(symbol=code)
-        return df
+        import requests
+        c_str = str(code).zfill(6)
+        prefix = 'sh' if c_str.startswith(('6', '9')) else 'sz'
+        url = f"http://qt.gtimg.cn/q={prefix}{code}"
+        res = requests.get(url, timeout=3)
+        if res.status_code == 200 and "~" in res.text:
+            parts = res.text.split("~")
+            if len(parts) > 45:
+                # Tencent qt API index 44 is circulation shares (in shares usually), index 1 is name
+                # We need to return a dictionary that acts like Akshare's df.to_dict('records') or just a direct dict 
+                # Wait, get_stock_info parses `df.to_dict('records')`. If we return a dict directly, we must change get_stock_info too.
+                # Actually, let's just return a dict from _fetch_stock_info and fix get_stock_info.
+                float_shares = float(parts[72]) if parts[72] else None
+                # Wait, ping an bank Tencent returns 19405600653 (shares). 
+                # For 600362 it returns 2075247405 (shares) -> ~20亿.
+                # Oh wait, for 600362, Eastmoney used to return '20.8亿' or '2075247405'.
+                # Let's return a dict formatted for get_stock_info to consume safely.
+                # I will also just return a dataframe to avoid modifying get_stock_info.
+                import pandas as pd
+                return pd.DataFrame([
+                    {'item': '流通股', 'value': float_shares},
+                    {'item': '股票简称', 'value': parts[1]}
+                ])
     except Exception as e:
-        print(f"Fetch info failed for {code}: {e}")
-        return None
+        print(f"Fetch info failed (Tencent) for {code}: {e}")
+    return None
 
 @lru_cache(maxsize=1)
 def _fetch_code_name_map():
@@ -883,10 +903,7 @@ class MoneyFlow:
                 common_indices = df.index.intersection(hist_df.index)
                 if not common_indices.empty:
                     hist_sub = hist_df.loc[common_indices]
-                    vol = hist_sub['成交量'] * 100
-                    amt = hist_sub['成交额']
-                    vwap = amt / vol.replace(0, 1) 
-                    p_avg_series = vwap
+                    p_avg_series = hist_sub['收盘']
                     kline_col_map = {
                         '开盘': 'open',
                         '收盘': 'close',
@@ -1024,79 +1041,22 @@ class MoneyFlow:
                     
                     if p <= 0.1: p = 0.1
                     
-                    # Main Force Net Inflow (Yuan)
-                    # "Main Force" in AkShare = Super Large + Large Orders
-                    # This maps to "Buy Large - Sell Large" in money terms.
-                    f_net = float(df.loc[date, main_col])
-                    
-                    # Convert to "Shares" (Proxy for Count difference)
-                    # User's logic: Count Diff / Float * 10000
-                    # We use: (NetAmount / Price) / Float * Scaling
-                    # NetShares = f_net / p
-                    # Score = (NetShares / 10000) / float_shares_wan * Factor
-                    
-                    # Why divide by 10000? To match float_shares_wan units.
-                    net_shares_wan = (f_net / p) / 10000.0
-                    
-                    # Factor 10000 from user script
-                    # User script: (CountDiff / FloatWan) * 10000
-                    # Here we use ShareDiff. ShareDiff is proportional to CountDiff * AvgSharesPerOrder.
-                    # Assuming AvgSharesPerOrder is constant-ish, the shape is same.
-                    # We use a factor to make the score readable (e.g. around -50 to 50)
-                    
-                    # For a stock with 10B cap, MainInflow 100M. 1%.
-                    # NetSharesWan / FloatSharesWan = 1%. 
-                    # 0.01 * 10000 = 100.
-                    # This matches the user's scale perfectly.
-                    score = (net_shares_wan / float_shares_wan) * 10000
-                    
-                    # Interpretation:
-                    # Score > 0: Main Buy -> Retail Sell -> Retail Count DOWN.
-                    # Score < 0: Main Sell -> Retail Buy -> Retail Count UP.
-                    
-                    # Refinement (User Request): "Looks too much like Money Flow".
-                    # We try to use weighted Small/Medium orders to better approximate "Count" behavior.
-                    # Small orders (San Hu) imply more head count change than Medium orders.
-                    
+                    # Core Logic Change: Purely based on '小单' (Small orders)
+                    # Because intermediate orders (中单) can be mixed with Quant/Hot Money.
                     small_col = '小单净流入-净额'
-                    mid_col = '中单净流入-净额'
-                    
-                    final_score_val = score # Default base
-                    
-                    if small_col in df.columns and mid_col in df.columns:
-                        small_net = float(df.loc[date, small_col])
-                        mid_net = float(df.loc[date, mid_col])
-                        
-                        # Weighting Strategy:
-                        # Small orders are purely retail => Weight 1.0
-                        # Medium orders are mixed/larger retail => Weight 0.2 (Assume 5x ticket size means 1/5 impact on count)
-                        # Note: 'retail_money' used before was (Small + Mid).
-                        # Main Force Score ~ -(Small + Mid).
-                        # New weighted proxy:
-                        weighted_retail_money = (small_net * 1.0) 
-                        
-                        # Calc equivalent score from Retail Perspective
-                        retail_proxy_shares_wan = (weighted_retail_money / p) / 10000.0
-                        retail_proxy_score = (retail_proxy_shares_wan / float_shares_wan) * 20000 
-                        
-                        # Use this proxy instead of the Main Force derived one
-                        # Retail Proxy > 0 => Count UP.
-                        # Matches target sign.
-                        final_score_val = -1 * retail_proxy_score # We need to maintain the "Main Force Score" sign convention for the delta_N logic below which expects Main Force sign?
-                        # Actually let's rewrite the delta logic to be clearer.
-                        
-                        # Direct Retail Score (Positive = Count Up)
-                        display_score = retail_proxy_score
-                        
-                        # Delta N logic: Display Score > 0 => Count Up.
-                        change_pct = display_score / 10000.0
-                        delta_N = current_N * change_pct
-                    else:
-                        # Fallback
-                        display_score = -1 * score # Invert Main Force Score
-                        change_pct = score / 10000.0
-                        delta_N = -1 * current_N * change_pct
+                    f_net = float(df.loc[date, small_col]) if small_col in df.columns else (float(df.loc[date, main_col]) * -0.5)
 
+                    # Convert small net inflow amount to shares
+                    net_shares_wan = (f_net / p) / 10000.0
+
+                    score = (net_shares_wan / float_shares_wan) * 10000
+                    if date == sorted_dates[-1]: print(f'DEBUG: small_net={f_net} score={score}')
+
+                    # Since we use small order net inflow directly:
+                    # f_net > 0 => Retail buys => Score > 0 => Count UP
+                    display_score = score
+                    change_pct = display_score / 10000.0
+                    delta_N = current_N * change_pct
                     retail_scores.append(display_score)
                     
                     current_N = current_N + delta_N

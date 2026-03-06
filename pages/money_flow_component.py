@@ -434,7 +434,7 @@ def render_money_flow_panel(plotly_renderer=None):
 
         with chart_container:
             main_col = '主力净流入-净额'
-            retail_col = '散户净流入-净额'
+            retail_col = '小单净流入-净额'
             score_col = 'retail_score'
 
             def get_colors(series):
@@ -446,23 +446,23 @@ def render_money_flow_panel(plotly_renderer=None):
                     rows=2, cols=1,
                     shared_xaxes=True,
                     vertical_spacing=0.1,
-                    subplot_titles=('散户数量变动 (核心指标)', '资金流向对比 (主力 vs 散户)'),
+                    subplot_titles=('散户数量变动 (纯小单过滤)', '资金流向对比 (主力 vs 小单散户)'),
                     row_heights=[0.55, 0.45]
                 )
 
                 if score_col in df.columns:
                     fig.add_trace(go.Bar(
-                        x=dates, y=df[score_col],
+                        x=dates.tolist(), y=df[score_col].fillna(0).tolist(),
                         name='散户变动',
-                        marker_color=get_colors(df[score_col]),
+                        marker_color=get_colors(df[score_col].fillna(0)),
                         showlegend=True,
                         hovertemplate='%{y:.2f}'
                     ), row=1, col=1)
 
                     if len(df) > 5:
-                        ma5 = df[score_col].rolling(window=5).mean().round(2)
+                        ma5 = df[score_col].rolling(window=5).mean().round(2).fillna(0)
                         fig.add_trace(go.Scatter(
-                            x=dates, y=ma5,
+                            x=dates.tolist(), y=ma5.tolist(),
                             mode='lines',
                             name='5日均线',
                             line=dict(color='#FFA726', width=2),
@@ -472,17 +472,17 @@ def render_money_flow_panel(plotly_renderer=None):
 
                 if main_col in df.columns:
                     fig.add_trace(go.Bar(
-                        x=dates, y=df[main_col],
+                        x=dates.tolist(), y=df[main_col].fillna(0).tolist(),
                         name='主力净流入',
-                        marker_color=get_colors(df[main_col]),
+                        marker_color=get_colors(df[main_col].fillna(0)),
                         offsetgroup=1
                     ), row=2, col=1)
 
                 if retail_col in df.columns:
                     fig.add_trace(go.Bar(
-                        x=dates, y=df[retail_col],
-                        name='散户净流入',
-                        marker_color=get_colors(df[retail_col]),
+                        x=dates.tolist(), y=df[retail_col].fillna(0).tolist(),
+                        name='纯散户(小单)净流入',
+                        marker_color=get_colors(df[retail_col].fillna(0)),
                         opacity=0.4,
                         offsetgroup=2
                     ), row=2, col=1)
@@ -814,69 +814,69 @@ def render_money_flow_panel(plotly_renderer=None):
                 # 移除主图X轴标签（因为共享）
                 fig.update_xaxes(showticklabels=False, row=1, col=1)
 
-                chart_container.clear()
-                
-                if state['indicator'] == '散户数量':
-                    # 散户数量模式：全屏图表
-                    with ui.card().classes('w-full h-full p-0 shadow-sm border border-slate-100 rounded-xl overflow-hidden'):
-                         plot_func(fig).classes('w-full h-full')
-                else:
-                    # 买卖助手模式：左图右分析布局
-                    with ui.row().classes('w-full h-full gap-3 items-stretch no-wrap'):
-                        # 左侧：图表 (占据大部分空间)
-                        with ui.card().classes('flex-grow h-full min-w-0 p-0 shadow-sm border border-slate-100 rounded-xl overflow-hidden'):
-                            plot_func(fig).classes('w-full h-full')
-                        
-                        # 右侧：缠论分析面板 (固定宽度)
-                        with ui.card().classes('w-80 h-full p-4 shadow-sm border border-slate-100 rounded-xl bg-white overflow-y-auto flex-shrink-0 flex flex-col gap-3'):
-                             ui.label(f'{name} ({code})').classes('text-lg font-bold text-slate-800 leading-tight')
+            chart_container.clear()
+            
+            if state['indicator'] == '散户数量':
+                # 散户数量模式：全屏图表
+                with ui.card().classes('w-full h-full p-0 shadow-sm border border-slate-100 rounded-xl overflow-hidden'):
+                     plot_func(fig).classes('w-full h-full')
+            else:
+                # 买卖助手模式：左图右分析布局
+                with ui.row().classes('w-full h-full gap-3 items-stretch no-wrap'):
+                    # 左侧：图表 (占据大部分空间)
+                    with ui.card().classes('flex-grow h-full min-w-0 p-0 shadow-sm border border-slate-100 rounded-xl overflow-hidden'):
+                        plot_func(fig).classes('w-full h-full')
+                    
+                    # 右侧：缠论分析面板 (固定宽度)
+                    with ui.card().classes('w-80 h-full p-4 shadow-sm border border-slate-100 rounded-xl bg-white overflow-y-auto flex-shrink-0 flex flex-col gap-3'):
+                         ui.label(f'{name} ({code})').classes('text-lg font-bold text-slate-800 leading-tight')
+                         
+                         # 1. 核心结论
+                         with ui.row().classes('items-center gap-2'):
+                             status_color = 'text-red-500' if '上涨' in analysis.get('structure', '') else 'text-green-500' if '下跌' in analysis.get('structure', '') else 'text-slate-500'
+                             ui.label(analysis.get('structure', '未知结构')).classes(f'text-xl font-black {status_color}')
+                             ui.badge(analysis.get('ma_alignment', '均线缠绕'), color='blue' if analysis.get('ma_alignment')=='多头排列' else 'grey').props('outline')
+
+                         ui.separator().classes('my-1')
+                         
+                         # 2. 关键点位
+                         with ui.grid(columns=2).classes('w-full gap-2'):
+                             def info_item(label, value, color='slate-700'):
+                                 with ui.column().classes('gap-0'):
+                                     ui.label(label).classes('text-xs text-slate-400')
+                                     ui.label(str(value)).classes(f'text-sm font-bold text-{color}')
                              
-                             # 1. 核心结论
-                             with ui.row().classes('items-center gap-2'):
-                                 status_color = 'text-red-500' if '上涨' in analysis.get('structure', '') else 'text-green-500' if '下跌' in analysis.get('structure', '') else 'text-slate-500'
-                                 ui.label(analysis.get('structure', '未知结构')).classes(f'text-xl font-black {status_color}')
-                                 ui.badge(analysis.get('ma_alignment', '均线缠绕'), color='blue' if analysis.get('ma_alignment')=='多头排列' else 'grey').props('outline')
+                             info_item('支撑位', analysis.get('support_price', '-'), 'red-500')
+                             info_item('压力位', analysis.get('pressure_price', '-'), 'green-500')
+                             info_item('RSI', analysis.get('rsi', '-'), 'purple-500')
+                             info_item('MACD', analysis.get('macd', '-'), 'slate-700')
 
-                             ui.separator().classes('my-1')
-                             
-                             # 2. 关键点位
-                             with ui.grid(columns=2).classes('w-full gap-2'):
-                                 def info_item(label, value, color='slate-700'):
-                                     with ui.column().classes('gap-0'):
-                                         ui.label(label).classes('text-xs text-slate-400')
-                                         ui.label(str(value)).classes(f'text-sm font-bold text-{color}')
-                                 
-                                 info_item('支撑位', analysis.get('support_price', '-'), 'red-500')
-                                 info_item('压力位', analysis.get('pressure_price', '-'), 'green-500')
-                                 info_item('RSI', analysis.get('rsi', '-'), 'purple-500')
-                                 info_item('MACD', analysis.get('macd', '-'), 'slate-700')
+                         # 3. 操作区间
+                         with ui.column().classes('w-full bg-slate-50 p-3 rounded-lg gap-1 border border-slate-100'):
+                             ui.label('操作建议区间').classes('text-xs font-bold text-slate-500 mb-1')
+                             with ui.row().classes('w-full justify-between items-center'):
+                                 ui.label('低吸区').classes('text-xs text-slate-400')
+                                 ui.label(analysis.get('buy_zone', '-')).classes('text-xs font-mono font-bold text-red-500')
+                             with ui.row().classes('w-full justify-between items-center'):
+                                 ui.label('高抛区').classes('text-xs text-slate-400')
+                                 ui.label(analysis.get('sell_zone', '-')).classes('text-xs font-mono font-bold text-green-500')
+                             with ui.row().classes('w-full justify-between items-center'):
+                                 ui.label('风控线').classes('text-xs text-slate-400')
+                                 ui.label(analysis.get('risk_line', '-')).classes('text-xs font-mono font-bold text-slate-700')
 
-                             # 3. 操作区间
-                             with ui.column().classes('w-full bg-slate-50 p-3 rounded-lg gap-1 border border-slate-100'):
-                                 ui.label('操作建议区间').classes('text-xs font-bold text-slate-500 mb-1')
-                                 with ui.row().classes('w-full justify-between items-center'):
-                                     ui.label('低吸区').classes('text-xs text-slate-400')
-                                     ui.label(analysis.get('buy_zone', '-')).classes('text-xs font-mono font-bold text-red-500')
-                                 with ui.row().classes('w-full justify-between items-center'):
-                                     ui.label('高抛区').classes('text-xs text-slate-400')
-                                     ui.label(analysis.get('sell_zone', '-')).classes('text-xs font-mono font-bold text-green-500')
-                                 with ui.row().classes('w-full justify-between items-center'):
-                                     ui.label('风控线').classes('text-xs text-slate-400')
-                                     ui.label(analysis.get('risk_line', '-')).classes('text-xs font-mono font-bold text-slate-700')
+                         ui.separator().classes('my-1')
 
-                             ui.separator().classes('my-1')
-
-                             # 4. 详细策略
-                             ui.label('策略建议').classes('text-sm font-bold text-slate-700')
-                             with ui.column().classes('gap-2'):
-                                 for i, plan in enumerate(analysis.get('action_plan', [])):
-                                     with ui.row().classes('items-start gap-2'):
-                                         ui.label(str(i+1)+'.').classes('text-xs font-bold text-slate-400 mt-0.5')
-                                         ui.label(plan).classes('text-xs text-slate-600 leading-relaxed')
-                             
-                             # 底部提示
-                             ui.element('div').classes('flex-grow')
-                             ui.label(f'更新时间: {last_date}').classes('text-xs text-slate-300 text-center w-full')
+                         # 4. 详细策略
+                         ui.label('策略建议').classes('text-sm font-bold text-slate-700')
+                         with ui.column().classes('gap-2'):
+                             for i, plan in enumerate(analysis.get('action_plan', [])):
+                                 with ui.row().classes('items-start gap-2'):
+                                     ui.label(str(i+1)+'.').classes('text-xs font-bold text-slate-400 mt-0.5')
+                                     ui.label(plan).classes('text-xs text-slate-600 leading-relaxed')
+                         
+                         # 底部提示
+                         ui.element('div').classes('flex-grow')
+                         ui.label(f'更新时间: {last_date}').classes('text-xs text-slate-300 text-center w-full')
 
     def refresh_list():
         # Update group select options
