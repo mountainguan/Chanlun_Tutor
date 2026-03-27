@@ -45,7 +45,7 @@ def get_pension_fund_holdings(report_date):
 if __name__ == "__main__":
     # 示例：查询 2025年三季度报 (截止日通常为 03-31, 06-30, 09-30, 12-31)
     # 注意：最新财报披露有一定的滞后性，例如 10月底才披露完三季报
-    target_date = "20250930" 
+    target_date = "20251231" 
     
     holdings = get_pension_fund_holdings(target_date)
     

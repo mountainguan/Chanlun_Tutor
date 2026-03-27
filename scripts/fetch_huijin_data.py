@@ -16,7 +16,7 @@ import akshare as ak
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-def get_huijin_data(date_str='20250930'):
+def get_huijin_data(date_str='20251231'):
     print(f"开始获取 {date_str} 的中央汇金持股数据...")
     print("注意：该接口获取全市场数据，可能需要几分钟，请耐心等待...")
     
@@ -153,8 +153,8 @@ def save_data(holdings, date_str):
     print(f"共获取 {len(df_grouped)} 只股票的中央汇金持仓数据")
 
 if __name__ == "__main__":
-    # 默认获取 20250930 数据
-    target_date = '20250930'
+    # 默认获取 20251231 数据
+    target_date = '20251231'
     
     if len(sys.argv) > 1:
          target_date = sys.argv[1]
