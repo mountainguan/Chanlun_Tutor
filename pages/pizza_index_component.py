@@ -375,6 +375,12 @@ def render_pizza_index_panel(is_mobile=False):
                                         status = item['status']
                                         desc = item.get('desc', '')
                                         status_upper = status.upper() if status else 'NO DATA'
+                                        
+                                        border_color = 'border-gray-200'
+                                        bg_color = 'bg-gray-50'
+                                        text_color = 'text-gray-600'
+                                        icon_name = 'storefront'
+
                                         if 'SPIKE' in status_upper or 'BUSY' in status_upper or 'busier' in desc.lower():
                                             border_color = 'border-red-200'
                                             bg_color = 'bg-red-50'
@@ -386,6 +392,8 @@ def render_pizza_index_panel(is_mobile=False):
                                             text_color = 'text-green-600'
                                             icon_name = 'nightlight_round'
                                         elif 'NO DATA' in status_upper or 'CLOSED' in status_upper:
+                                            border_color = 'border-gray-200'
+                                            bg_color = 'bg-gray-50'
                                             text_color = 'text-gray-400'
                                             icon_name = 'data_usage' if 'NO DATA' in status_upper else 'storefront'
                                             
