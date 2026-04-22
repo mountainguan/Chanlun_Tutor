@@ -4,6 +4,7 @@ from utils.fund_radar import FundRadar
 from pages.fund_radar_multi_day_component import render_multi_day_view as render_fund_radar_multi_day_view
 from pages.fund_radar_multi_day_component import render_attribution_section as render_fund_radar_attribution_section
 from pages.fund_radar_sector_grid_component import render_sector_grid_view as render_fund_radar_sector_grid_view
+from pages.volume_leaders_component import render_volume_leaders_panel
 import pandas as pd
 import numpy as np
 import datetime
@@ -822,6 +823,10 @@ def render_fund_radar_panel(plotly_renderer=None, is_mobile=False):
                             autosize=True, title=None
                         )
                         plot_func(fig_bar).classes('w-full h-full min-h-[350px]')
+
+                    # --- Volume Leaders Section (Stock-level Volume Analysis) ---
+                    if not is_past_date:
+                        render_volume_leaders_panel(radar, date_val, is_mobile=is_mobile, plotly_renderer=plot_func)
 
     # --- Auto-load logic ---
     async def auto_load_logic():

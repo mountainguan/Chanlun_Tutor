@@ -39,7 +39,7 @@ class FundRadar:
     
     # Class-level cache for multi-day direct THS data
     _multi_day_cache = {}  # Key: f"{days}_{date_str}", Value: (timestamp, DataFrame)
-    
+
     # ── Anti-Crawl Rate Limiter (shared across all threads) ──
     _api_lock = threading.Lock()
     _api_last_call_ts = 0            # timestamp of last API call
@@ -55,8 +55,14 @@ class FundRadar:
     def __init__(self):
         self.data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
         self.cache_dir = os.path.join(self.data_dir, 'fund_radar_cache')
+        self.volume_cache_dir = os.path.join(self.data_dir, 'volume_leaders_cache')
+        self.index_cache_dir = os.path.join(self.data_dir, 'index_constituents_cache')
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
+        if not os.path.exists(self.volume_cache_dir):
+            os.makedirs(self.volume_cache_dir)
+        if not os.path.exists(self.index_cache_dir):
+            os.makedirs(self.index_cache_dir)
         # Auto-cleanup: remove stale batch cache files and legacy sector_history folder
         self._cleanup_stale_cache()
 
@@ -1199,3 +1205,276 @@ class FundRadar:
         offensive = ["半导体", "分立器件", "电子元件", "电子器件", "电子信息", "光学光电子", "电子化学品", "软件开发", "互联网服务", "计算机设备", "IT服务", "通信设备", "通信服务", "消费电子", "游戏", "文化传媒", "传媒娱乐", "互联网视频", "互联网广告", "航天航空", "飞机制造", "卫星互联网", "商业航天", "机器人", "减速器", "工业母机", "通用设备", "专用设备", "仪器仪表", "发电设备", "光伏设备", "风电设备", "储能", "氢能", "电池", "能源金属", "动力电池", "固态电池", "汽车整车", "汽车制造", "汽车零部件", "摩托车", "新能源汽车", "生物制药", "生物制品", "创新药", "医疗器械", "医疗服务", "次新股", "旅游酒店", "餐饮", "教育", "玻璃玻纤"]
         defensive = ["银行", "保险", "证券", "多元金融", "金融行业", "电力行业", "煤炭行业", "石油行业", "石油加工", "采掘行业", "燃气", "供水供气", "公路铁路", "公路桥梁", "交通运输", "港口航运", "码头", "机场", "跨境物流", "仓储物流", "建筑建材", "建筑装饰", "水泥行业", "钢铁行业", "工程建设", "食品饮料", "食品行业", "饮料制造", "酿酒行业", "农牧饲渔", "农林牧渔", "种植业", "林业", "渔业", "饲料", "家电行业", "白色家电", "厨卫电器", "中药", "医药商业", "医药制造", "化学制药", "房地产开发", "房地产服务", "零售", "百货商超", "环保行业", "水务", "园林绿化", "纺织服装", "服装家纺", "轻工制造", "造纸印刷", "装修装饰", "化纤行业", "化学制品"]
         return offensive, defensive
+
+    def _parse_ths_amount(self, val):
+        """Parse THS amount string like '79.09亿' to float in元"""
+        if pd.isna(val):
+            return 0.0
+        s = str(val).strip()
+        try:
+            if '亿' in s:
+                return float(s.replace('亿', '')) * 1e8
+            elif '万' in s:
+                return float(s.replace('万', '')) * 1e4
+            else:
+                return float(s)
+        except:
+            return 0.0
+
+    def _parse_ths_percent(self, val):
+        """Parse THS percent string like '23.94%' to float"""
+        if pd.isna(val):
+            return 0.0
+        s = str(val).strip()
+        try:
+            if '%' in s:
+                return float(s.replace('%', ''))
+            return float(s)
+        except:
+            return 0.0
+
+    def _get_volume_cache_path(self, date_str):
+        """Get cache file path for a given date"""
+        return os.path.join(self.volume_cache_dir, f'volume_leaders_{date_str}.csv')
+
+    def _get_index_cache_path(self, index_code):
+        """Get cache file path for index constituents"""
+        return os.path.join(self.index_cache_dir, f'index_cons_{index_code}.json')
+
+    # Main indices to track
+    INDEX_CODES = {
+        '沪深300': '000300',
+        '中证500': '000905',
+        '中证1000': '000852',
+        '创业板': '399006',
+        '科创50': '000688',
+        '上证50': '000016',
+        '深证100': '399330',
+    }
+
+    def _get_index_constituents(self, index_name, index_code):
+        """Get constituents for an index - loads from file cache only"""
+        cache_path = self._get_index_cache_path(index_code)
+
+        # Try to load from file cache
+        if os.path.exists(cache_path):
+            try:
+                with open(cache_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    codes = set(data.get('codes', []))
+                    print(f"[IndexCons] Loaded {len(codes)} constituents for {index_name}({index_code}) from cache")
+                    return codes
+            except Exception as e:
+                print(f"[IndexCons] Cache read error for {index_name}: {e}")
+
+        print(f"[IndexCons] No cache found for {index_name}({index_code}), returning empty set")
+        return set()
+
+    def _fetch_index_constituents(self, index_name, index_code):
+        """Fetch constituents from API"""
+        try:
+            df = self._rate_limited_call(
+                ak.index_stock_cons,
+                symbol=index_code,
+                _label=f"index_cons_{index_code}"
+            )
+            if df is not None and not df.empty:
+                code_col = None
+                for col in df.columns:
+                    if '代码' in col or 'code' in col.lower():
+                        code_col = col
+                        break
+                if code_col:
+                    codes = set(df[code_col].astype(str).str.zfill(6).tolist())
+                    print(f"[IndexCons] Fetched {len(codes)} constituents for {index_name}({index_code})")
+                    return codes
+        except Exception as e:
+            print(f"[IndexCons] Error fetching {index_name}: {e}")
+        return set()
+
+    def _save_index_cache(self, index_code, index_name, codes):
+        """Save index constituents to file cache"""
+        cache_path = self._get_index_cache_path(index_code)
+        try:
+            data = {
+                'index_code': index_code,
+                'index_name': index_name,
+                'codes': list(codes),
+                'timestamp': time.time()
+            }
+            with open(cache_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            print(f"[IndexCons] Saved {len(codes)} constituents to {cache_path}")
+        except Exception as e:
+            print(f"[IndexCons] Cache save error for {index_name}: {e}")
+
+    def update_index_constituents_cache(self):
+        """Manually update all index constituents cache from API"""
+        print("[IndexCons] Starting manual update of all index constituents...")
+        for index_name, index_code in FundRadar.INDEX_CODES.items():
+            codes = self._fetch_index_constituents(index_name, index_code)
+            if codes:
+                self._save_index_cache(index_code, index_name, codes)
+            time.sleep(1)
+        print("[IndexCons] Manual update complete")
+
+    def get_index_cache_status(self):
+        """Get status of index cache files"""
+        status = {}
+        for index_name, index_code in FundRadar.INDEX_CODES.items():
+            cache_path = self._get_index_cache_path(index_code)
+            if os.path.exists(cache_path):
+                try:
+                    with open(cache_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    ts = data.get('timestamp', 0)
+                    dt = datetime.datetime.fromtimestamp(ts) if ts else None
+                    status[index_name] = {
+                        'codes': len(data.get('codes', [])),
+                        'updated': dt.strftime('%Y-%m-%d %H:%M') if dt else 'unknown'
+                    }
+                except:
+                    status[index_name] = {'codes': 0, 'updated': 'error'}
+            else:
+                status[index_name] = {'codes': 0, 'updated': 'not cached'}
+        return status
+
+    def _mark_index_components(self, df):
+        """Mark which index components each stock belongs to"""
+        if df.empty or '代码' not in df.columns:
+            return df
+
+        df['指数标签'] = ''
+
+        for index_name, index_code in FundRadar.INDEX_CODES.items():
+            constituents = self._get_index_constituents(index_name, index_code)
+            if constituents:
+                mask = df['代码'].astype(str).str.zfill(6).isin(constituents)
+                for idx in df[mask].index:
+                    current_tag = df.at[idx, '指数标签']
+                    if current_tag:
+                        df.at[idx, '指数标签'] = f"{current_tag},{index_name}"
+                    else:
+                        df.at[idx, '指数标签'] = index_name
+
+        return df
+
+    def get_volume_leaders(self, date_str=None, limit=100, cache_only=False, force_update=False):
+        """
+        获取成交量最大的前N只股票及其占当日总成交量的比例。
+
+        数据来源：同花顺 (stock_fund_flow_individual)
+
+        Args:
+            date_str: 日期字符串 (YYYY-MM-DD)，None表示今天
+            limit: 返回前N只，默认为100
+            cache_only: 是否仅使用缓存（用于历史日期）
+            force_update: 是否强制更新缓存
+
+        Returns:
+            DataFrame with columns: ['代码', '名称', '最新价', '涨跌幅', '成交量', '成交额', '净流入', '占总成交比']
+        """
+        today = date_str or datetime.datetime.now().strftime('%Y-%m-%d')
+        cache_path = self._get_volume_cache_path(today)
+
+        # Check file cache first
+        if not force_update and os.path.exists(cache_path):
+            try:
+                cached_df = pd.read_csv(cache_path)
+                if not cached_df.empty:
+                    print(f"[VolumeLeaders] Using file cached data for {today}")
+                    return cached_df
+            except Exception as e:
+                print(f"[VolumeLeaders] Cache read error: {e}")
+
+        if cache_only:
+            print(f"[VolumeLeaders] cache_only mode, no data available for {today}")
+            return pd.DataFrame()
+
+        try:
+            # 获取同花顺即时资金流向排行（按成交额排序的股票列表）
+            df = self._rate_limited_call(
+                ak.stock_fund_flow_individual,
+                symbol="即时",
+                _label="volume_leaders"
+            )
+
+            if df is None or df.empty:
+                return pd.DataFrame()
+
+            # THS 返回列: 序号, 股票代码, 股票简称, 最新价, 涨跌幅, 换手率, 流入资金, 流出资金, 净额, 成交额
+            col_map = {}
+            for col in df.columns:
+                if '代码' in col:
+                    col_map[col] = '代码'
+                elif '简称' in col:
+                    col_map[col] = '名称'
+                elif '最新价' in col:
+                    col_map[col] = '最新价'
+                elif '涨跌幅' in col:
+                    col_map[col] = '涨跌幅'
+                elif '换手率' in col:
+                    col_map[col] = '换手率'
+                elif '流入资金' in col:
+                    col_map[col] = '流入资金'
+                elif '流出资金' in col:
+                    col_map[col] = '流出资金'
+                elif '净额' in col:
+                    col_map[col] = '净流入'
+                elif '成交额' in col:
+                    col_map[col] = '成交额'
+
+            df = df.rename(columns=col_map)
+
+            # 确保必要列存在
+            if '代码' not in df.columns or '名称' not in df.columns or '成交额' not in df.columns:
+                print(f"[VolumeLeaders] Missing required columns. Available: {list(df.columns)}")
+                return pd.DataFrame()
+
+            # 解析数值 - 处理 "79.09亿" 和 "23.94%" 格式
+            df['最新价'] = pd.to_numeric(df['最新价'], errors='coerce').fillna(0)
+            df['涨跌幅'] = df['涨跌幅'].apply(self._parse_ths_percent)
+            df['换手率'] = df['换手率'].apply(self._parse_ths_percent)
+            df['流入资金'] = df['流入资金'].apply(self._parse_ths_amount)
+            df['流出资金'] = df['流出资金'].apply(self._parse_ths_amount)
+            df['净流入'] = df['净流入'].apply(self._parse_ths_amount)
+            df['成交额'] = df['成交额'].apply(self._parse_ths_amount)
+
+            # 按成交额降序排序，取前limit只
+            df = df.sort_values('成交额', ascending=False).head(limit).copy()
+
+            # 计算总成交额（用于计算占比）
+            total_market_amount = df['成交额'].sum()
+
+            # 计算各股票成交额占总市场的比例
+            df['占总成交比'] = (df['成交额'] / total_market_amount * 100).round(2)
+
+            # 计算净流入占比
+            df['净流入占比'] = (df['净流入'] / df['成交额'].replace(0, 1) * 100).round(2)
+
+            # 转换单位以便展示：成交额以亿为单位
+            df['成交额亿'] = (df['成交额'] / 1e8).round(2)
+            df['净流入亿'] = (df['净流入'] / 1e8).round(2)
+            df['流入亿'] = (df['流入资金'] / 1e8).round(2)
+            df['流出亿'] = (df['流出资金'] / 1e8).round(2)
+
+            # 重置索引
+            df = df.reset_index(drop=True)
+
+            # Mark index components (沪深300, 中证500, etc.)
+            df = self._mark_index_components(df)
+
+            # Save to file cache
+            try:
+                df.to_csv(cache_path, index=False, encoding='utf-8')
+                print(f"[VolumeLeaders] Saved to file cache: {cache_path}")
+            except Exception as e:
+                print(f"[VolumeLeaders] Cache save error: {e}")
+
+            return df
+
+        except Exception as e:
+            print(f"[FundRadar] Volume Leaders Error: {e}")
+            import traceback
+            traceback.print_exc()
+            return pd.DataFrame()
