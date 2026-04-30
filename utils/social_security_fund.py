@@ -158,6 +158,7 @@ class SocialSecurityFund:
                     # 缓存有效期：24小时
                     if time.time() - cache_time < 24 * 3600:
                         df = pd.DataFrame(cache_data['data'])
+                        self.report_date = cache_data.get('date')
                         print(f"使用缓存数据，共{len(df)}只股票")
                         return df
             except Exception as e:
@@ -253,14 +254,48 @@ class SocialSecurityFund:
             print(f"校正股票代码失败: {e}")
             return df
 
+    def _find_latest_excel(self, prefix: str, sub_dir: str = None) -> tuple:
+        """
+        查找最新的Excel文件
+
+        Args:
+            prefix: 文件名前缀
+            sub_dir: 子目录名
+
+        Returns:
+            tuple: (文件路径, 日期字符串) 或 (None, None)
+        """
+        search_dir = os.path.join(self.data_dir, sub_dir) if sub_dir else self.data_dir
+
+        if not os.path.exists(search_dir):
+            return None, None
+
+        files = [f for f in os.listdir(search_dir) if f.startswith(prefix) and f.endswith('.xlsx')]
+
+        if not files:
+            return None, None
+
+        # 按日期排序，取最新的
+        files.sort(reverse=True)
+        latest_file = files[0]
+
+        # 从文件名提取日期
+        date_str = latest_file.replace(prefix, '').replace('.xlsx', '').replace('_', '')
+
+        return os.path.join(search_dir, latest_file), date_str
+
     def _load_pension_data(self) -> pd.DataFrame:
         """
-        从 Excel 文件加载养老保险数据
+        从 Excel 文件加载养老保险数据（自动查找最新文件）
         """
-        excel_file = os.path.join(self.data_dir, 'yanglaojin', '基本养老保险持股_20250930.xlsx')
-        if not os.path.exists(excel_file):
-            print(f"养老保险数据文件不存在: {excel_file}")
+        excel_file, report_date = self._find_latest_excel('基本养老保险持股_', 'yanglaojin')
+
+        if not excel_file:
+            print("未找到养老保险数据文件")
             return pd.DataFrame()
+
+        self.report_date = report_date
+        print(f"使用养老保险数据文件: {excel_file} (日期: {report_date})")
         
         try:
             df = pd.read_excel(excel_file)
@@ -345,28 +380,67 @@ class SocialSecurityFund:
 
     def _load_huijin_data(self) -> pd.DataFrame:
         """
-        从 JSON 缓存文件加载中央汇金数据（因为通常由手工脚本获取）
+        从 Excel 文件或 JSON 缓存加载中央汇金数据
+        优先使用最新的 Excel 文件
         """
-        # 尝试直接读取脚本生成的缓存文件
+        # 首先尝试从本地Excel文件加载
+        excel_file, report_date = self._find_latest_excel('中央汇金持股_')
+
+        if excel_file:
+            print(f"使用本地汇金数据文件: {excel_file} (日期: {report_date})")
+            self.report_date = report_date
+            try:
+                df = pd.read_excel(excel_file)
+                print(f"成功加载中央汇金数据，共{len(df)}条记录")
+
+                # 确保股票代码为6位字符串
+                df['股票代码'] = df['股票代码'].astype(str).str.zfill(6)
+
+                # 添加序号
+                df['序号'] = range(1, len(df) + 1)
+
+                # 添加持有基金家数
+                if '持有基金家数' not in df.columns:
+                    df['持有基金家数'] = 1
+
+                # 添加持股变动相关列
+                if '持股变动数值' not in df.columns:
+                    df['持股变动数值'] = 0
+                if '持股变动比例' not in df.columns:
+                    df['持股变动比例'] = 0
+
+                # 确定持股变化类型
+                if '持股变化' not in df.columns:
+                    df['持股变化'] = '不变'
+
+                # 处理NaN值
+                df = df.fillna(0)
+
+                return df
+
+            except Exception as e:
+                print(f"加载本地汇金数据失败: {e}")
+
+        # 如果本地Excel没有，尝试读取JSON缓存
         cache_file = os.path.join(self.data_dir, 'huijin_fund_cache.json')
-        
+
         if not os.path.exists(cache_file):
             print(f"中央汇金数据文件不存在: {cache_file}")
             return pd.DataFrame()
-            
+
         try:
             with open(cache_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                
+
             if 'date' in data:
                 self.report_date = data['date']
-                
+
             if 'data' not in data or not data['data']:
                 return pd.DataFrame()
-                
+
             df = pd.DataFrame(data['data'])
             print(f"成功加载中央汇金数据，共{len(df)}条记录")
-            
+
             # 确保列名正确
             required_columns = ['股票代码', '股票简称', '持股总数', '持股市值', '持股变动数值', '持股变动比例', '持股变化']
             for col in required_columns:
@@ -376,43 +450,85 @@ class SocialSecurityFund:
                          df['持股变化'] = '不变'
                     else:
                          df[col] = 0
-            
+
             return df
-            
+
         except Exception as e:
             print(f"加载中央汇金数据失败: {e}")
             return pd.DataFrame()
 
     def _load_social_security_data(self) -> pd.DataFrame:
         """
-        从 AKShare 加载社保基金数据
+        从本地Excel文件或AKShare加载社保基金数据
+        优先使用本地最新的Excel文件，如果没有则从AKShare获取
         """
+        # 首先尝试从本地Excel文件加载
+        excel_file, report_date = self._find_latest_excel('社保基金持股_')
+
+        if excel_file:
+            print(f"使用本地社保基金数据文件: {excel_file} (日期: {report_date})")
+            self.report_date = report_date
+            try:
+                df = pd.read_excel(excel_file)
+                print(f"成功加载社保基金数据，共{len(df)}条记录")
+
+                # 确保股票代码为6位字符串
+                df['股票代码'] = df['股票代码'].astype(str).str.zfill(6)
+
+                # 确保必要的列存在
+                required_columns = ['股票代码', '股票简称', '持股总数', '持股市值', '持股变动数值', '持股变动比例']
+                for col in required_columns:
+                    if col not in df.columns:
+                        print(f"缺少必要列: {col}")
+                        break
+                else:
+                    # 添加序号
+                    df['序号'] = range(1, len(df) + 1)
+
+                    # 添加持有基金家数（默认为1）
+                    if '持有基金家数' not in df.columns:
+                        df['持有基金家数'] = 1
+
+                    # 确定持股变化类型
+                    if '持股变化' not in df.columns:
+                        def determine_change(row):
+                            change_val = row.get('持股变动数值', 0)
+                            if pd.isna(change_val) or change_val == 0:
+                                return '不变'
+                            elif change_val > 0:
+                                return '增仓'
+                            else:
+                                return '减仓'
+                        df['持股变化'] = df.apply(determine_change, axis=1)
+
+                    # 处理NaN值
+                    df = df.fillna(0)
+
+                    return df
+
+            except Exception as e:
+                print(f"加载本地社保基金数据失败: {e}")
+
+        # 如果本地没有，从AKShare获取
+        print("本地社保基金数据不可用，尝试从AKShare获取...")
         current_date = datetime.datetime.now(ZoneInfo('Asia/Shanghai'))
-        # 尝试获取最近的季度末数据，但不包括未来日期
         quarters = []
-        # 优先尝试固定的已知最新发布日期（要求：20250930）
         preferred_date = '20250930'
         quarters.append(preferred_date)
-        for year in range(current_date.year, current_date.year - 4, -1):  # 从今年开始往前推3年
+        for year in range(current_date.year, current_date.year - 4, -1):
             for month in [12, 9, 6, 3]:
-                # 跳过未来的月份
                 if year == current_date.year and month > current_date.month:
                     continue
-                # 跳过2024年及以后的数据（akshare可能不支持）
-                if year >= 2024 and year < 2025:  # Example, actually logic is year >= 2024, adjust if needed
-                    pass  # Keep going if akshare supports it
-                
-                # Assume 2025 supports 2024 data
-                
                 quarters.append(f"{year}{month:02d}{31 if month in [3,12] else 30}")
 
         df = None
-        for date_str in quarters[:6]:  # 尝试近期若干个候选日期（包含首选日期）
+        for date_str in quarters[:6]:
             try:
                 print(f"尝试获取 {date_str} 的[{self.symbol}]数据...")
                 df = ak.stock_report_fund_hold(symbol=self.symbol, date=date_str)
                 if not df.empty:
                     print(f"成功获取 {date_str} 数据，共{len(df)}只股票")
+                    self.report_date = date_str
                     break
             except Exception as e:
                 print(f"获取 {date_str} 数据失败: {e}")
@@ -420,7 +536,7 @@ class SocialSecurityFund:
 
         if df is None or df.empty:
             return pd.DataFrame()
-        
+
         return df
 
     def get_holdings_history(self, stock_codes: List[str], quarters: int = 8) -> Dict[str, pd.DataFrame]:

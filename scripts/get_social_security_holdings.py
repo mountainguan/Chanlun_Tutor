@@ -27,7 +27,7 @@ def get_social_security_holdings(report_date):
 
 if __name__ == "__main__":
     # 查询指定季度的财报 (例如：2025年四季度 20251231, 或 2025三季度 20250930)
-    target_date = "20251231" 
+    target_date = "20260331"
     
     holdings = get_social_security_holdings(target_date)
     

@@ -154,7 +154,7 @@ def save_data(holdings, date_str):
 
 if __name__ == "__main__":
     # 默认获取 20251231 数据
-    target_date = '20251231'
+    target_date = '20260331'
     
     if len(sys.argv) > 1:
          target_date = sys.argv[1]
