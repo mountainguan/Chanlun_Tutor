@@ -1461,6 +1461,10 @@ class FundRadar:
             # 重置索引
             df = df.reset_index(drop=True)
 
+            # 补齐股票代码为6位（如 2384 -> 002384）
+            if '代码' in df.columns:
+                df['代码'] = df['代码'].astype(str).str.zfill(6)
+
             # Mark index components (沪深300, 中证500, etc.)
             df = self._mark_index_components(df)
 
