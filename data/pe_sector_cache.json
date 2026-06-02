@@ -1,0 +1,1488 @@
+{
+  "date": "2026-06-02",
+  "sectors": {
+    "IND_IT设备": {
+      "code": "IND_IT设备",
+      "name": "IT设备",
+      "pe": 69.34
+    },
+    "IND_专用机械": {
+      "code": "IND_专用机械",
+      "name": "专用机械",
+      "pe": 180.34
+    },
+    "IND_中成药": {
+      "code": "IND_中成药",
+      "name": "中成药",
+      "pe": 88.74
+    },
+    "IND_乳制品": {
+      "code": "IND_乳制品",
+      "name": "乳制品",
+      "pe": 31.17
+    },
+    "IND_互联网": {
+      "code": "IND_互联网",
+      "name": "互联网",
+      "pe": 156.44
+    },
+    "IND_仓储物流": {
+      "code": "IND_仓储物流",
+      "name": "仓储物流",
+      "pe": 22.9
+    },
+    "IND_供气供热": {
+      "code": "IND_供气供热",
+      "name": "供气供热",
+      "pe": 40.24
+    },
+    "IND_保险": {
+      "code": "IND_保险",
+      "name": "保险",
+      "pe": 6.46
+    },
+    "IND_元器件": {
+      "code": "IND_元器件",
+      "name": "元器件",
+      "pe": 138.04
+    },
+    "IND_全国地产": {
+      "code": "IND_全国地产",
+      "name": "全国地产",
+      "pe": 72.3
+    },
+    "IND_公共交通": {
+      "code": "IND_公共交通",
+      "name": "公共交通",
+      "pe": 88.31
+    },
+    "IND_公路": {
+      "code": "IND_公路",
+      "name": "公路",
+      "pe": 26.65
+    },
+    "IND_其他商业": {
+      "code": "IND_其他商业",
+      "name": "其他商业",
+      "pe": 298.39
+    },
+    "IND_其他建材": {
+      "code": "IND_其他建材",
+      "name": "其他建材",
+      "pe": 206.76
+    },
+    "IND_农业综合": {
+      "code": "IND_农业综合",
+      "name": "农业综合",
+      "pe": 47.82
+    },
+    "IND_农用机械": {
+      "code": "IND_农用机械",
+      "name": "农用机械",
+      "pe": 96.11
+    },
+    "IND_农药化肥": {
+      "code": "IND_农药化肥",
+      "name": "农药化肥",
+      "pe": 25.81
+    },
+    "IND_出版业": {
+      "code": "IND_出版业",
+      "name": "出版业",
+      "pe": 47.66
+    },
+    "IND_化学制药": {
+      "code": "IND_化学制药",
+      "name": "化学制药",
+      "pe": 59.94
+    },
+    "IND_化工原料": {
+      "code": "IND_化工原料",
+      "name": "化工原料",
+      "pe": 131.89
+    },
+    "IND_化工机械": {
+      "code": "IND_化工机械",
+      "name": "化工机械",
+      "pe": 95.77
+    },
+    "IND_化纤": {
+      "code": "IND_化纤",
+      "name": "化纤",
+      "pe": 188.5
+    },
+    "IND_区域地产": {
+      "code": "IND_区域地产",
+      "name": "区域地产",
+      "pe": 91.36
+    },
+    "IND_医疗保健": {
+      "code": "IND_医疗保健",
+      "name": "医疗保健",
+      "pe": 68.3
+    },
+    "IND_医药商业": {
+      "code": "IND_医药商业",
+      "name": "医药商业",
+      "pe": 47.25
+    },
+    "IND_半导体": {
+      "code": "IND_半导体",
+      "name": "半导体",
+      "pe": 288.57
+    },
+    "IND_商品城": {
+      "code": "IND_商品城",
+      "name": "商品城",
+      "pe": 32.31
+    },
+    "IND_商贸代理": {
+      "code": "IND_商贸代理",
+      "name": "商贸代理",
+      "pe": 96.59
+    },
+    "IND_啤酒": {
+      "code": "IND_啤酒",
+      "name": "啤酒",
+      "pe": 20.86
+    },
+    "IND_园区开发": {
+      "code": "IND_园区开发",
+      "name": "园区开发",
+      "pe": 29.32
+    },
+    "IND_塑料": {
+      "code": "IND_塑料",
+      "name": "塑料",
+      "pe": 124.53
+    },
+    "IND_多元金融": {
+      "code": "IND_多元金融",
+      "name": "多元金融",
+      "pe": 82.65
+    },
+    "IND_家居用品": {
+      "code": "IND_家居用品",
+      "name": "家居用品",
+      "pe": 78.7
+    },
+    "IND_家用电器": {
+      "code": "IND_家用电器",
+      "name": "家用电器",
+      "pe": 45.91
+    },
+    "IND_小金属": {
+      "code": "IND_小金属",
+      "name": "小金属",
+      "pe": 131.5
+    },
+    "IND_工程机械": {
+      "code": "IND_工程机械",
+      "name": "工程机械",
+      "pe": 34.66
+    },
+    "IND_广告包装": {
+      "code": "IND_广告包装",
+      "name": "广告包装",
+      "pe": 101.21
+    },
+    "IND_建筑工程": {
+      "code": "IND_建筑工程",
+      "name": "建筑工程",
+      "pe": 35.92
+    },
+    "IND_影视音像": {
+      "code": "IND_影视音像",
+      "name": "影视音像",
+      "pe": 89.69
+    },
+    "IND_房产服务": {
+      "code": "IND_房产服务",
+      "name": "房产服务",
+      "pe": 83.21
+    },
+    "IND_批发业": {
+      "code": "IND_批发业",
+      "name": "批发业",
+      "pe": 17.72
+    },
+    "IND_摩托车": {
+      "code": "IND_摩托车",
+      "name": "摩托车",
+      "pe": 152.05
+    },
+    "IND_文教休闲": {
+      "code": "IND_文教休闲",
+      "name": "文教休闲",
+      "pe": 49.17
+    },
+    "IND_新型电力": {
+      "code": "IND_新型电力",
+      "name": "新型电力",
+      "pe": 38.53
+    },
+    "IND_旅游景点": {
+      "code": "IND_旅游景点",
+      "name": "旅游景点",
+      "pe": 61.44
+    },
+    "IND_旅游服务": {
+      "code": "IND_旅游服务",
+      "name": "旅游服务",
+      "pe": 78.91
+    },
+    "IND_日用化工": {
+      "code": "IND_日用化工",
+      "name": "日用化工",
+      "pe": 44.39
+    },
+    "IND_普钢": {
+      "code": "IND_普钢",
+      "name": "普钢",
+      "pe": 167.69
+    },
+    "IND_服饰": {
+      "code": "IND_服饰",
+      "name": "服饰",
+      "pe": 78.5
+    },
+    "IND_机场": {
+      "code": "IND_机场",
+      "name": "机场",
+      "pe": 76.47
+    },
+    "IND_机床制造": {
+      "code": "IND_机床制造",
+      "name": "机床制造",
+      "pe": 196.06
+    },
+    "IND_机械基件": {
+      "code": "IND_机械基件",
+      "name": "机械基件",
+      "pe": 361.39
+    },
+    "IND_林业": {
+      "code": "IND_林业",
+      "name": "林业",
+      "pe": 247.49
+    },
+    "IND_染料涂料": {
+      "code": "IND_染料涂料",
+      "name": "染料涂料",
+      "pe": 87.84
+    },
+    "IND_橡胶": {
+      "code": "IND_橡胶",
+      "name": "橡胶",
+      "pe": 149.62
+    },
+    "IND_水力发电": {
+      "code": "IND_水力发电",
+      "name": "水力发电",
+      "pe": 30.27
+    },
+    "IND_水务": {
+      "code": "IND_水务",
+      "name": "水务",
+      "pe": 45.79
+    },
+    "IND_水泥": {
+      "code": "IND_水泥",
+      "name": "水泥",
+      "pe": 24.51
+    },
+    "IND_水运": {
+      "code": "IND_水运",
+      "name": "水运",
+      "pe": 21.73
+    },
+    "IND_汽车整车": {
+      "code": "IND_汽车整车",
+      "name": "汽车整车",
+      "pe": 22.69
+    },
+    "IND_汽车服务": {
+      "code": "IND_汽车服务",
+      "name": "汽车服务",
+      "pe": 31.61
+    },
+    "IND_汽车配件": {
+      "code": "IND_汽车配件",
+      "name": "汽车配件",
+      "pe": 57.11
+    },
+    "IND_渔业": {
+      "code": "IND_渔业",
+      "name": "渔业",
+      "pe": 174.59
+    },
+    "IND_港口": {
+      "code": "IND_港口",
+      "name": "港口",
+      "pe": 19.93
+    },
+    "IND_火力发电": {
+      "code": "IND_火力发电",
+      "name": "火力发电",
+      "pe": 64.28
+    },
+    "IND_焦炭加工": {
+      "code": "IND_焦炭加工",
+      "name": "焦炭加工",
+      "pe": 124.2
+    },
+    "IND_煤炭开采": {
+      "code": "IND_煤炭开采",
+      "name": "煤炭开采",
+      "pe": 23.61
+    },
+    "IND_特种钢": {
+      "code": "IND_特种钢",
+      "name": "特种钢",
+      "pe": 65.05
+    },
+    "IND_环境保护": {
+      "code": "IND_环境保护",
+      "name": "环境保护",
+      "pe": 76.99
+    },
+    "IND_玻璃": {
+      "code": "IND_玻璃",
+      "name": "玻璃",
+      "pe": 272.21
+    },
+    "IND_生物制药": {
+      "code": "IND_生物制药",
+      "name": "生物制药",
+      "pe": 145.42
+    },
+    "IND_电信运营": {
+      "code": "IND_电信运营",
+      "name": "电信运营",
+      "pe": 22.33
+    },
+    "IND_电器仪表": {
+      "code": "IND_电器仪表",
+      "name": "电器仪表",
+      "pe": 269.34
+    },
+    "IND_电器连锁": {
+      "code": "IND_电器连锁",
+      "name": "电器连锁",
+      "pe": 141.22
+    },
+    "IND_电气设备": {
+      "code": "IND_电气设备",
+      "name": "电气设备",
+      "pe": 85.72
+    },
+    "IND_白酒": {
+      "code": "IND_白酒",
+      "name": "白酒",
+      "pe": 24.59
+    },
+    "IND_百货": {
+      "code": "IND_百货",
+      "name": "百货",
+      "pe": 83.45
+    },
+    "IND_石油加工": {
+      "code": "IND_石油加工",
+      "name": "石油加工",
+      "pe": 20.25
+    },
+    "IND_石油开采": {
+      "code": "IND_石油开采",
+      "name": "石油开采",
+      "pe": 15.74
+    },
+    "IND_石油贸易": {
+      "code": "IND_石油贸易",
+      "name": "石油贸易",
+      "pe": 48.13
+    },
+    "IND_矿物制品": {
+      "code": "IND_矿物制品",
+      "name": "矿物制品",
+      "pe": 109.26
+    },
+    "IND_种植业": {
+      "code": "IND_种植业",
+      "name": "种植业",
+      "pe": 58.16
+    },
+    "IND_空运": {
+      "code": "IND_空运",
+      "name": "空运",
+      "pe": 60.63
+    },
+    "IND_红黄酒": {
+      "code": "IND_红黄酒",
+      "name": "红黄酒",
+      "pe": 154.25
+    },
+    "IND_纺织": {
+      "code": "IND_纺织",
+      "name": "纺织",
+      "pe": 89.39
+    },
+    "IND_纺织机械": {
+      "code": "IND_纺织机械",
+      "name": "纺织机械",
+      "pe": 126.29
+    },
+    "IND_综合类": {
+      "code": "IND_综合类",
+      "name": "综合类",
+      "pe": 243.43
+    },
+    "IND_航空": {
+      "code": "IND_航空",
+      "name": "航空",
+      "pe": 263.58
+    },
+    "IND_船舶": {
+      "code": "IND_船舶",
+      "name": "船舶",
+      "pe": 53.11
+    },
+    "IND_装修装饰": {
+      "code": "IND_装修装饰",
+      "name": "装修装饰",
+      "pe": 101.54
+    },
+    "IND_证券": {
+      "code": "IND_证券",
+      "name": "证券",
+      "pe": 20.73
+    },
+    "IND_超市连锁": {
+      "code": "IND_超市连锁",
+      "name": "超市连锁",
+      "pe": 106.77
+    },
+    "IND_路桥": {
+      "code": "IND_路桥",
+      "name": "路桥",
+      "pe": 16.16
+    },
+    "IND_软件服务": {
+      "code": "IND_软件服务",
+      "name": "软件服务",
+      "pe": 179.42
+    },
+    "IND_软饮料": {
+      "code": "IND_软饮料",
+      "name": "软饮料",
+      "pe": 51.36
+    },
+    "IND_轻工机械": {
+      "code": "IND_轻工机械",
+      "name": "轻工机械",
+      "pe": 23.45
+    },
+    "IND_运输设备": {
+      "code": "IND_运输设备",
+      "name": "运输设备",
+      "pe": 53.47
+    },
+    "IND_通信设备": {
+      "code": "IND_通信设备",
+      "name": "通信设备",
+      "pe": 220.07
+    },
+    "IND_造纸": {
+      "code": "IND_造纸",
+      "name": "造纸",
+      "pe": 60.74
+    },
+    "IND_酒店餐饮": {
+      "code": "IND_酒店餐饮",
+      "name": "酒店餐饮",
+      "pe": 55.3
+    },
+    "IND_钢加工": {
+      "code": "IND_钢加工",
+      "name": "钢加工",
+      "pe": 65.75
+    },
+    "IND_铁路": {
+      "code": "IND_铁路",
+      "name": "铁路",
+      "pe": 18.9
+    },
+    "IND_铅锌": {
+      "code": "IND_铅锌",
+      "name": "铅锌",
+      "pe": 40.24
+    },
+    "IND_铜": {
+      "code": "IND_铜",
+      "name": "铜",
+      "pe": 26.33
+    },
+    "IND_铝": {
+      "code": "IND_铝",
+      "name": "铝",
+      "pe": 22.33
+    },
+    "IND_银行": {
+      "code": "IND_银行",
+      "name": "银行",
+      "pe": 7.03
+    },
+    "IND_陶瓷": {
+      "code": "IND_陶瓷",
+      "name": "陶瓷",
+      "pe": 95.34
+    },
+    "IND_食品": {
+      "code": "IND_食品",
+      "name": "食品",
+      "pe": 39.75
+    },
+    "IND_饲料": {
+      "code": "IND_饲料",
+      "name": "饲料",
+      "pe": 40.11
+    },
+    "IND_黄金": {
+      "code": "IND_黄金",
+      "name": "黄金",
+      "pe": 29.58
+    }
+  },
+  "stock_sector_map": {
+    "600104": {
+      "sector_code": "IND_汽车整车",
+      "sector_name": "汽车整车",
+      "sector_pe": 22.69
+    },
+    "600690": {
+      "sector_code": "IND_家用电器",
+      "sector_name": "家用电器",
+      "sector_pe": 45.91
+    },
+    "601225": {
+      "sector_code": "IND_煤炭开采",
+      "sector_name": "煤炭开采",
+      "sector_pe": 23.61
+    },
+    "601816": {
+      "sector_code": "IND_铁路",
+      "sector_name": "铁路",
+      "sector_pe": 18.9
+    },
+    "601985": {
+      "sector_code": "IND_新型电力",
+      "sector_name": "新型电力",
+      "sector_pe": 38.53
+    },
+    "600089": {
+      "sector_code": "IND_电气设备",
+      "sector_name": "电气设备",
+      "sector_pe": 85.72
+    },
+    "600183": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "601600": {
+      "sector_code": "IND_铝",
+      "sector_name": "铝",
+      "sector_pe": 22.33
+    },
+    "601688": {
+      "sector_code": "IND_证券",
+      "sector_name": "证券",
+      "sector_pe": 20.73
+    },
+    "603986": {
+      "sector_code": "IND_半导体",
+      "sector_name": "半导体",
+      "sector_pe": 288.57
+    },
+    "600027": {
+      "sector_code": "IND_火力发电",
+      "sector_name": "火力发电",
+      "sector_pe": 64.28
+    },
+    "600061": {
+      "sector_code": "IND_证券",
+      "sector_name": "证券",
+      "sector_pe": 20.73
+    },
+    "600085": {
+      "sector_code": "IND_中成药",
+      "sector_name": "中成药",
+      "sector_pe": 88.74
+    },
+    "600350": {
+      "sector_code": "IND_路桥",
+      "sector_name": "路桥",
+      "sector_pe": 16.16
+    },
+    "600377": {
+      "sector_code": "IND_路桥",
+      "sector_name": "路桥",
+      "sector_pe": 16.16
+    },
+    "600600": {
+      "sector_code": "IND_啤酒",
+      "sector_name": "啤酒",
+      "sector_pe": 20.86
+    },
+    "600845": {
+      "sector_code": "IND_软件服务",
+      "sector_name": "软件服务",
+      "sector_pe": 179.42
+    },
+    "601021": {
+      "sector_code": "IND_空运",
+      "sector_name": "空运",
+      "sector_pe": 60.63
+    },
+    "601117": {
+      "sector_code": "IND_建筑工程",
+      "sector_name": "建筑工程",
+      "sector_pe": 35.92
+    },
+    "601136": {
+      "sector_code": "IND_证券",
+      "sector_name": "证券",
+      "sector_pe": 20.73
+    },
+    "601298": {
+      "sector_code": "IND_港口",
+      "sector_name": "港口",
+      "sector_pe": 19.93
+    },
+    "601456": {
+      "sector_code": "IND_证券",
+      "sector_name": "证券",
+      "sector_pe": 20.73
+    },
+    "601607": {
+      "sector_code": "IND_医药商业",
+      "sector_name": "医药商业",
+      "sector_pe": 47.25
+    },
+    "601878": {
+      "sector_code": "IND_证券",
+      "sector_name": "证券",
+      "sector_pe": 20.73
+    },
+    "603369": {
+      "sector_code": "IND_白酒",
+      "sector_name": "白酒",
+      "sector_pe": 24.59
+    },
+    "688009": {
+      "sector_code": "IND_运输设备",
+      "sector_name": "运输设备",
+      "sector_pe": 53.47
+    },
+    "688303": {
+      "sector_code": "IND_电气设备",
+      "sector_name": "电气设备",
+      "sector_pe": 85.72
+    },
+    "600026": {
+      "sector_code": "IND_水运",
+      "sector_name": "水运",
+      "sector_pe": 21.73
+    },
+    "600029": {
+      "sector_code": "IND_空运",
+      "sector_name": "空运",
+      "sector_pe": 60.63
+    },
+    "600096": {
+      "sector_code": "IND_农药化肥",
+      "sector_name": "农药化肥",
+      "sector_pe": 25.81
+    },
+    "600118": {
+      "sector_code": "IND_航空",
+      "sector_name": "航空",
+      "sector_pe": 263.58
+    },
+    "600219": {
+      "sector_code": "IND_铝",
+      "sector_name": "铝",
+      "sector_pe": 22.33
+    },
+    "600221": {
+      "sector_code": "IND_空运",
+      "sector_name": "空运",
+      "sector_pe": 60.63
+    },
+    "600549": {
+      "sector_code": "IND_小金属",
+      "sector_name": "小金属",
+      "sector_pe": 131.5
+    },
+    "600580": {
+      "sector_code": "IND_电气设备",
+      "sector_name": "电气设备",
+      "sector_pe": 85.72
+    },
+    "600895": {
+      "sector_code": "IND_园区开发",
+      "sector_name": "园区开发",
+      "sector_pe": 29.32
+    },
+    "601061": {
+      "sector_code": "IND_商贸代理",
+      "sector_name": "商贸代理",
+      "sector_pe": 96.59
+    },
+    "601168": {
+      "sector_code": "IND_铜",
+      "sector_name": "铜",
+      "sector_pe": 26.33
+    },
+    "601231": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "601727": {
+      "sector_code": "IND_电气设备",
+      "sector_name": "电气设备",
+      "sector_pe": 85.72
+    },
+    "603228": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "688183": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "688521": {
+      "sector_code": "IND_半导体",
+      "sector_name": "半导体",
+      "sector_pe": 288.57
+    },
+    "688525": {
+      "sector_code": "IND_半导体",
+      "sector_name": "半导体",
+      "sector_pe": 288.57
+    },
+    "600007": {
+      "sector_code": "IND_园区开发",
+      "sector_name": "园区开发",
+      "sector_pe": 29.32
+    },
+    "600123": {
+      "sector_code": "IND_煤炭开采",
+      "sector_name": "煤炭开采",
+      "sector_pe": 23.61
+    },
+    "600487": {
+      "sector_code": "IND_通信设备",
+      "sector_name": "通信设备",
+      "sector_pe": 220.07
+    },
+    "600639": {
+      "sector_code": "IND_园区开发",
+      "sector_name": "园区开发",
+      "sector_pe": 29.32
+    },
+    "600648": {
+      "sector_code": "IND_园区开发",
+      "sector_name": "园区开发",
+      "sector_pe": 29.32
+    },
+    "600673": {
+      "sector_code": "IND_综合类",
+      "sector_name": "综合类",
+      "sector_pe": 243.43
+    },
+    "600850": {
+      "sector_code": "IND_软件服务",
+      "sector_name": "软件服务",
+      "sector_pe": 179.42
+    },
+    "600925": {
+      "sector_code": "IND_煤炭开采",
+      "sector_name": "煤炭开采",
+      "sector_pe": 23.61
+    },
+    "601158": {
+      "sector_code": "IND_水务",
+      "sector_name": "水务",
+      "sector_pe": 45.79
+    },
+    "601811": {
+      "sector_code": "IND_出版业",
+      "sector_name": "出版业",
+      "sector_pe": 47.66
+    },
+    "603043": {
+      "sector_code": "IND_食品",
+      "sector_name": "食品",
+      "sector_pe": 39.75
+    },
+    "603108": {
+      "sector_code": "IND_医药商业",
+      "sector_name": "医药商业",
+      "sector_pe": 47.25
+    },
+    "603279": {
+      "sector_code": "IND_环境保护",
+      "sector_name": "环境保护",
+      "sector_pe": 76.99
+    },
+    "603300": {
+      "sector_code": "IND_多元金融",
+      "sector_name": "多元金融",
+      "sector_pe": 82.65
+    },
+    "603327": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "603496": {
+      "sector_code": "IND_IT设备",
+      "sector_name": "IT设备",
+      "sector_pe": 69.34
+    },
+    "603599": {
+      "sector_code": "IND_农药化肥",
+      "sector_name": "农药化肥",
+      "sector_pe": 25.81
+    },
+    "603733": {
+      "sector_code": "IND_造纸",
+      "sector_name": "造纸",
+      "sector_pe": 60.74
+    },
+    "603866": {
+      "sector_code": "IND_食品",
+      "sector_name": "食品",
+      "sector_pe": 39.75
+    },
+    "603919": {
+      "sector_code": "IND_白酒",
+      "sector_name": "白酒",
+      "sector_pe": 24.59
+    },
+    "688276": {
+      "sector_code": "IND_生物制药",
+      "sector_name": "生物制药",
+      "sector_pe": 145.42
+    },
+    "688408": {
+      "sector_code": "IND_电气设备",
+      "sector_name": "电气设备",
+      "sector_pe": 85.72
+    },
+    "688575": {
+      "sector_code": "IND_医疗保健",
+      "sector_name": "医疗保健",
+      "sector_pe": 68.3
+    },
+    "688596": {
+      "sector_code": "IND_专用机械",
+      "sector_name": "专用机械",
+      "sector_pe": 180.34
+    },
+    "600292": {
+      "sector_code": "IND_水力发电",
+      "sector_name": "水力发电",
+      "sector_pe": 30.27
+    },
+    "600601": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "600711": {
+      "sector_code": "IND_小金属",
+      "sector_name": "小金属",
+      "sector_pe": 131.5
+    },
+    "601112": {
+      "sector_code": "IND_玻璃",
+      "sector_name": "玻璃",
+      "sector_pe": 272.21
+    },
+    "601399": {
+      "sector_code": "IND_工程机械",
+      "sector_name": "工程机械",
+      "sector_pe": 34.66
+    },
+    "603119": {
+      "sector_code": "IND_汽车配件",
+      "sector_name": "汽车配件",
+      "sector_pe": 57.11
+    },
+    "603175": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "603256": {
+      "sector_code": "IND_玻璃",
+      "sector_name": "玻璃",
+      "sector_pe": 272.21
+    },
+    "603766": {
+      "sector_code": "IND_摩托车",
+      "sector_name": "摩托车",
+      "sector_pe": 152.05
+    },
+    "688180": {
+      "sector_code": "IND_生物制药",
+      "sector_name": "生物制药",
+      "sector_pe": 145.42
+    },
+    "688192": {
+      "sector_code": "IND_生物制药",
+      "sector_name": "生物制药",
+      "sector_pe": 145.42
+    },
+    "688313": {
+      "sector_code": "IND_通信设备",
+      "sector_name": "通信设备",
+      "sector_pe": 220.07
+    },
+    "688322": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "688331": {
+      "sector_code": "IND_生物制药",
+      "sector_name": "生物制药",
+      "sector_pe": 145.42
+    },
+    "688336": {
+      "sector_code": "IND_生物制药",
+      "sector_name": "生物制药",
+      "sector_pe": 145.42
+    },
+    "688347": {
+      "sector_code": "IND_半导体",
+      "sector_name": "半导体",
+      "sector_pe": 288.57
+    },
+    "688387": {
+      "sector_code": "IND_通信设备",
+      "sector_name": "通信设备",
+      "sector_pe": 220.07
+    },
+    "688411": {
+      "sector_code": "IND_电气设备",
+      "sector_name": "电气设备",
+      "sector_pe": 85.72
+    },
+    "688498": {
+      "sector_code": "IND_半导体",
+      "sector_name": "半导体",
+      "sector_pe": 288.57
+    },
+    "688629": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "688114": {
+      "sector_code": "IND_医疗保健",
+      "sector_name": "医疗保健",
+      "sector_pe": 68.3
+    },
+    "688234": {
+      "sector_code": "IND_半导体",
+      "sector_name": "半导体",
+      "sector_pe": 288.57
+    },
+    "688278": {
+      "sector_code": "IND_生物制药",
+      "sector_name": "生物制药",
+      "sector_pe": 145.42
+    },
+    "688349": {
+      "sector_code": "IND_电气设备",
+      "sector_name": "电气设备",
+      "sector_pe": 85.72
+    },
+    "688795": {
+      "sector_code": "IND_半导体",
+      "sector_name": "半导体",
+      "sector_pe": 288.57
+    },
+    "688802": {
+      "sector_code": "IND_半导体",
+      "sector_name": "半导体",
+      "sector_pe": 288.57
+    },
+    "688002": {
+      "sector_code": "IND_通信设备",
+      "sector_name": "通信设备",
+      "sector_pe": 220.07
+    },
+    "688172": {
+      "sector_code": "IND_半导体",
+      "sector_name": "半导体",
+      "sector_pe": 288.57
+    },
+    "000969": {
+      "sector_code": "IND_小金属",
+      "sector_name": "小金属",
+      "sector_pe": 131.5
+    },
+    "000973": {
+      "sector_code": "IND_塑料",
+      "sector_name": "塑料",
+      "sector_pe": 124.53
+    },
+    "001221": {
+      "sector_code": "IND_家居用品",
+      "sector_name": "家居用品",
+      "sector_pe": 78.7
+    },
+    "001267": {
+      "sector_code": "IND_通信设备",
+      "sector_name": "通信设备",
+      "sector_pe": 220.07
+    },
+    "001280": {
+      "sector_code": "IND_小金属",
+      "sector_name": "小金属",
+      "sector_pe": 131.5
+    },
+    "001386": {
+      "sector_code": "IND_家居用品",
+      "sector_name": "家居用品",
+      "sector_pe": 78.7
+    },
+    "002378": {
+      "sector_code": "IND_小金属",
+      "sector_name": "小金属",
+      "sector_pe": 131.5
+    },
+    "002428": {
+      "sector_code": "IND_小金属",
+      "sector_name": "小金属",
+      "sector_pe": 131.5
+    },
+    "002545": {
+      "sector_code": "IND_农药化肥",
+      "sector_name": "农药化肥",
+      "sector_pe": 25.81
+    },
+    "002602": {
+      "sector_code": "IND_互联网",
+      "sector_name": "互联网",
+      "sector_pe": 156.44
+    },
+    "002716": {
+      "sector_code": "IND_小金属",
+      "sector_name": "小金属",
+      "sector_pe": 131.5
+    },
+    "002895": {
+      "sector_code": "IND_化工原料",
+      "sector_name": "化工原料",
+      "sector_pe": 131.89
+    },
+    "300102": {
+      "sector_code": "IND_半导体",
+      "sector_name": "半导体",
+      "sector_pe": 288.57
+    },
+    "300236": {
+      "sector_code": "IND_半导体",
+      "sector_name": "半导体",
+      "sector_pe": 288.57
+    },
+    "300620": {
+      "sector_code": "IND_通信设备",
+      "sector_name": "通信设备",
+      "sector_pe": 220.07
+    },
+    "300811": {
+      "sector_code": "IND_矿物制品",
+      "sector_name": "矿物制品",
+      "sector_pe": 109.26
+    },
+    "300870": {
+      "sector_code": "IND_电气设备",
+      "sector_name": "电气设备",
+      "sector_pe": 85.72
+    },
+    "301171": {
+      "sector_code": "IND_互联网",
+      "sector_name": "互联网",
+      "sector_pe": 156.44
+    },
+    "301205": {
+      "sector_code": "IND_通信设备",
+      "sector_name": "通信设备",
+      "sector_pe": 220.07
+    },
+    "301217": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "301345": {
+      "sector_code": "IND_摩托车",
+      "sector_name": "摩托车",
+      "sector_pe": 152.05
+    },
+    "301511": {
+      "sector_code": "IND_电气设备",
+      "sector_name": "电气设备",
+      "sector_pe": 85.72
+    },
+    "301550": {
+      "sector_code": "IND_汽车配件",
+      "sector_name": "汽车配件",
+      "sector_pe": 57.11
+    },
+    "301626": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "301656": {
+      "sector_code": "IND_汽车配件",
+      "sector_name": "汽车配件",
+      "sector_pe": 57.11
+    },
+    "000401": {
+      "sector_code": "IND_水泥",
+      "sector_name": "水泥",
+      "sector_pe": 24.51
+    },
+    "000403": {
+      "sector_code": "IND_生物制药",
+      "sector_name": "生物制药",
+      "sector_pe": 145.42
+    },
+    "000552": {
+      "sector_code": "IND_煤炭开采",
+      "sector_name": "煤炭开采",
+      "sector_pe": 23.61
+    },
+    "000810": {
+      "sector_code": "IND_家用电器",
+      "sector_name": "家用电器",
+      "sector_pe": 45.91
+    },
+    "000818": {
+      "sector_code": "IND_化工原料",
+      "sector_name": "化工原料",
+      "sector_pe": 131.89
+    },
+    "001227": {
+      "sector_code": "IND_银行",
+      "sector_name": "银行",
+      "sector_pe": 7.03
+    },
+    "001308": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "001914": {
+      "sector_code": "IND_房产服务",
+      "sector_name": "房产服务",
+      "sector_pe": 83.21
+    },
+    "002003": {
+      "sector_code": "IND_服饰",
+      "sector_name": "服饰",
+      "sector_pe": 78.5
+    },
+    "002183": {
+      "sector_code": "IND_仓储物流",
+      "sector_name": "仓储物流",
+      "sector_pe": 22.9
+    },
+    "002221": {
+      "sector_code": "IND_石油加工",
+      "sector_name": "石油加工",
+      "sector_pe": 20.25
+    },
+    "002541": {
+      "sector_code": "IND_钢加工",
+      "sector_name": "钢加工",
+      "sector_pe": 65.75
+    },
+    "002572": {
+      "sector_code": "IND_家居用品",
+      "sector_name": "家居用品",
+      "sector_pe": 78.7
+    },
+    "002597": {
+      "sector_code": "IND_食品",
+      "sector_name": "食品",
+      "sector_pe": 39.75
+    },
+    "002675": {
+      "sector_code": "IND_化学制药",
+      "sector_name": "化学制药",
+      "sector_pe": 59.94
+    },
+    "002745": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "002867": {
+      "sector_code": "IND_服饰",
+      "sector_name": "服饰",
+      "sector_pe": 78.5
+    },
+    "002936": {
+      "sector_code": "IND_银行",
+      "sector_name": "银行",
+      "sector_pe": 7.03
+    },
+    "300294": {
+      "sector_code": "IND_生物制药",
+      "sector_name": "生物制药",
+      "sector_pe": 145.42
+    },
+    "300595": {
+      "sector_code": "IND_医疗保健",
+      "sector_name": "医疗保健",
+      "sector_pe": 68.3
+    },
+    "300633": {
+      "sector_code": "IND_医疗保健",
+      "sector_name": "医疗保健",
+      "sector_pe": 68.3
+    },
+    "301050": {
+      "sector_code": "IND_航空",
+      "sector_name": "航空",
+      "sector_pe": 263.58
+    },
+    "301078": {
+      "sector_code": "IND_其他商业",
+      "sector_name": "其他商业",
+      "sector_pe": 298.39
+    },
+    "301091": {
+      "sector_code": "IND_建筑工程",
+      "sector_name": "建筑工程",
+      "sector_pe": 35.92
+    },
+    "301551": {
+      "sector_code": "IND_影视音像",
+      "sector_name": "影视音像",
+      "sector_pe": 89.69
+    },
+    "300390": {
+      "sector_code": "IND_电气设备",
+      "sector_name": "电气设备",
+      "sector_pe": 85.72
+    },
+    "300475": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "300672": {
+      "sector_code": "IND_半导体",
+      "sector_name": "半导体",
+      "sector_pe": 288.57
+    },
+    "300757": {
+      "sector_code": "IND_专用机械",
+      "sector_name": "专用机械",
+      "sector_pe": 180.34
+    },
+    "300953": {
+      "sector_code": "IND_电气设备",
+      "sector_name": "电气设备",
+      "sector_pe": 85.72
+    },
+    "301377": {
+      "sector_code": "IND_机械基件",
+      "sector_name": "机械基件",
+      "sector_pe": 361.39
+    },
+    "301526": {
+      "sector_code": "IND_玻璃",
+      "sector_name": "玻璃",
+      "sector_pe": 272.21
+    },
+    "300100": {
+      "sector_code": "IND_汽车配件",
+      "sector_name": "汽车配件",
+      "sector_pe": 57.11
+    },
+    "300142": {
+      "sector_code": "IND_生物制药",
+      "sector_name": "生物制药",
+      "sector_pe": 145.42
+    },
+    "300146": {
+      "sector_code": "IND_食品",
+      "sector_name": "食品",
+      "sector_pe": 39.75
+    },
+    "300529": {
+      "sector_code": "IND_医疗保健",
+      "sector_name": "医疗保健",
+      "sector_pe": 68.3
+    },
+    "300558": {
+      "sector_code": "IND_化学制药",
+      "sector_name": "化学制药",
+      "sector_pe": 59.94
+    },
+    "300601": {
+      "sector_code": "IND_生物制药",
+      "sector_name": "生物制药",
+      "sector_pe": 145.42
+    },
+    "300676": {
+      "sector_code": "IND_医疗保健",
+      "sector_name": "医疗保健",
+      "sector_pe": 68.3
+    },
+    "300679": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "300735": {
+      "sector_code": "IND_元器件",
+      "sector_name": "元器件",
+      "sector_pe": 138.04
+    },
+    "300957": {
+      "sector_code": "IND_日用化工",
+      "sector_name": "日用化工",
+      "sector_pe": 44.39
+    },
+    "000630": {
+      "sector_code": "IND_铜",
+      "sector_name": "铜",
+      "sector_pe": 26.33
+    },
+    "000657": {
+      "sector_code": "IND_小金属",
+      "sector_name": "小金属",
+      "sector_pe": 131.5
+    },
+    "000807": {
+      "sector_code": "IND_铝",
+      "sector_name": "铝",
+      "sector_pe": 22.33
+    },
+    "000988": {
+      "sector_code": "IND_专用机械",
+      "sector_name": "专用机械",
+      "sector_pe": 180.34
+    },
+    "002353": {
+      "sector_code": "IND_化工机械",
+      "sector_name": "化工机械",
+      "sector_pe": 95.77
+    },
+    "002709": {
+      "sector_code": "IND_化工原料",
+      "sector_name": "化工原料",
+      "sector_pe": 131.89
+    },
+    "002837": {
+      "sector_code": "IND_专用机械",
+      "sector_name": "专用机械",
+      "sector_pe": 180.34
+    },
+    "301308": {
+      "sector_code": "IND_半导体",
+      "sector_name": "半导体",
+      "sector_pe": 288.57
+    },
+    "000661": {
+      "sector_code": "IND_生物制药",
+      "sector_name": "生物制药",
+      "sector_pe": 145.42
+    },
+    "000786": {
+      "sector_code": "IND_其他建材",
+      "sector_name": "其他建材",
+      "sector_pe": 206.76
+    },
+    "000876": {
+      "sector_code": "IND_饲料",
+      "sector_name": "饲料",
+      "sector_pe": 40.11
+    },
+    "002252": {
+      "sector_code": "IND_生物制药",
+      "sector_name": "生物制药",
+      "sector_pe": 145.42
+    },
+    "300122": {
+      "sector_code": "IND_生物制药",
+      "sector_name": "生物制药",
+      "sector_pe": 145.42
+    },
+    "300413": {
+      "sector_code": "IND_影视音像",
+      "sector_name": "影视音像",
+      "sector_pe": 89.69
+    },
+    "300628": {
+      "sector_code": "IND_通信设备",
+      "sector_name": "通信设备",
+      "sector_pe": 220.07
+    },
+    "300661": {
+      "sector_code": "IND_半导体",
+      "sector_name": "半导体",
+      "sector_pe": 288.57
+    },
+    "300832": {
+      "sector_code": "IND_医疗保健",
+      "sector_name": "医疗保健",
+      "sector_pe": 68.3
+    },
+    "300896": {
+      "sector_code": "IND_医疗保健",
+      "sector_name": "医疗保健",
+      "sector_pe": 68.3
+    },
+    "300751": {
+      "sector_code": "IND_专用机械",
+      "sector_name": "专用机械",
+      "sector_pe": 180.34
+    },
+    "300002": {
+      "sector_code": "IND_互联网",
+      "sector_name": "互联网",
+      "sector_pe": 156.44
+    },
+    "300024": {
+      "sector_code": "IND_专用机械",
+      "sector_name": "专用机械",
+      "sector_pe": 180.34
+    },
+    "300347": {
+      "sector_code": "IND_医疗保健",
+      "sector_name": "医疗保健",
+      "sector_pe": 68.3
+    },
+    "300759": {
+      "sector_code": "IND_化学制药",
+      "sector_name": "化学制药",
+      "sector_pe": 59.94
+    }
+  },
+  "schema_version": 2
+}

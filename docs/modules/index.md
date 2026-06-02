@@ -14,6 +14,7 @@ This directory contains documentation for the project's business modules and UI 
 - [Fund Radar](fund_radar.md) - Major fund flow tracking.
 - [Money Flow](money_flow.md) - Overall market money flow trends.
 - [National Team](national_team.md) - Analysis of state-backed fund holdings.
+- [PE Tracker](pe_tracker.md) - Index constituent PE valuation tracking (Tushare Pro).
 
 ## Usage
 When implementing new features or refactoring, refer to the specific module documentation to understand:

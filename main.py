@@ -18,6 +18,7 @@ from utils.simulator_logic import generate_simulation_data, analyze_action, resa
 from pages.market_sentiment_page import render_sentiment_view
 from pages.shared import setup_common_ui, custom_plotly
 from pages.social_security_demo import social_security_page_instance
+from pages.pe_tracker_component import render_pe_tracker_panel
 
 
 # 获取当前文件所在的目录
@@ -165,13 +166,24 @@ def landing_page():
                 # 卡片 3: 社保基金分析
                 with ui.card().classes('w-72 h-80 items-center justify-center p-6 hover:shadow-xl transition-shadow cursor-pointer border-t-4 border-green-500 gap-4 bg-white') \
                     .on('click', lambda: ui.navigate.to('/social-security')):
-                    
+
                     with ui.element('div').classes('w-20 h-20 rounded-full bg-green-50 flex items-center justify-center mb-2'):
                         ui.icon('account_balance', size='40px').classes('text-green-600')
-                    
+
                     ui.label('国家队持股情况').classes('text-2xl font-bold text-gray-800')
                     ui.label('国家队持股情况分析，追踪持仓变化和投资策略').classes('text-center text-gray-500 leading-relaxed text-sm')
                     ui.button('进入分析', on_click=lambda: ui.navigate.to('/social-security')).props('flat color=green')
+
+                # 卡片 4: 指数成分股PE估值
+                with ui.card().classes('w-72 h-80 items-center justify-center p-6 hover:shadow-xl transition-shadow cursor-pointer border-t-4 border-purple-500 gap-4 bg-white') \
+                    .on('click', lambda: ui.navigate.to('/pe-tracker')):
+
+                    with ui.element('div').classes('w-20 h-20 rounded-full bg-purple-50 flex items-center justify-center mb-2'):
+                        ui.icon('analytics', size='40px').classes('text-purple-600')
+
+                    ui.label('指数成分股PE估值').classes('text-2xl font-bold text-gray-800')
+                    ui.label('跟踪指数样本调整股票的PE估值变化，分析板块估值水平').classes('text-center text-gray-500 leading-relaxed text-sm')
+                    ui.button('进入跟踪', on_click=lambda: ui.navigate.to('/pe-tracker')).props('flat color=purple')
         
         # 下部占位 (flex-grow) + Footer 位于最底
         ui.space()
@@ -520,6 +532,34 @@ def mood_page():
                 render_sentiment_view(state.current_mood_tab, on_nav, custom_plotly, is_mob)
         def on_nav(nt): state.current_mood_tab = nt; render_content()
         render_content()
+
+# --- 4. 指数成分股PE估值跟踪 ---
+@ui.page('/pe-tracker')
+def pe_tracker_page():
+    ui.page_title('指数成分股PE估值跟踪')
+    setup_common_ui()
+
+    # Header
+    with ui.header().classes('bg-white text-gray-800 border-b'):
+        with ui.row().classes('items-center w-full max-w-7xl mx-auto px-4'):
+            ui.button(icon='arrow_back', on_click=lambda: ui.navigate.to('/')).props('flat dense')
+            ui.label('指数成分股PE估值跟踪').classes('text-lg font-bold')
+            ui.space()
+            ui.button(icon='home', on_click=lambda: ui.navigate.to('/')).props('flat round color=grey')
+
+    # Content
+    with ui.column().classes('w-full min-h-screen bg-gray-50'):
+        content_container = ui.column().classes('w-full mood-content-area mt-4')
+        with content_container:
+            # 检测是否移动端
+            is_mob = False
+            try:
+                is_mob = re.search(r'(mobile|android|iphone|ipad)',
+                                   ui.context.client.request.headers.get('User-Agent', ''),
+                                   re.I) is not None
+            except:
+                pass
+            render_pe_tracker_panel(custom_plotly, is_mob)
 
 if __name__ in {"__main__", "__mp_main__"}:
     try: port = int(os.environ.get('PORT', 8080))
