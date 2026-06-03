@@ -193,6 +193,23 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
             elif state['selected_percentile'] == '高估':
                 filtered = filtered[pct_valid & (filtered['PE分位'] >= 80)]
 
+        # 档位徽章快速筛选（与 selected_percentile 相同边界，但独立 state 便于快速切换）
+        if state.get('table_level_filter'):
+            band = state['table_level_filter']
+            band_ranges = {
+                '低估': (0, 20),
+                '偏低': (20, 50),
+                '偏高': (50, 80),
+                '高估': (80, 100),
+            }
+            low, high = band_ranges.get(band, (None, None))
+            if low is not None:
+                filtered = filtered[
+                    filtered['PE分位'].notna()
+                    & (filtered['PE分位'] >= low)
+                    & (filtered['PE分位'] < high)
+                ]
+
         return filtered
 
     def render_charts(df):
@@ -953,6 +970,15 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
         if chart_container:
             render_charts(state['df'])
 
+    def on_table_level_filter(level):
+        """档位徽章快速筛选：state['table_level_filter'] 切换 + 重渲染徽章行 + 重渲染表格"""
+        state['table_level_filter'] = level
+        # 重渲染徽章行（更新激活态视觉）
+        render_level_filter()
+        # 重渲染表格（filter_data 会自动应用 table_level_filter，见 Change 3）
+        filtered = filter_data()
+        render_table(filtered)
+
     def export_to_excel():
         """导出成分股明细到Excel"""
         df = filter_data()
@@ -1087,6 +1113,47 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
 
     # 图表区域
     chart_container = ui.column().classes('w-full gap-4')
+
+    # 档位徽章快速筛选行（图3 表格上方）
+    level_filter_container = ui.element('div').classes('w-full')
+
+    def render_level_filter():
+        """渲染档位徽章行（点击切换 active 状态）"""
+        level_filter_container.clear()
+        with level_filter_container:
+            with ui.card().classes('w-full p-3 bg-white rounded-xl shadow-sm border border-slate-100'):
+                with ui.row().classes('w-full items-center gap-2 flex-wrap'):
+                    ui.icon('filter_alt', size='xs', color='slate-400')
+                    ui.label('档位快速筛选').classes('text-xs font-medium text-slate-500 mr-1')
+
+                    level_options = [
+                        ('低估',  '<20%',  'emerald', '#dcfce7', '#15803d'),
+                        ('偏低',  '20-50%','blue',    '#dbeafe', '#1d4ed8'),
+                        ('偏高',  '50-80%','amber',   '#fef3c7', '#b45309'),
+                        ('高估',  '≥80%',  'rose',    '#fee2e2', '#b91c1c'),
+                    ]
+                    current_filter = state.get('table_level_filter')
+                    for name, rng, _quasar_color, bg_hex, text_hex in level_options:
+                        is_active = current_filter == name
+                        # active 态：填充实色；inactive 态：浅灰
+                        style = (
+                            f'background:{bg_hex};color:{text_hex};border:1px solid {text_hex}33;font-weight:600;'
+                            if is_active
+                            else 'background:#f8fafc;color:#475569;border:1px solid #e2e8f0;'
+                        )
+                        btn = ui.button(
+                            f'{name} {rng}',
+                            on_click=lambda n=name: on_table_level_filter(n)
+                        ).props('flat dense no-caps size=sm').style(style)
+                        if is_active:
+                            btn.props('outline')
+
+                    if current_filter:
+                        ui.button('重置', icon='close', on_click=lambda: on_table_level_filter(None))\
+                            .props('flat dense size=sm color=slate').classes('ml-2 text-slate-500')
+
+    # 初始渲染徽章行
+    render_level_filter()
 
     # 表格区域
     with ui.card().classes('w-full p-0 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden'):
