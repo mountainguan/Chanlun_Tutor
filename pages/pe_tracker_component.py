@@ -257,30 +257,10 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                 _render_percentile_distribution(df)
 
     def _render_action_card(action, df, color, icon_name, trend_icon, hint_text):
-        """渲染调入/调出对比卡片"""
+        """渲染调入/调出对比卡片（含差值徽章 + 标签 tooltip）"""
         action_data = df[(df['调入调出'] == action) & (df['动态PE'] > 0)]
-        if action_data.empty:
-            return
-
-        count = len(action_data)
-        median_pe = action_data['动态PE'].median()
-        avg_pe = action_data['动态PE'].mean()
-        # 行业PE中位数
-        sector_pe = action_data['行业PE'].median()
-
-        # 估值档位
-        if median_pe < 15:
-            level = '低估'
-            level_color = 'emerald'
-        elif median_pe < 30:
-            level = '合理'
-            level_color = 'sky'
-        elif median_pe < 50:
-            level = '偏高'
-            level_color = 'amber'
-        else:
-            level = '高估'
-            level_color = 'rose'
+        other_action = '调出' if action == '调入' else '调入'
+        other_data = df[(df['调入调出'] == other_action) & (df['动态PE'] > 0)]
 
         color_map = {
             'emerald': {
@@ -298,9 +278,35 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
         }
         c = color_map[color]
 
-        with ui.card().classes(f'flex-1 p-5 {c["bg"]} rounded-xl border {c["border"]} relative overflow-hidden'):
+        with ui.card().classes(f'flex-1 p-5 {c["bg"]} rounded-xl border {c["border"]} relative overflow-hidden min-h-[180px]'):
             # 装饰圆
             ui.element('div').classes(f'absolute -right-6 -top-6 w-24 h-24 rounded-full {c["accent"]} opacity-10')
+
+            # 空态
+            if action_data.empty:
+                with ui.column().classes('relative z-10 gap-2 items-center justify-center min-h-[180px]'):
+                    ui.icon('inbox', size='2rem', color='slate-300')
+                    ui.label(f'本次调整无{action}标的').classes('text-sm text-slate-400')
+                return
+
+            count = len(action_data)
+            median_pe = action_data['动态PE'].median()
+            avg_pe = action_data['动态PE'].mean()
+            sector_pe = action_data['行业PE'].median()
+
+            # 估值档位
+            if median_pe < 15:
+                level = '低估'
+                level_color = 'emerald'
+            elif median_pe < 30:
+                level = '合理'
+                level_color = 'sky'
+            elif median_pe < 50:
+                level = '偏高'
+                level_color = 'amber'
+            else:
+                level = '高估'
+                level_color = 'rose'
 
             with ui.column().classes('relative z-10 gap-3'):
                 # 标题行
@@ -309,18 +315,22 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                     ui.label(action).classes(f'text-sm font-bold {c["text"]}')
                     ui.badge(level, color=level_color).props('dense')
 
-                # 主数值
-                with ui.row().classes('items-baseline gap-1'):
+                # 主数值（"倍" 放入 tooltip 避免 "79.6倍" 反直觉）
+                with ui.row().classes('items-baseline gap-1').props('title="动态市盈率（倍）"'):
                     ui.label(f'{median_pe:.1f}').classes(f'text-4xl font-bold {c["text"]}')
-                    ui.label('倍').classes('text-sm text-slate-500')
+                    ui.label('倍').classes('text-sm text-slate-400')
 
-                # 副指标
+                # 副指标（每个 label 都有 tooltip 说明）
                 with ui.row().classes('w-full gap-4 mt-1'):
-                    with ui.column().classes('gap-0'):
+                    with ui.column().classes('gap-0').props('title="样本中位数，不受极值影响"'):
+                        ui.label('中位PE').classes('text-[10px] text-slate-400')
+                        ui.label(f'{median_pe:.1f}').classes('text-sm font-bold text-slate-700')
+
+                    with ui.column().classes('gap-0').props('title="样本算术平均"'):
                         ui.label('平均PE').classes('text-[10px] text-slate-400')
                         ui.label(f'{avg_pe:.1f}').classes('text-sm font-bold text-slate-700')
 
-                    with ui.column().classes('gap-0'):
+                    with ui.column().classes('gap-0').props('title="所属申万一级行业市值加权动态PE"'):
                         ui.label('行业PE').classes('text-[10px] text-slate-400')
                         ui.label(f'{sector_pe:.1f}' if sector_pe > 0 else '—').classes('text-sm font-bold text-slate-700')
 
@@ -328,11 +338,29 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                         ui.label('数量').classes('text-[10px] text-slate-400')
                         ui.label(f'{count}只').classes('text-sm font-bold text-slate-700')
 
-                # 提示
-                ui.separator().classes('my-1')
-                with ui.row().classes('items-center gap-1'):
-                    ui.icon(trend_icon, size='xs').classes(c['text'])
-                    ui.label(hint_text).classes('text-[11px] text-slate-500')
+                # 差值徽章（仅在另一侧也有数据时显示）
+                if not other_data.empty:
+                    other_median = other_data['动态PE'].median()
+                    diff = other_median - median_pe  # 调出 - 调入（当 action='调入' 时）
+                    if abs(diff) < 5:
+                        badge_text = f'{other_action}−{action} = {diff:+.1f} 倍 · 差异不大'
+                        badge_color = 'sky'
+                    elif diff > 0:  # 调出 > 调入 → 高剔低纳
+                        badge_text = f'{other_action}−{action} = {diff:+.1f} 倍 · 高剔低纳'
+                        badge_color = 'emerald'
+                    else:  # 调出 < 调入 → 反向
+                        badge_text = f'{other_action}−{action} = {diff:+.1f} 倍 · 反向：{action}更贵'
+                        badge_color = 'rose'
+
+                    ui.separator().classes('my-1')
+                    with ui.row().classes('items-center gap-1').props(f'title="差值 = {other_action}中位PE - {action}中位PE"'):
+                        ui.icon(trend_icon, size='xs').classes(c['text'])
+                        ui.label(badge_text).classes(f'text-[11px] text-{badge_color}-600 font-medium')
+                else:
+                    ui.separator().classes('my-1')
+                    with ui.row().classes('items-center gap-1'):
+                        ui.icon(trend_icon, size='xs').classes(c['text'])
+                        ui.label(hint_text).classes('text-[11px] text-slate-500')
 
     def _render_index_comparison(df):
         """指数估值对比 - 柱状图（中位数 + Q1/Q3范围）"""
