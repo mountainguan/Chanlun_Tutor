@@ -265,8 +265,8 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
         count = len(action_data)
         median_pe = action_data['动态PE'].median()
         avg_pe = action_data['动态PE'].mean()
-        # 板块PE中位数
-        sector_pe = action_data['板块PE'].median()
+        # 行业PE中位数
+        sector_pe = action_data['行业PE'].median()
 
         # 估值档位
         if median_pe < 15:
@@ -321,7 +321,7 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                         ui.label(f'{avg_pe:.1f}').classes('text-sm font-bold text-slate-700')
 
                     with ui.column().classes('gap-0'):
-                        ui.label('板块PE').classes('text-[10px] text-slate-400')
+                        ui.label('行业PE').classes('text-[10px] text-slate-400')
                         ui.label(f'{sector_pe:.1f}' if sector_pe > 0 else '—').classes('text-sm font-bold text-slate-700')
 
                     with ui.column().classes('gap-0'):
@@ -755,7 +755,7 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
         rows = []
         for _, row in df.iterrows():
             pe_dynamic = row.get('动态PE', 0)
-            sector_pe = row.get('板块PE', 0)
+            sector_pe = row.get('行业PE', 0)
 
             # 估值档位（按绝对PE值，与行业历史分位档位互为补充）
             level = '—'
@@ -854,25 +854,25 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
             {'headerName': '最新价', 'field': 'price', 'sortable': True, 'width': 75,
              'cellStyle': {'textAlign': 'right', 'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace', 'fontSize': '13px'},
              'headerClass': 'pe-grid-header'},
-            {'headerName': '动态PE', 'field': 'pe_dynamic', 'sortable': True, 'width': 80, 'sort': 'asc',
+            {'headerName': 'PE（动态）', 'field': 'pe_dynamic', 'sortable': True, 'width': 80, 'sort': 'asc',
              'cellStyle': {'textAlign': 'right', 'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace', 'fontWeight': '600', 'fontSize': '13px'},
              'headerClass': 'pe-grid-header'},
-            {'headerName': '档位', 'field': 'level', 'sortable': True, 'filter': True, 'width': 70,
+            {'headerName': '估值档位', 'field': 'level', 'sortable': True, 'filter': True, 'width': 70,
              'cellRenderer': "function(params) { return '<span style=\"background:'+params.data.level_bg+';color:'+params.data.level_color+';padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600\">'+params.value+'</span>'; }",
              'headerClass': 'pe-grid-header'},
-            {'headerName': '所属板块', 'field': 'sector_name', 'sortable': True, 'filter': True, 'width': 100,
+            {'headerName': '所属行业', 'field': 'sector_name', 'sortable': True, 'filter': True, 'width': 100,
              'cellStyle': {'fontSize': '12px', 'color': '#475569'},
              'headerClass': 'pe-grid-header'},
-            {'headerName': '板块PE', 'field': 'sector_pe', 'sortable': True, 'width': 80,
+            {'headerName': '行业PE', 'field': 'sector_pe', 'sortable': True, 'width': 80,
              'cellStyle': {'textAlign': 'right', 'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace', 'color': '#6366f1', 'fontWeight': '500', 'fontSize': '13px'},
              'headerClass': 'pe-grid-header'},
-            {'headerName': 'PE分位', 'field': 'pe_percentile', 'sortable': True, 'width': 90, 'sort': 'desc',
+            {'headerName': '行业历史分位', 'field': 'pe_percentile', 'sortable': True, 'width': 90, 'sort': 'desc',
              'cellRenderer': "function(params) { if(params.value==='\u2014') return '<span style=\"color:#94a3b8;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:13px\">\u2014</span>'; var color = params.data.pct_color; return '<span style=\"color:'+color+';font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:13px\">'+params.value.toFixed(1)+'%</span>'; }",
              'headerClass': 'pe-grid-header'},
-            {'headerName': '档位', 'field': 'pct_level', 'sortable': True, 'filter': True, 'width': 70,
+            {'headerName': '分位档位', 'field': 'pct_level', 'sortable': True, 'filter': True, 'width': 70,
              'cellRenderer': "function(params) { return '<span style=\"background:'+params.data.pct_level_bg+';color:'+params.data.pct_level_color+';padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600\">'+params.value+'</span>'; }",
              'headerClass': 'pe-grid-header'},
-            {'headerName': 'PB', 'field': 'pb', 'sortable': True, 'width': 65,
+            {'headerName': '市净率', 'field': 'pb', 'sortable': True, 'width': 65,
              'cellStyle': {'textAlign': 'right', 'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace', 'fontSize': '13px'},
              'cellRenderer': "function(params) { if(params.value === null || params.value === undefined) return '<span style=\"color:#94a3b8\">—</span>'; return params.value.toFixed(2); }",
              'headerClass': 'pe-grid-header',
@@ -970,7 +970,7 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
 
         # 准备导出数据
         export_df = df[['股票编码', '股票名称', '所属指数', '调入调出', '最新价',
-                        '动态PE', '静态PE', '所属板块', '板块PE', 'PE分位',
+                        '动态PE', '静态PE', '所属板块', '行业PE', 'PE分位',
                         'PB', '总市值']].copy()
 
         # 添加估值档位列
@@ -994,7 +994,16 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
         # 重排列顺序
         export_df = export_df[['数据日期', '股票编码', '股票名称', '所属指数', '调入调出',
                                '最新价', '动态PE', '估值档位', '静态PE',
-                               '所属板块', '板块PE', 'PE分位', 'PB', '总市值(亿)']]
+                               '所属板块', '行业PE', 'PE分位', 'PB', '总市值(亿)']]
+
+        # 重命名列（显示用友好名称；保持与表格一致）
+        export_df = export_df.rename(columns={
+            '动态PE': 'PE（动态）',
+            '所属板块': '所属行业',
+            'PE分位': '行业历史分位',
+            'PB': '市净率',
+            # 静态PE → 保持 '静态PE'（用户 WIP 已从表格移除，导出保留原名以保持财务术语一致性）
+        })
 
         # 创建Excel
         output = io.BytesIO()

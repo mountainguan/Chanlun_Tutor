@@ -540,7 +540,7 @@ class PETracker:
                 'PB': pe_info.get('pb', 0),
                 '总市值': pe_info.get('market_cap', 0),
                 '所属板块': sector_name,
-                '板块PE': sector_pe,
+                '行业PE': sector_pe,
                 'PE分位': pe_percentile,
             })
         return pd.DataFrame(results)
