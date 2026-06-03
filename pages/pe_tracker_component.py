@@ -899,6 +899,19 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                 'suppressCellFocus': True,
             }).classes('w-full h-full border-none pe-table').style('font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;')
 
+            # 字段说明图例
+            with ui.element('div').classes('w-full px-5 py-3 border-t border-slate-100 bg-slate-50/50'):
+                with ui.row().classes('w-full items-start gap-2'):
+                    ui.icon('info', size='xs', color='slate-400').classes('mt-0.5')
+                    with ui.column().classes('gap-1 flex-1'):
+                        ui.label('字段说明').classes('text-[10px] font-bold text-slate-500 tracking-wider uppercase')
+                        with ui.row().classes('flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500'):
+                            ui.label('• 估值档位：基于动态PE分4档（<15低估 / 15-30合理 / 30-50偏高 / ≥50高估）')
+                            ui.label('• 行业PE：所属申万一级行业市值加权动态PE')
+                            ui.label('• 行业历史分位：当前PE在所属申万一级行业过去10年日频PE序列中的位置（需构建历史缓存）')
+                            ui.label('• 分位档位：基于行业历史分位的4档（<20%/20-50%/50-80%/≥80%）')
+                            ui.label('• 市净率（PB）：股价 / 每股净资产（数据缺失显示 —）')
+
         # 添加表头样式
         ui.add_head_html('''
             <style>
