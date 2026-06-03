@@ -606,39 +606,61 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                             ui.label(f'{pe:.1f}').classes(f'text-xs font-bold {c["text"]} tabular-nums').style('font-family: ui-monospace, monospace')
 
     def _render_percentile_distribution(df):
-        """PE历史分位分布 - 按行业历史PE分位档位统计（替换原 PE溢价率分布）"""
+        """PE历史分位分布 - 按行业历史PE分位档位统计（点击内联展开股票列表）。"""
         pct_valid = df[df['PE分位'].notna()]
         if pct_valid.empty:
-            with ui.column().classes('w-full items-center justify-center py-8 gap-2'):
+            # 空态：升级文案 + 复制命令按钮
+            with ui.column().classes('w-full items-center justify-center py-8 gap-3'):
                 ui.icon('analytics', size='2rem', color='slate-300')
-                ui.label('行业历史PE分位缓存未生成').classes('text-slate-500 text-sm')
-                ui.label('请在终端运行：python scripts/build_sector_pe_history.py').classes('text-slate-400 text-xs font-mono')
+                ui.label('行业历史PE分位缓存未生成').classes('text-slate-500 text-sm font-medium')
+                ui.label('首次构建约 5-10 分钟（拉取申万一级行业 10 年日频数据）').classes('text-slate-400 text-xs')
+
+                cmd = 'python scripts/build_sector_pe_history.py'
+                with ui.row().classes('items-center gap-2 mt-1 p-2 rounded-md bg-slate-50 border border-slate-200'):
+                    ui.icon('terminal', size='xs', color='slate-500')
+                    ui.label(cmd).classes('text-xs font-mono text-slate-600')
+
+                    async def _copy_cmd():
+                        try:
+                            await ui.run_javascript(f'navigator.clipboard.writeText("{cmd}")')
+                            ui.notify('命令已复制', type='positive', position='top')
+                        except Exception:
+                            ui.notify('复制失败，请手动选择', type='warning')
+                    ui.button(icon='content_copy', on_click=_copy_cmd).props('flat dense round size=sm').tooltip('复制命令')
             return
 
         # 4档分位（与 PETracker.PERCENTILE_LEVELS 对齐）
         ranges = [
-            ('低估', 0, 20,  '#10b981', 'bg-emerald-500', 'text-emerald-700'),
-            ('偏低', 20, 50, '#3b82f6', 'bg-blue-500',    'text-blue-700'),
-            ('偏高', 50, 80, '#f59e0b', 'bg-amber-500',   'text-amber-700'),
-            ('高估', 80, 100,'#ef4444', 'bg-rose-500',    'text-rose-700'),
+            ('低估', 0, 20,  '#10b981', 'bg-emerald-500', 'text-emerald-700', 'emerald'),
+            ('偏低', 20, 50, '#3b82f6', 'bg-blue-500',    'text-blue-700',    'blue'),
+            ('偏高', 50, 80, '#f59e0b', 'bg-amber-500',   'text-amber-700',   'amber'),
+            ('高估', 80, 100,'#ef4444', 'bg-rose-500',    'text-rose-700',    'rose'),
         ]
 
         total = len(pct_valid)
+        expanded = state.get('expanded_percentile_band')
+
         with ui.column().classes('w-full gap-2'):
-            for name, low, high, color, bg_class, text_class in ranges:
+            for name, low, high, color, bg_class, text_class, ring_class in ranges:
                 level_stocks = pct_valid[(pct_valid['PE分位'] >= low) & (pct_valid['PE分位'] < high)]
                 count = len(level_stocks)
                 pct = count / total * 100
+                is_expanded = (expanded == name)
 
-                with ui.element('div').classes(
-                    f'w-full p-3 rounded-lg cursor-pointer transition-all hover:bg-slate-50 hover:shadow-sm border border-transparent hover:border-slate-200'
-                ).on('click', lambda n=name, l=low, h=high, s=level_stocks: show_percentile_detail(n, l, h, s)):
+                # 档位主行
+                row_classes = (
+                    f'w-full p-3 rounded-lg cursor-pointer transition-all '
+                    f'ring-2 ring-{ring_class}-400 bg-{ring_class}-50/50'
+                    if is_expanded
+                    else 'w-full p-3 rounded-lg cursor-pointer transition-all hover:bg-slate-50 hover:shadow-sm border border-transparent hover:border-slate-200'
+                )
+                with ui.element('div').classes(row_classes).on('click', lambda n=name: on_percentile_band_toggle(n)):
                     with ui.column().classes('w-full gap-1'):
                         with ui.row().classes('w-full items-center justify-between'):
                             with ui.row().classes('items-center gap-2'):
                                 ui.element('div').classes(f'w-3 h-3 rounded-full {bg_class}')
                                 ui.label(f'{name}（{low}%-{high if high<100 else "100%"}）').classes(f'text-sm font-medium {text_class}')
-                                ui.icon('chevron_right', size='xs', color='slate-400')
+                                ui.icon('expand_more' if not is_expanded else 'expand_less', size='xs', color='slate-400')
                             with ui.row().classes('items-center gap-2'):
                                 ui.label(f'{count}只').classes('text-xs text-slate-600')
                                 ui.label(f'{pct:.0f}%').classes('text-sm font-bold').style(f'color: {color}')
@@ -647,101 +669,39 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                         with ui.element('div').classes('w-full h-2 bg-slate-100 rounded-full overflow-hidden'):
                             ui.element('div').classes(f'h-full {bg_class} transition-all').style(f'width: {pct}%')
 
-            # 提示
-            ui.separator().classes('my-2')
-            with ui.row().classes('items-center gap-2'):
-                ui.icon('info', size='xs', color='slate')
-                ui.label(f'共 {total} 只股票有分位数据 | 点击档位查看明细').classes('text-[11px] text-slate-400')
-
-    def show_percentile_detail(name, low, high, stocks):
-        """显示分位档位详情弹窗（替换原 PE溢价率 弹窗）"""
-        color_map = {
-            '低估': 'emerald',
-            '偏低': 'blue',
-            '偏高': 'amber',
-            '高估': 'rose',
-        }
-        color = color_map.get(name, 'slate')
-
-        with ui.dialog() as dialog, ui.card().classes('w-full max-w-4xl'):
-            # 标题栏
-            with ui.row().classes('w-full items-center justify-between p-4 border-b border-slate-100'):
-                with ui.row().classes('items-center gap-3'):
-                    ui.icon('list_alt', color=color).classes('text-xl')
-                    with ui.column().classes('gap-0'):
-                        ui.label(name).classes(f'text-lg font-bold text-{color}-700')
-                        ui.label(f'PE分位 {low}% ~ {high}% | 共 {len(stocks)} 只股票').classes('text-xs text-slate-500')
-                ui.button(icon='close', on_click=dialog.close).props('flat round dense')
-
-            # 表格
-            with ui.element('div').classes('w-full p-4 max-h-[500px] overflow-auto'):
-                if stocks.empty:
-                    ui.label('该档位暂无股票').classes('text-slate-400 text-sm py-8 text-center')
-                else:
-                    rows = []
-                    for _, row in stocks.iterrows():
-                        pe_dynamic = row.get('动态PE', 0)
-                        pe_pct = row.get('PE分位', None)
-                        if pe_pct is None or (hasattr(pd, 'isna') and pd.isna(pe_pct)):
-                            pct_color = '#94a3b8'
-                            pct_display = '—'
+                # 内联展开区
+                if is_expanded:
+                    with ui.element('div').classes('w-full pl-4 pr-1 py-2'):
+                        if level_stocks.empty:
+                            with ui.row().classes('w-full justify-center py-3'):
+                                ui.label('该档位暂无股票').classes('text-xs text-slate-400')
                         else:
-                            if pe_pct >= 80:
-                                pct_color = '#dc2626'
-                            elif pe_pct >= 50:
-                                pct_color = '#f59e0b'
-                            elif pe_pct >= 20:
-                                pct_color = '#3b82f6'
-                            else:
-                                pct_color = '#16a34a'
-                            pct_display = round(float(pe_pct), 1)
+                            top10 = level_stocks.sort_values('PE分位', ascending=False).head(10)
+                            with ui.column().classes('w-full gap-0.5'):
+                                # 表头
+                                with ui.row().classes('w-full px-2 py-1 text-[10px] text-slate-400 font-medium'):
+                                    ui.label('名称').classes('flex-1')
+                                    ui.label('个股PE').classes('w-16 text-right')
+                                    ui.label('行业历史分位').classes('w-20 text-right')
+                                    ui.label('行业').classes('w-16 text-right')
+                                    ui.label('状态').classes('w-12 text-right')
+                                for _, stock in top10.iterrows():
+                                    pe = float(stock.get('动态PE', 0) or 0)
+                                    pct_v = float(stock.get('PE分位', 0) or 0)
+                                    action = stock.get('调入调出', '')
+                                    action_color = {'调入': '#059669', '调出': '#dc2626', '备选': '#d97706'}.get(action, '#64748b')
+                                    with ui.row().classes('w-full items-center px-2 py-1 rounded hover:bg-slate-50 text-xs'):
+                                        ui.label(stock.get('股票名称', '')).classes('flex-1 font-medium text-slate-700 truncate')
+                                        ui.label(f'{pe:.1f}').classes('w-16 text-right font-mono font-bold text-slate-700')
+                                        ui.label(f'{pct_v:.1f}%').classes('w-20 text-right font-mono font-bold').style(f'color: {color}')
+                                        ui.label(stock.get('所属板块', '')).classes('w-16 text-right text-[11px] text-slate-500 truncate')
+                                        ui.label(action).classes('w-12 text-right text-[10px] font-medium').style(f'color: {action_color}')
 
-                        action = row.get('调入调出', '')
-                        action_colors = {'调入': '#059669', '调出': '#dc2626', '备选': '#d97706'}
-
-                        rows.append({
-                            'code': row.get('股票编码', ''),
-                            'name': row.get('股票名称', ''),
-                            'action': action,
-                            'action_color': action_colors.get(action, '#64748b'),
-                            'index': row.get('所属指数', '').replace('指数', ''),
-                            'sector_name': row.get('所属板块', ''),
-                            'pe_dynamic': round(pe_dynamic, 2) if pe_dynamic else 0,
-                            'pe_percentile': pct_display,
-                            'pct_color': pct_color,
-                        })
-
-                    def _sort_key(x):
-                        v = x['pe_percentile']
-                        return v if isinstance(v, (int, float)) else -1
-                    rows.sort(key=_sort_key, reverse=True)
-
-                    column_defs = [
-                        {'headerName': '代码', 'field': 'code', 'width': 85, 'pinned': 'left',
-                         'cellStyle': {'fontWeight': '500'}},
-                        {'headerName': '名称', 'field': 'name', 'width': 90, 'pinned': 'left',
-                         'cellStyle': {'fontWeight': '600'}},
-                        {'headerName': '状态', 'field': 'action', 'width': 65,
-                         'cellRenderer': "function(params) { return '<span style=\"color:'+params.data.action_color+';font-weight:600\">'+params.value+'</span>'; }"},
-                        {'headerName': '指数', 'field': 'index', 'width': 70, 'cellStyle': {'fontSize': '12px'}},
-                        {'headerName': '所属板块', 'field': 'sector_name', 'width': 100, 'cellStyle': {'fontSize': '12px'}},
-                        {'headerName': '个股PE', 'field': 'pe_dynamic', 'width': 80,
-                         'cellStyle': {'textAlign': 'right', 'fontFamily': 'monospace', 'fontWeight': '600'}},
-                        {'headerName': 'PE分位', 'field': 'pe_percentile', 'width': 95, 'sort': 'desc',
-                         'cellRenderer': "function(params) { if(params.value==='—') return '<span style=\"color:#94a3b8;font-family:monospace\">—</span>'; return '<span style=\"color:'+params.data.pct_color+';font-weight:600;font-family:monospace\">'+params.value.toFixed(1)+'%</span>'; }"},
-                    ]
-
-                    ui.aggrid({
-                        'columnDefs': column_defs,
-                        'rowData': rows,
-                        'defaultColDef': {'resizable': True},
-                        'rowSelection': 'single',
-                        'animateRows': True,
-                        'suppressCellFocus': True,
-                    }).classes('w-full h-[420px]')
-
-        dialog.open()
-
+        # 提示
+        ui.separator().classes('my-2')
+        with ui.row().classes('items-center gap-2'):
+            ui.icon('info', size='xs', color='slate')
+            ui.label(f'共 {total} 只股票有分位数据 | 点击档位展开明细').classes('text-[11px] text-slate-400')
     def _generate_logic_text(df):
         """生成指数调整逻辑提示"""
         valid = df[df['动态PE'] > 0]
@@ -985,6 +945,13 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
         state['selected_level_view'] = level
         filtered = filter_data()
         render_charts(filtered)
+
+    def on_percentile_band_toggle(band):
+        """点击档位：相同则收起，不同则切换。"""
+        state['expanded_percentile_band'] = None if state.get('expanded_percentile_band') == band else band
+        # 重渲染图2 卡片
+        if chart_container:
+            render_charts(state['df'])
 
     def export_to_excel():
         """导出成分股明细到Excel"""
