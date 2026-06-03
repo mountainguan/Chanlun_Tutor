@@ -796,11 +796,11 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
             pb_raw = row.get('PB', None)
             pb_val = round(float(pb_raw), 2) if (pb_raw is not None and pb_raw > 0) else None
 
-            # 历史PE分位（None 时显示 '—'，并打灰色）
+            # 历史PE分位（None 时保持 None，由 cellRenderer 渲染为 "—"；用 None 而非字符串以避免 aggrid 排序混乱）
             pe_pct = row.get('PE分位', None)
             if pe_pct is None or (hasattr(pd, 'isna') and pd.isna(pe_pct)):
                 pct_color = '#94a3b8'
-                pct_display = '—'
+                pct_display = None
                 pct_level = '—'
                 pct_level_bg = '#f1f5f9'
                 pct_level_color = '#94a3b8'
@@ -820,25 +820,32 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                     pct_level, pct_level_bg, pct_level_color = '低估', '#dcfce7', '#15803d'
                 pct_display = round(pct_val, 1)
 
+            # 防御式归一化：0/None/负数 → None（由 cellRenderer 渲染为 "—"）
+            # 修复"PE/行业PE/总市值显示 0.00"等数据异常；与 pb_val 范式保持一致
+            pe_dynamic_val = round(pe_dynamic, 2) if (pe_dynamic and pe_dynamic > 0) else None
+            sector_pe_val = round(sector_pe, 2) if (sector_pe and sector_pe > 0) else None
+            mcap_raw = row.get('总市值', None)
+            market_cap_val = round(mcap_raw / 1e8, 2) if (mcap_raw and mcap_raw > 0) else None
+
             rows.append({
                 'code': row.get('股票编码', ''),
                 'name': row.get('股票名称', ''),
                 'index': row.get('所属指数', '').replace('指数', ''),
                 'action': action,
                 'price': f"{row.get('最新价', 0):.2f}",
-                'pe_dynamic': round(pe_dynamic, 2) if pe_dynamic else 0,
+                'pe_dynamic': pe_dynamic_val,
                 'level': level,
                 'level_bg': level_bg,
                 'level_color': level_color,
                 'sector_name': row.get('所属板块', ''),
-                'sector_pe': round(sector_pe, 2) if sector_pe else 0,
+                'sector_pe': sector_pe_val,
                 'pe_percentile': pct_display,
                 'pct_color': pct_color,
                 'pct_level': pct_level,
                 'pct_level_bg': pct_level_bg,
                 'pct_level_color': pct_level_color,
                 'pb': pb_val,
-                'market_cap': round(row.get('总市值', 0) / 1e8, 2) if row.get('总市值', 0) else 0,
+                'market_cap': market_cap_val,
                 'action_color': action_style['color'],
                 'action_bg': action_style['bg'],
             })
@@ -854,16 +861,17 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
              'cellStyle': {'fontSize': '12px', 'color': '#64748b'},
              'headerClass': 'pe-grid-header'},
             {'headerName': '状态', 'field': 'action', 'sortable': True, 'filter': True, 'width': 65,
-             'cellRenderer': "function(params) { return '<span style=\"background:'+params.data.action_bg+';color:'+params.data.action_color+';padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600\">'+params.value+'</span>'; }",
+             ':cellRenderer': "function(params) { return '<span style=\"background:'+params.data.action_bg+';color:'+params.data.action_color+';padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600\">'+params.value+'</span>'; }",
              'headerClass': 'pe-grid-header'},
             {'headerName': '最新价', 'field': 'price', 'sortable': True, 'width': 75,
              'cellStyle': {'textAlign': 'right', 'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace', 'fontSize': '13px'},
              'headerClass': 'pe-grid-header'},
             {'headerName': 'PE（动态）', 'field': 'pe_dynamic', 'sortable': True, 'width': 80, 'sort': 'asc',
              'cellStyle': {'textAlign': 'right', 'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace', 'fontWeight': '600', 'fontSize': '13px'},
+             ':cellRenderer': "function(params) { var v = params.value; if (v === null || v === undefined || v === '' || typeof v !== 'number' || !isFinite(v)) { return '<span style=\"color:#94a3b8;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:13px\">—</span>'; } return '<span style=\"color:#1e293b\">'+v.toFixed(2)+'</span>'; }",
              'headerClass': 'pe-grid-header'},
             {'headerName': '估值档位', 'field': 'level', 'sortable': True, 'filter': True, 'width': 70,
-             'cellRenderer': "function(params) { return '<span style=\"background:'+params.data.level_bg+';color:'+params.data.level_color+';padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600\">'+params.value+'</span>'; }",
+             ':cellRenderer': "function(params) { return '<span style=\"background:'+params.data.level_bg+';color:'+params.data.level_color+';padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600\">'+params.value+'</span>'; }",
              'headerClass': 'pe-grid-header'},
             {'headerName': '所属行业', 'field': 'sector_name', 'sortable': True, 'filter': True, 'width': 100,
              'cellStyle': {'fontSize': '12px', 'color': '#475569'},
@@ -872,15 +880,15 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
              'cellStyle': {'textAlign': 'right', 'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace', 'color': '#6366f1', 'fontWeight': '500', 'fontSize': '13px'},
              'headerClass': 'pe-grid-header'},
             {'headerName': '行业历史分位', 'field': 'pe_percentile', 'sortable': True, 'width': 90, 'sort': 'desc',
-             'cellRenderer': "function(params) { var v = params.value; if (v === null || v === undefined || v === '' || typeof v !== 'number' || !isFinite(v)) { return '<span style=\"color:#94a3b8;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:13px\">\u2014</span>'; } var color = params.data.pct_color; return '<span style=\"color:'+color+';font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:13px\">'+v.toFixed(1)+'%</span>'; }",
+             ':cellRenderer': "function(params) { var v = params.value; if (v === null || v === undefined || v === '' || typeof v !== 'number' || !isFinite(v)) { return '<span style=\"color:#94a3b8;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:13px\">\u2014</span>'; } var color = params.data.pct_color; return '<span style=\"color:'+color+';font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:13px\">'+v.toFixed(1)+'%</span>'; }",
              'headerClass': 'pe-grid-header',
              'headerTooltip': '行业历史分位 = 当前PE在所属申万一级行业过去10年日频PE序列中的位置（需构建历史缓存）'},
             {'headerName': '分位档位', 'field': 'pct_level', 'sortable': True, 'filter': True, 'width': 70,
-             'cellRenderer': "function(params) { return '<span style=\"background:'+params.data.pct_level_bg+';color:'+params.data.pct_level_color+';padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600\">'+params.value+'</span>'; }",
+             ':cellRenderer': "function(params) { return '<span style=\"background:'+params.data.pct_level_bg+';color:'+params.data.pct_level_color+';padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600\">'+params.value+'</span>'; }",
              'headerClass': 'pe-grid-header'},
             {'headerName': '市净率', 'field': 'pb', 'sortable': True, 'width': 65,
              'cellStyle': {'textAlign': 'right', 'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace', 'fontSize': '13px'},
-             'cellRenderer': "function(params) { var v = params.value; if (v === null || v === undefined || v === '' || typeof v !== 'number' || !isFinite(v)) { return '<span style=\"color:#94a3b8\">—</span>'; } return '<span style=\"color:#475569\">'+v.toFixed(2)+'</span>'; }",
+             ':cellRenderer': "function(params) { var v = params.value; if (v === null || v === undefined || v === '' || typeof v !== 'number' || !isFinite(v)) { return '<span style=\"color:#94a3b8\">—</span>'; } return '<span style=\"color:#475569\">'+v.toFixed(2)+'</span>'; }",
              'headerClass': 'pe-grid-header',
              'headerTooltip': '市净率 PB = 股价 / 每股净资产（数据缺失显示 —）'},
             {'headerName': '总市值(亿)', 'field': 'market_cap', 'sortable': True, 'width': 100,
@@ -1010,8 +1018,9 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
 
         # 添加估值档位列
         def get_level(pe):
-            if pe <= 0:
-                return '无效'
+            # NaN/缺失 → '—'（与表格 cellRenderer 行为保持一致）
+            if pe is None or (hasattr(pd, 'isna') and pd.isna(pe)) or pe <= 0:
+                return '—'
             elif pe < 15:
                 return '低估'
             elif pe < 30:

@@ -88,6 +88,45 @@ class TestPETrackerComponentStructure(unittest.TestCase):
             r"ui\.label\(\s*['\"]倍['\"]\s*\)\.classes\(\s*['\"][^'\"]*text-slate-500[^'\"]*['\"]\s*\)"
         )
 
+    def test_cell_renderer_uses_colon_prefix(self):
+        """cellRenderer 字符串需 ':' 前缀才会被 NiceGUI 转换为 JS 函数。
+
+        不带 ':' 时，aggrid 收到的是字符串而不是函数，回退到默认 valueFormatter，
+        导致数字列出现 'Invalid Number'、level/percentile 等彩色徽章列退化为空或 'Invalid Number'。
+        修复：所有 6 处 cellRenderer 都必须使用 ':cellRenderer'。
+        """
+        src = read_source()
+        # 没有任何不带 ':' 前缀的 cellRenderer（注释里的不算，但本源码无该注释）
+        self.assertNotRegex(
+            src,
+            r"['\"]cellRenderer['\"]\s*:",
+            "发现不带 ':' 前缀的 cellRenderer——NiceGUI 不会把它当函数传给 aggrid，"
+            "会导致表格回退到默认 valueFormatter（数字列出现 'Invalid Number'）。",
+        )
+        # 至少出现 6 次 ':cellRenderer'（状态/PE（动态）/估值档位/行业历史分位/分位档位/市净率）
+        self.assertGreaterEqual(
+            src.count("':cellRenderer'"),
+            6,
+            "':cellRenderer' 数量不足，6 个有渲染器的列都必须带 ':' 前缀",
+        )
+
+    def test_pe_dynamic_has_cell_renderer(self):
+        """PE（动态）列必须有 cellRenderer 以处理 None/NaN（显示 '—'）。
+
+        否则默认 valueFormatter 对 None 返回空字符串，导致前几页（按 PE 升序排，None 排到末尾）
+        和 NaN 行（PE Tushare 缺失时返回 NaN）显示为空。
+        """
+        src = read_source()
+        # PE（动态）columnDefs 块中紧邻必须出现 ':cellRenderer'（assertRegex 不支持 flags，用 re.search+DOTALL）
+        self.assertIsNotNone(
+            re.search(
+                r"['\"]headerName['\"]\s*:\s*['\"]PE（动态）['\"].*?:cellRenderer",
+                src,
+                re.DOTALL,
+            ),
+            "PE（动态）列缺少 :cellRenderer，无法处理 None/NaN 兜底",
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
