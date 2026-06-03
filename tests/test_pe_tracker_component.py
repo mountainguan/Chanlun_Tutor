@@ -37,22 +37,27 @@ class TestPETrackerComponentStructure(unittest.TestCase):
 
     def test_columns_renamed(self):
         src = read_source()
-        # 新列名必须出现
-        for name in ['PE（动态）', 'PE（TTM）', '行业PE', '行业历史分位', '估值档位', '分位档位', '所属行业', '市净率']:
+        # 新列名必须出现（静态 PE 列已被用户 WIP 移除，不再要求 PE（TTM））
+        for name in ['PE（动态）', '行业PE', '行业历史分位', '估值档位', '分位档位', '所属行业', '市净率']:
             self.assertIn(name, src, f'列名 "{name}" 未找到')
 
     def test_old_column_names_removed(self):
         src = read_source()
-        # Task 3/4 will rename 静态PE -> PE（TTM） and related
-        self.assertNotIn('静态PE', src, '旧列名 静态PE 仍存在，应已重命名为 PE（TTM）')
+        # Task 4 will rename 板块PE -> 行业PE 等
+        self.assertNotIn('板块PE', src, '旧列名 板块PE 仍存在，应已重命名为 行业PE')
 
-    def test_static_pe_none_handled(self):
-        """rows.append 块中 pe_static 字段必须有显式 None 规范化。"""
+    def test_pb_field_handles_none(self):
+        """rows.append 块中 pb 字段必须有显式 None 规范化。
+
+        当前代码是 `round(row.get('PB', 0), 2) if row.get('PB', 0) else 0`，
+        当 PB 缺失时 round(0,2) == 0.0 然后被 aggrid 当作合法数值 0 显示，
+        缺少 None 兜底会导致未来 PB 字段语义错误时无信号。
+        """
         src = read_source()
-        # pe_static 字段的 None 规范化（Task 3 约定字段名为 pe_static / pe_static_val）
+        # 必须有显式的 None 规范化，Task 3 约定字段名为 pb / pb_val
         self.assertRegex(
             src,
-            r"['\"]pe_static['\"]\s*:\s*pe_static_val"
+            r"['\"]pb['\"]\s*:\s*pb_val"
         )
 
     def test_diff_badge_appears(self):
