@@ -66,9 +66,13 @@ class TestPETrackerComponentStructure(unittest.TestCase):
         self.assertIn('调出−调入', src)
 
     def test_no_unit_in_main_number(self):
-        """主数字旁不应再独立出现 '倍' 标签。"""
+        """主数字旁的 '倍' 标签应降为辅助样式（不与主数字争夺视觉）。"""
         src = read_source()
-        self.assertNotRegex(src, r"ui\.label\(\s*['\"]倍['\"]\s*\)")
+        # 旧的显式 '倍'（text-sm text-slate-500）应已替换为低饱和样式或置于 tooltip 内
+        self.assertNotRegex(
+            src,
+            r"ui\.label\(\s*['\"]倍['\"]\s*\)\.classes\(\s*['\"][^'\"]*text-slate-500[^'\"]*['\"]\s*\)"
+        )
 
 
 if __name__ == '__main__':
