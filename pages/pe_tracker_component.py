@@ -34,6 +34,8 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
         'selected_level': 'all',
         'selected_premium': 'all',
         'selected_level_view': '低估',  # 估值分布区点击的档位
+        'expanded_percentile_band': None,  # 图2 档位内联展开状态
+        'table_level_filter': None,  # 图3 档位徽章联动筛选
         'loading': False,
     }
 
