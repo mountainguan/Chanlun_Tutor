@@ -61,9 +61,23 @@ class TestPETrackerComponentStructure(unittest.TestCase):
         )
 
     def test_diff_badge_appears(self):
-        """差值徽章文案应出现。"""
+        """差值徽章文案应出现（f-string 模板 + 差值公式 + 三种语义标签）。"""
         src = read_source()
-        self.assertIn('调出−调入', src)
+        # 模板用 f-string 插值，源码里只有占位符 {other_action}−{action}
+        self.assertRegex(
+            src,
+            r"\{other_action\}−\{action\}",
+            "差值徽章 f-string 模板未找到",
+        )
+        # 差值公式 = 另一侧中位PE - 当前中位PE
+        self.assertRegex(
+            src,
+            r"diff\s*=\s*other_median\s*-\s*median_pe",
+            "差值公式 other_median - median_pe 未找到",
+        )
+        # 三种语义标签（高剔低纳 / 差异不大 / 反向）
+        for phrase in ['高剔低纳', '差异不大', '反向']:
+            self.assertIn(phrase, src, f"差值徽章语义文案 '{phrase}' 未找到")
 
     def test_no_unit_in_main_number(self):
         """主数字旁的 '倍' 标签应降为辅助样式（不与主数字争夺视觉）。"""
