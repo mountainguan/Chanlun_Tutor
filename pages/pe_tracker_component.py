@@ -32,7 +32,7 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
         'selected_index': 'all',
         'selected_action': 'all',
         'selected_level': 'all',
-        'selected_premium': 'all',
+        'selected_percentile': 'all',  # 历史PE分位档位筛选
         'selected_level_view': '低估',  # 估值分布区点击的档位
         'expanded_percentile_band': None,  # 图2 档位内联展开状态
         'table_level_filter': None,  # 图3 档位徽章联动筛选
@@ -89,42 +89,59 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
             ui.label('首次加载可能需要10-20秒').classes('text-slate-400 text-xs mt-1')
 
     def update_insights(df):
-        """更新核心洞察"""
+        """更新核心洞察（基于行业历史PE分位判断估值温度）"""
         if df.empty or insight_label is None:
             return
 
-        # 计算关键指标
+        # PE有效（>0）的样本
         valid = df[df['动态PE'] > 0]
         if valid.empty:
             insight_label.text = '暂无有效数据'
             return
 
-        # 调入 vs 调出的PE中位数对比
+        # 调入 vs 调出的PE中位数对比（保留：直观展示调整方向）
         in_pe = valid[valid['调入调出'] == '调入']['动态PE'].median() if not valid[valid['调入调出'] == '调入'].empty else 0
         out_pe = valid[valid['调入调出'] == '调出']['动态PE'].median() if not valid[valid['调入调出'] == '调出'].empty else 0
 
-        # 整体市场温度
-        median_pe = valid['动态PE'].median()
-        if median_pe < 15:
-            market_temp = '低估'
-            temp_color = 'emerald'
-        elif median_pe < 30:
-            market_temp = '合理'
-            temp_color = 'sky'
-        elif median_pe < 50:
-            market_temp = '偏高'
-            temp_color = 'amber'
+        # 整体市场温度：基于中位历史PE分位
+        pct_valid = valid[valid['PE分位'].notna()]
+        if pct_valid.empty:
+            # 缓存未构建时的兜底：退回用绝对PE中位数
+            median_pe = valid['动态PE'].median()
+            if median_pe < 15:
+                market_temp, temp_color = '低估', 'emerald'
+            elif median_pe < 30:
+                market_temp, temp_color = '合理', 'sky'
+            elif median_pe < 50:
+                market_temp, temp_color = '偏高', 'amber'
+            else:
+                market_temp, temp_color = '高估', 'rose'
+            temp_metric = f'中位PE {median_pe:.1f}倍'
+            low_pct_label = f'低估(<15) {len(valid[valid["动态PE"]<15])/len(valid)*100:.0f}%'
+            high_pct_label = f'高估(>50) {len(valid[valid["动态PE"]>50])/len(valid)*100:.0f}%'
         else:
-            market_temp = '高估'
-            temp_color = 'rose'
-
-        # 低估股票比例
-        low_pe_pct = len(valid[valid['动态PE'] < 15]) / len(valid) * 100
-        # 高估股票比例
-        high_pe_pct = len(valid[valid['动态PE'] > 50]) / len(valid) * 100
+            median_pct = pct_valid['PE分位'].median()
+            if median_pct < 30:
+                market_temp, temp_color = '低估', 'emerald'
+            elif median_pct < 55:
+                market_temp, temp_color = '偏低', 'sky'
+            elif median_pct < 75:
+                market_temp, temp_color = '偏高', 'amber'
+            else:
+                market_temp, temp_color = '高估', 'rose'
+            temp_metric = f'中位分位 {median_pct:.0f}%'
+            # 分位档位比例
+            n = len(pct_valid)
+            low_count = len(pct_valid[pct_valid['PE分位'] < 20])
+            high_count = len(pct_valid[pct_valid['PE分位'] >= 80])
+            low_pct_label = f'低估(<20%) {low_count/n*100:.0f}%'
+            high_pct_label = f'高估(≥80%) {high_count/n*100:.0f}%'
 
         # 生成洞察文本
-        insight_text = f'当前估值中位数 {median_pe:.1f} 倍，{market_temp}区间 | 低估(<15)占比 {low_pe_pct:.0f}%，高估(>50)占比 {high_pe_pct:.0f}%'
+        insight_text = (
+            f'当前{temp_metric}，{market_temp}区间 | '
+            f'{low_pct_label}，{high_pct_label}'
+        )
 
         if out_pe > 0 and in_pe > 0:
             diff = out_pe - in_pe
@@ -132,6 +149,10 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                 insight_text += f' | 调出股票PE({out_pe:.1f})高于调入({in_pe:.1f})，符合"高估替换"逻辑'
             elif diff < -5:
                 insight_text += f' | 调出股票PE({out_pe:.1f})低于调入({in_pe:.1f})，指数调入更高估值标的'
+
+        # 缓存缺失提示
+        if pct_valid.empty:
+            insight_text += ' | ⚠️ 历史PE分位缓存未生成，请运行 python scripts/build_sector_pe_history.py'
 
         insight_label.text = insight_text
 
@@ -160,18 +181,17 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
             elif state['selected_level'] == '高估':
                 filtered = filtered[filtered['动态PE'] >= 50]
 
-        # 溢价率筛选
-        if state['selected_premium'] != 'all':
-            if state['selected_premium'] == '低估':
-                filtered = filtered[filtered['PE溢价率'] < -30]
-            elif state['selected_premium'] == '略低':
-                filtered = filtered[(filtered['PE溢价率'] >= -30) & (filtered['PE溢价率'] < 0)]
-            elif state['selected_premium'] == '略高':
-                filtered = filtered[(filtered['PE溢价率'] >= 0) & (filtered['PE溢价率'] < 50)]
-            elif state['selected_premium'] == '高估':
-                filtered = filtered[(filtered['PE溢价率'] >= 50) & (filtered['PE溢价率'] < 200)]
-            elif state['selected_premium'] == '严重高估':
-                filtered = filtered[filtered['PE溢价率'] >= 200]
+        # 行业历史PE分位筛选（替换原 PE溢价率 筛选）
+        if state['selected_percentile'] != 'all':
+            pct_valid = filtered['PE分位'].notna()
+            if state['selected_percentile'] == '低估':
+                filtered = filtered[pct_valid & (filtered['PE分位'] < 20)]
+            elif state['selected_percentile'] == '偏低':
+                filtered = filtered[pct_valid & (filtered['PE分位'] >= 20) & (filtered['PE分位'] < 50)]
+            elif state['selected_percentile'] == '偏高':
+                filtered = filtered[pct_valid & (filtered['PE分位'] >= 50) & (filtered['PE分位'] < 80)]
+            elif state['selected_percentile'] == '高估':
+                filtered = filtered[pct_valid & (filtered['PE分位'] >= 80)]
 
         return filtered
 
@@ -227,14 +247,14 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                     # 股票列表
                     _render_level_stocks(df)
 
-            # ====== PE溢价率分析 ======
+            # ====== PE分位分析（基于行业历史） ======
             with ui.card().classes('w-full p-6 bg-white rounded-2xl shadow-sm border border-slate-100'):
                 with ui.row().classes('w-full items-center justify-between mb-1'):
-                    ui.label('相对板块的估值溢价').classes('text-base font-bold text-slate-800')
-                    ui.badge('溢价率 = 个股PE / 板块PE - 1', color='indigo').props('outline')
-                ui.label('正值表示个股比板块贵，负值表示比板块便宜').classes('text-xs text-slate-400 mb-4')
+                    ui.label('行业历史PE分位分布').classes('text-base font-bold text-slate-800')
+                    ui.badge('分位 = 当前PE在所属申万一级行业过去N年日频PE序列中的位置', color='indigo').props('outline')
+                ui.label('<20% 偏低估 | 20-50% 偏低 | 50-80% 偏高 | ≥80% 高估').classes('text-xs text-slate-400 mb-4')
 
-                _render_premium_distribution(df)
+                _render_percentile_distribution(df)
 
     def _render_action_card(action, df, color, icon_name, trend_icon, hint_text):
         """渲染调入/调出对比卡片"""
@@ -557,44 +577,43 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                             # PE
                             ui.label(f'{pe:.1f}').classes(f'text-xs font-bold {c["text"]} tabular-nums').style('font-family: ui-monospace, monospace')
 
-    def _render_premium_distribution(df):
-        """PE溢价率分布 - 按档位统计"""
-        premium_values = df[df['PE溢价率'] != 0]['PE溢价率'].tolist()
-        if not premium_values:
-            with ui.column().classes('w-full items-center justify-center py-8'):
+    def _render_percentile_distribution(df):
+        """PE历史分位分布 - 按行业历史PE分位档位统计（替换原 PE溢价率分布）"""
+        pct_valid = df[df['PE分位'].notna()]
+        if pct_valid.empty:
+            with ui.column().classes('w-full items-center justify-center py-8 gap-2'):
                 ui.icon('analytics', size='2rem', color='slate-300')
-                ui.label('暂无板块PE对比数据').classes('text-slate-400 text-sm mt-2')
+                ui.label('行业历史PE分位缓存未生成').classes('text-slate-500 text-sm')
+                ui.label('请在终端运行：python scripts/build_sector_pe_history.py').classes('text-slate-400 text-xs font-mono')
             return
 
-        # 重新分档统计
+        # 4档分位（与 PETracker.PERCENTILE_LEVELS 对齐）
         ranges = [
-            ('严重低估', -999, -30, '#10b981', 'bg-emerald-500', 'text-emerald-700'),
-            ('略低于板块', -30, 0, '#34d399', 'bg-emerald-400', 'text-emerald-600'),
-            ('略高于板块', 0, 50, '#fbbf24', 'bg-amber-400', 'text-amber-600'),
-            ('明显高估', 50, 200, '#f97316', 'bg-orange-500', 'text-orange-700'),
-            ('严重高估', 200, 9999, '#ef4444', 'bg-rose-500', 'text-rose-700'),
+            ('低估', 0, 20,  '#10b981', 'bg-emerald-500', 'text-emerald-700'),
+            ('偏低', 20, 50, '#3b82f6', 'bg-blue-500',    'text-blue-700'),
+            ('偏高', 50, 80, '#f59e0b', 'bg-amber-500',   'text-amber-700'),
+            ('高估', 80, 100,'#ef4444', 'bg-rose-500',    'text-rose-700'),
         ]
 
-        total = len(premium_values)
+        total = len(pct_valid)
         with ui.column().classes('w-full gap-2'):
             for name, low, high, color, bg_class, text_class in ranges:
-                # 获取该档位下的股票
-                level_stocks = df[(df['PE溢价率'] >= low) & (df['PE溢价率'] < high)]
+                level_stocks = pct_valid[(pct_valid['PE分位'] >= low) & (pct_valid['PE分位'] < high)]
                 count = len(level_stocks)
                 pct = count / total * 100
 
                 with ui.element('div').classes(
                     f'w-full p-3 rounded-lg cursor-pointer transition-all hover:bg-slate-50 hover:shadow-sm border border-transparent hover:border-slate-200'
-                ).on('click', lambda n=name, l=low, h=high, s=level_stocks: show_premium_detail(n, l, h, s)):
+                ).on('click', lambda n=name, l=low, h=high, s=level_stocks: show_percentile_detail(n, l, h, s)):
                     with ui.column().classes('w-full gap-1'):
                         with ui.row().classes('w-full items-center justify-between'):
                             with ui.row().classes('items-center gap-2'):
                                 ui.element('div').classes(f'w-3 h-3 rounded-full {bg_class}')
-                                ui.label(name).classes(f'text-sm font-medium {text_class}')
+                                ui.label(f'{name}（{low}%-{high if high<100 else "100%"}）').classes(f'text-sm font-medium {text_class}')
                                 ui.icon('chevron_right', size='xs', color='slate-400')
                             with ui.row().classes('items-center gap-2'):
                                 ui.label(f'{count}只').classes('text-xs text-slate-600')
-                                ui.label(f'{pct:.0f}%').classes(f'text-sm font-bold').style(f'color: {color}')
+                                ui.label(f'{pct:.0f}%').classes('text-sm font-bold').style(f'color: {color}')
 
                         # 进度条
                         with ui.element('div').classes('w-full h-2 bg-slate-100 rounded-full overflow-hidden'):
@@ -604,16 +623,15 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
             ui.separator().classes('my-2')
             with ui.row().classes('items-center gap-2'):
                 ui.icon('info', size='xs', color='slate')
-                ui.label(f'共 {total} 只股票 | 点击任意档位查看股票明细').classes('text-[11px] text-slate-400')
+                ui.label(f'共 {total} 只股票有分位数据 | 点击档位查看明细').classes('text-[11px] text-slate-400')
 
-    def show_premium_detail(name, low, high, stocks):
-        """显示档位详情弹窗"""
+    def show_percentile_detail(name, low, high, stocks):
+        """显示分位档位详情弹窗（替换原 PE溢价率 弹窗）"""
         color_map = {
-            '严重低估': 'emerald',
-            '略低于板块': 'emerald',
-            '略高于板块': 'amber',
-            '明显高估': 'orange',
-            '严重高估': 'rose',
+            '低估': 'emerald',
+            '偏低': 'blue',
+            '偏高': 'amber',
+            '高估': 'rose',
         }
         color = color_map.get(name, 'slate')
 
@@ -624,7 +642,7 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                     ui.icon('list_alt', color=color).classes('text-xl')
                     with ui.column().classes('gap-0'):
                         ui.label(name).classes(f'text-lg font-bold text-{color}-700')
-                        ui.label(f'溢价率 {low}% ~ {high if high < 9999 else "+∞"}% | 共 {len(stocks)} 只股票').classes('text-xs text-slate-500')
+                        ui.label(f'PE分位 {low}% ~ {high}% | 共 {len(stocks)} 只股票').classes('text-xs text-slate-500')
                 ui.button(icon='close', on_click=dialog.close).props('flat round dense')
 
             # 表格
@@ -632,19 +650,23 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                 if stocks.empty:
                     ui.label('该档位暂无股票').classes('text-slate-400 text-sm py-8 text-center')
                 else:
-                    # 准备数据
                     rows = []
                     for _, row in stocks.iterrows():
-                        pe_premium = row.get('PE溢价率', 0)
-                        premium_color = '#64748b'
-                        if pe_premium > 50:
-                            premium_color = '#dc2626'
-                        elif pe_premium > 0:
-                            premium_color = '#ea580c'
-                        elif pe_premium < -30:
-                            premium_color = '#16a34a'
-                        elif pe_premium < 0:
-                            premium_color = '#2563eb'
+                        pe_dynamic = row.get('动态PE', 0)
+                        pe_pct = row.get('PE分位', None)
+                        if pe_pct is None or (hasattr(pd, 'isna') and pd.isna(pe_pct)):
+                            pct_color = '#94a3b8'
+                            pct_display = '—'
+                        else:
+                            if pe_pct >= 80:
+                                pct_color = '#dc2626'
+                            elif pe_pct >= 50:
+                                pct_color = '#f59e0b'
+                            elif pe_pct >= 20:
+                                pct_color = '#3b82f6'
+                            else:
+                                pct_color = '#16a34a'
+                            pct_display = round(float(pe_pct), 1)
 
                         action = row.get('调入调出', '')
                         action_colors = {'调入': '#059669', '调出': '#dc2626', '备选': '#d97706'}
@@ -656,14 +678,15 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                             'action_color': action_colors.get(action, '#64748b'),
                             'index': row.get('所属指数', '').replace('指数', ''),
                             'sector_name': row.get('所属板块', ''),
-                            'pe_dynamic': round(row.get('动态PE', 0), 2),
-                            'sector_pe': round(row.get('板块PE', 0), 2) if row.get('板块PE', 0) else 0,
-                            'pe_premium': round(pe_premium, 2),
-                            'premium_color': premium_color,
+                            'pe_dynamic': round(pe_dynamic, 2) if pe_dynamic else 0,
+                            'pe_percentile': pct_display,
+                            'pct_color': pct_color,
                         })
 
-                    # 按溢价率降序
-                    rows.sort(key=lambda x: x['pe_premium'], reverse=True)
+                    def _sort_key(x):
+                        v = x['pe_percentile']
+                        return v if isinstance(v, (int, float)) else -1
+                    rows.sort(key=_sort_key, reverse=True)
 
                     column_defs = [
                         {'headerName': '代码', 'field': 'code', 'width': 85, 'pinned': 'left',
@@ -676,10 +699,8 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                         {'headerName': '所属板块', 'field': 'sector_name', 'width': 100, 'cellStyle': {'fontSize': '12px'}},
                         {'headerName': '个股PE', 'field': 'pe_dynamic', 'width': 80,
                          'cellStyle': {'textAlign': 'right', 'fontFamily': 'monospace', 'fontWeight': '600'}},
-                        {'headerName': '板块PE', 'field': 'sector_pe', 'width': 80,
-                         'cellStyle': {'textAlign': 'right', 'fontFamily': 'monospace', 'color': '#6366f1'}},
-                        {'headerName': '溢价率', 'field': 'pe_premium', 'width': 90, 'sort': 'desc',
-                         'cellRenderer': "function(params) { var prefix = params.value > 0 ? '+' : ''; var color = params.data.premium_color; return '<span style=\"color:'+color+';font-weight:600;font-family:monospace\">'+prefix+params.value.toFixed(1)+'%</span>'; }"},
+                        {'headerName': 'PE分位', 'field': 'pe_percentile', 'width': 95, 'sort': 'desc',
+                         'cellRenderer': "function(params) { if(params.value==='—') return '<span style=\"color:#94a3b8;font-family:monospace\">—</span>'; return '<span style=\"color:'+params.data.pct_color+';font-weight:600;font-family:monospace\">'+params.value.toFixed(1)+'%</span>'; }"},
                     ]
 
                     ui.aggrid({
@@ -735,9 +756,8 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
         for _, row in df.iterrows():
             pe_dynamic = row.get('动态PE', 0)
             sector_pe = row.get('板块PE', 0)
-            pe_premium = row.get('PE溢价率', 0)
 
-            # 估值档位
+            # 估值档位（按绝对PE值，与行业历史分位档位互为补充）
             level = '—'
             level_bg = '#f1f5f9'
             level_color = '#64748b'
@@ -767,15 +787,29 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
             }
             action_style = action_styles.get(action, {'color': '#64748b', 'bg': '#f8fafc', 'border': '#e2e8f0'})
 
-            premium_color = '#64748b'
-            if pe_premium > 50:
-                premium_color = '#dc2626'
-            elif pe_premium > 0:
-                premium_color = '#ea580c'
-            elif pe_premium < -30:
-                premium_color = '#16a34a'
-            elif pe_premium < 0:
-                premium_color = '#2563eb'
+            # 历史PE分位（None 时显示 '—'，并打灰色）
+            pe_pct = row.get('PE分位', None)
+            if pe_pct is None or (hasattr(pd, 'isna') and pd.isna(pe_pct)):
+                pct_color = '#94a3b8'
+                pct_display = '—'
+                pct_level = '—'
+                pct_level_bg = '#f1f5f9'
+                pct_level_color = '#94a3b8'
+            else:
+                pct_val = float(pe_pct)
+                if pct_val >= 80:
+                    pct_color = '#dc2626'
+                    pct_level, pct_level_bg, pct_level_color = '高估', '#fee2e2', '#b91c1c'
+                elif pct_val >= 50:
+                    pct_color = '#f59e0b'
+                    pct_level, pct_level_bg, pct_level_color = '偏高', '#fef3c7', '#b45309'
+                elif pct_val >= 20:
+                    pct_color = '#3b82f6'
+                    pct_level, pct_level_bg, pct_level_color = '偏低', '#dbeafe', '#1d4ed8'
+                else:
+                    pct_color = '#16a34a'
+                    pct_level, pct_level_bg, pct_level_color = '低估', '#dcfce7', '#15803d'
+                pct_display = round(pct_val, 1)
 
             rows.append({
                 'code': row.get('股票编码', ''),
@@ -789,8 +823,11 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                 'level_color': level_color,
                 'sector_name': row.get('所属板块', ''),
                 'sector_pe': round(sector_pe, 2) if sector_pe else 0,
-                'pe_premium': round(pe_premium, 2) if pe_premium else 0,
-                'premium_color': premium_color,
+                'pe_percentile': pct_display,
+                'pct_color': pct_color,
+                'pct_level': pct_level,
+                'pct_level_bg': pct_level_bg,
+                'pct_level_color': pct_level_color,
                 'pb': round(row.get('PB', 0), 2) if row.get('PB', 0) else 0,
                 'market_cap': round(row.get('总市值', 0) / 1e8, 2) if row.get('总市值', 0) else 0,
                 'action_color': action_style['color'],
@@ -825,8 +862,11 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
             {'headerName': '板块PE', 'field': 'sector_pe', 'sortable': True, 'width': 80,
              'cellStyle': {'textAlign': 'right', 'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace', 'color': '#6366f1', 'fontWeight': '500', 'fontSize': '13px'},
              'headerClass': 'pe-grid-header'},
-            {'headerName': 'PE溢价率', 'field': 'pe_premium', 'sortable': True, 'width': 95,
-             'cellRenderer': "function(params) { if(params.value === 0) return '<span style=\"color:#94a3b8;font-size:13px\">-</span>'; var prefix = params.value > 0 ? '+' : ''; var color = params.data.premium_color; return '<span style=\"color:'+color+';font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:13px\">'+prefix+params.value.toFixed(1)+'%</span>'; }",
+            {'headerName': 'PE分位', 'field': 'pe_percentile', 'sortable': True, 'width': 90, 'sort': 'desc',
+             'cellRenderer': "function(params) { if(params.value==='\u2014') return '<span style=\"color:#94a3b8;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:13px\">\u2014</span>'; var color = params.data.pct_color; return '<span style=\"color:'+color+';font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:13px\">'+params.value.toFixed(1)+'%</span>'; }",
+             'headerClass': 'pe-grid-header'},
+            {'headerName': '档位', 'field': 'pct_level', 'sortable': True, 'filter': True, 'width': 70,
+             'cellRenderer': "function(params) { return '<span style=\"background:'+params.data.pct_level_bg+';color:'+params.data.pct_level_color+';padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600\">'+params.value+'</span>'; }",
              'headerClass': 'pe-grid-header'},
             {'headerName': 'PB', 'field': 'pb', 'sortable': True, 'width': 65,
              'cellStyle': {'textAlign': 'right', 'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace', 'fontSize': '13px'},
@@ -900,8 +940,8 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
         render_charts(filtered)
         render_table(filtered)
 
-    def on_premium_change(value):
-        state['selected_premium'] = value
+    def on_percentile_change(value):
+        state['selected_percentile'] = value
         filtered = filter_data()
         update_insights(filtered)
         render_charts(filtered)
@@ -924,7 +964,7 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
 
         # 准备导出数据
         export_df = df[['股票编码', '股票名称', '所属指数', '调入调出', '最新价',
-                        '动态PE', '静态PE', '所属板块', '板块PE', 'PE溢价率',
+                        '动态PE', '静态PE', '所属板块', '板块PE', 'PE分位',
                         'PB', '总市值']].copy()
 
         # 添加估值档位列
@@ -948,7 +988,7 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
         # 重排列顺序
         export_df = export_df[['数据日期', '股票编码', '股票名称', '所属指数', '调入调出',
                                '最新价', '动态PE', '估值档位', '静态PE',
-                               '所属板块', '板块PE', 'PE溢价率', 'PB', '总市值(亿)']]
+                               '所属板块', '板块PE', 'PE分位', 'PB', '总市值(亿)']]
 
         # 创建Excel
         output = io.BytesIO()
@@ -1030,9 +1070,9 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                 ).props('dense outlined').classes('w-28 text-xs')
 
                 ui.select(
-                    {'all': '全部溢价', '低估': '严重低估', '略低': '略低于板块', '略高': '略高于板块', '高估': '明显高估', '严重高估': '严重高估'},
+                    {'all': '全部分位', '低估': '低估(<20%)', '偏低': '偏低(20-50%)', '偏高': '偏高(50-80%)', '高估': '高估(≥80%)'},
                     value='all',
-                    on_change=lambda e: on_premium_change(e.value)
+                    on_change=lambda e: on_percentile_change(e.value)
                 ).props('dense outlined').classes('w-28 text-xs')
 
     # 图表区域

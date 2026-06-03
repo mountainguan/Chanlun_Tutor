@@ -11,13 +11,24 @@ class PETracker:
     """
     指数成分股PE估值跟踪器
     数据源：Tushare Pro (tushare.pro)
-    字段口径：
-        - 动态PE  -> pro.daily_basic.pe        (动态市盈率)
-        - 静态PE  -> pro.daily_basic.pe_ttm    (滚动12个月市盈率，替代东方财富静态PE)
+
+    ⚠️ PE 口径声明：本组件统一使用【动态市盈率】（Tushare pro.daily_basic.pe）
+        - 动态PE  -> pro.daily_basic.pe        (动态市盈率 = price / 预测EPS)
+        - 静态PE  -> pro.daily_basic.pe_ttm    (滚动12个月市盈率，仅作辅助参考)
         - PB      -> pro.daily_basic.pb        (市净率)
         - 总市值  -> pro.daily_basic.total_mv  (单位：万元，转换为元后输出)
     行业分类：pro.stock_basic.industry (申万一级)
-    板块PE：基于全市场 daily_basic × stock_basic.industry 的市值加权平均
+    板块PE：基于全市场 daily_basic × stock_basic.industry 的市值加权平均（同样为动态PE）
+
+    估值判断口径（自 v2 起）：
+        - 不再使用「PE溢价率 = 个股PE / 板块PE - 1」判断高估
+        - 改用「PE分位 = 当前个股动态PE 在其所属申万一级行业过去 10 年日频 动态PE 序列中的位置」
+        - 分位档位：<20% 低估 / 20-50% 偏低 / 50-80% 偏高 / >=80% 高估
+        - 历史PE序列由独立脚本 scripts/build_sector_pe_history.py 定期生成：
+              python scripts/build_sector_pe_history.py
+          缓存文件：data/sector_pe_history_cache.json（schema v2 起强制写 pe_type='dynamic'）
+        - 缓存缺失时（首次部署、脚本未跑）PE分位为 None，前端以 '—' 兜底
+        - pe_type != 'dynamic' 时启动会打印警告，避免与现盘判断口径不一致
     """
 
     DATA_SOURCE = 'Tushare Pro'
@@ -25,16 +36,35 @@ class PETracker:
     # 切换数据源时 bump 此值，使旧缓存自动失效
     SCHEMA_VERSION = 2
 
+    # ==================== PE分位档位（基于申万一级行业历史PE分布） ====================
+    # 行业PE分位 = 当前个股PE在其所属申万一级行业过去10年日频PE序列中的位置（百分比）
+    # 分位档位（保守版）：
+    #   <20%  低估     — 个股PE处于行业历史后20%，价格相对便宜
+    #   20-50% 偏低    — 处于历史中下沿
+    #   50-80% 偏高    — 处于历史中上沿
+    #   >=80%  高估    — 个股PE已经接近/超过历史80%分位
+    PERCENTILE_LEVELS = [
+        # (max_pct, name, bg_color, text_color, ring_color)
+        (20,  '低估',  '#dcfce7', '#15803d', '#10b981'),
+        (50,  '偏低',  '#dbeafe', '#1d4ed8', '#3b82f6'),
+        (80,  '偏高',  '#fef3c7', '#b45309', '#f59e0b'),
+        (100, '高估',  '#fee2e2', '#b91c1c', '#ef4444'),
+    ]
+    # 行业历史PE序列至少需要多少样本才计算分位
+    MIN_HISTORY_SAMPLES = 30
+
     def __init__(self):
         self.data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
         self.cache_file = os.path.join(self.data_dir, 'pe_tracker_cache.json')
         self.sector_cache_file = os.path.join(self.data_dir, 'pe_sector_cache.json')
+        self.sector_pe_history_file = os.path.join(self.data_dir, 'sector_pe_history_cache.json')
         self.excel_file = os.path.join(self.data_dir, '指数样本调整名单.xlsx')
         self.cache = self._load_cache()
         self.sector_cache = self._load_sector_cache()
         self._all_sectors = None
         self._daily_basic_df = None
         self._stock_basic_df = None
+        self._sector_pe_history = None
         self._pro = None
 
     # ==================== Tushare Pro 客户端 ====================
@@ -245,6 +275,75 @@ class PETracker:
         self.cache['stocks'][stock_code] = result
         return result
 
+    # ==================== 板块历史PE分位 ====================
+
+    def _load_sector_pe_history(self):
+        """加载申万一级行业历史PE序列缓存（由 scripts/build_sector_pe_history.py 生成）
+        返回: {pe_type, build_date, start_date, end_date, lookback_days, data: {industry: {date: pe}}}
+        缓存缺失时返回空 dict，不抛异常（降级使 PE分位 全部为 None）。
+        口径校验：pe_type 必须为 'dynamic'，否则打印警告（说明缓存是用 TTM/其他口径构建的）。
+        """
+        if self._sector_pe_history is not None:
+            return self._sector_pe_history
+        if not os.path.exists(self.sector_pe_history_file):
+            self._sector_pe_history = {
+                'data': {}, 'build_date': '', 'start_date': '', 'end_date': '',
+                'pe_type': '',
+            }
+            return self._sector_pe_history
+        try:
+            with open(self.sector_pe_history_file, 'r', encoding='utf-8') as f:
+                self._sector_pe_history = json.load(f)
+            data = self._sector_pe_history.get('data', {})
+            sample_industry = next((k for k, v in data.items() if v), None)
+            sample_size = len(data[sample_industry]) if sample_industry else 0
+            pe_type = self._sector_pe_history.get('pe_type', '')
+            tushare_field = self._sector_pe_history.get('tushare_field', '')
+            type_warn = ''
+            if pe_type and pe_type != 'dynamic':
+                type_warn = (f' [WARN] 缓存pe_type={pe_type}与dynamic不一致!'
+                             f'请用 scripts/build_sector_pe_history.py --fresh 重建。')
+            elif not pe_type:
+                type_warn = ' (旧版缓存无pe_type元信息，建议 --fresh 重建)'
+            print(f"[PETracker] sector PE history loaded: "
+                  f"pe_type={pe_type or 'unknown'} (tushare.{tushare_field or '?'}), "
+                  f"{len(data)} industries, sample '{sample_industry}' has {sample_size} dates, "
+                  f"build_date={self._sector_pe_history.get('build_date', '')}{type_warn}")
+        except Exception as e:
+            print(f"[PETracker] sector PE history load error: {e}")
+            self._sector_pe_history = {
+                'data': {}, 'build_date': '', 'start_date': '', 'end_date': '',
+                'pe_type': '',
+            }
+        return self._sector_pe_history
+
+    def _compute_sector_percentile(self, industry, current_pe):
+        """计算 current_pe 在 industry 历史PE序列中的分位（百分比，0-100）
+        返回 None 表示样本不足 / 行业未在缓存中。
+        """
+        if not industry or current_pe is None or current_pe <= 0:
+            return None
+        history = self._load_sector_pe_history()
+        industry_data = history.get('data', {}).get(industry, {})
+        if not industry_data:
+            return None
+        # 取有效PE（去None/0）
+        pes = [v for v in industry_data.values() if v and v > 0]
+        if len(pes) < self.MIN_HISTORY_SAMPLES:
+            return None
+        below = sum(1 for p in pes if p <= current_pe)
+        return round(below / len(pes) * 100, 1)
+
+    @classmethod
+    def get_percentile_level(cls, percentile):
+        """根据分位数返回 (档位名称, 背景色, 文字色)"""
+        if percentile is None:
+            return '—', '#f1f5f9', '#64748b'
+        for max_pct, name, bg, text, _ring in cls.PERCENTILE_LEVELS:
+            if percentile < max_pct:
+                return name, bg, text
+        return cls.PERCENTILE_LEVELS[-1][1], cls.PERCENTILE_LEVELS[-1][2], cls.PERCENTILE_LEVELS[-1][3]
+
     # ==================== 板块 ====================
 
     def get_all_sectors_pe(self):
@@ -403,7 +502,14 @@ class PETracker:
         return self._merge_data(df, pe_data, sector_map, sectors)
 
     def _merge_data(self, df, pe_data, sector_map, sectors):
-        """合并成分股名单、PE 数据和板块信息"""
+        """合并成分股名单、PE 数据和板块信息。
+        新增 PE分位 字段（替换旧 PE溢价率），需 sector_pe_history_cache.json：
+            - 历史样本 ≥ MIN_HISTORY_SAMPLES 时返回 0-100 的分位数
+            - 样本不足或行业未在缓存中时返回 None（前端用 '—' 兜底）
+        """
+        # 预加载历史PE缓存，避免循环内重复IO
+        self._load_sector_pe_history()
+
         results = []
         for _, row in df.iterrows():
             code = row['股票编码']
@@ -416,9 +522,12 @@ class PETracker:
                 sector_pe = sector_info.get('sector_pe', 0)
                 sector_name = sector_info.get('sector_name', '')
 
-            pe_premium = 0
-            if pe_info.get('pe_dynamic', 0) > 0 and sector_pe > 0:
-                pe_premium = (pe_info['pe_dynamic'] / sector_pe - 1) * 100
+            pe_dynamic = pe_info.get('pe_dynamic', 0)
+
+            # 计算PE分位（个股PE在所属申万一级行业历史分布中的位置）
+            pe_percentile = None
+            if sector_name and pe_dynamic > 0:
+                pe_percentile = self._compute_sector_percentile(sector_name, pe_dynamic)
 
             results.append({
                 '股票编码': code,
@@ -426,13 +535,13 @@ class PETracker:
                 '所属指数': row['所属指数'],
                 '调入调出': row['调入调出'],
                 '最新价': pe_info.get('price', 0),
-                '动态PE': pe_info.get('pe_dynamic', 0),
+                '动态PE': pe_dynamic,
                 '静态PE': pe_info.get('pe_static', 0),
                 'PB': pe_info.get('pb', 0),
                 '总市值': pe_info.get('market_cap', 0),
                 '所属板块': sector_name,
                 '板块PE': sector_pe,
-                'PE溢价率': round(pe_premium, 2),
+                'PE分位': pe_percentile,
             })
         return pd.DataFrame(results)
 
