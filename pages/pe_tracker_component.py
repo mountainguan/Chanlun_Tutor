@@ -787,6 +787,10 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
             }
             action_style = action_styles.get(action, {'color': '#64748b', 'bg': '#f8fafc', 'border': '#e2e8f0'})
 
+            # PB 规范化（处理 None -> None，与 Task 3 静态 PE 同模式）
+            pb_raw = row.get('PB', None)
+            pb_val = round(float(pb_raw), 2) if (pb_raw is not None and pb_raw > 0) else None
+
             # 历史PE分位（None 时显示 '—'，并打灰色）
             pe_pct = row.get('PE分位', None)
             if pe_pct is None or (hasattr(pd, 'isna') and pd.isna(pe_pct)):
@@ -828,7 +832,7 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
                 'pct_level': pct_level,
                 'pct_level_bg': pct_level_bg,
                 'pct_level_color': pct_level_color,
-                'pb': round(row.get('PB', 0), 2) if row.get('PB', 0) else 0,
+                'pb': pb_val,
                 'market_cap': round(row.get('总市值', 0) / 1e8, 2) if row.get('总市值', 0) else 0,
                 'action_color': action_style['color'],
                 'action_bg': action_style['bg'],
@@ -870,7 +874,9 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
              'headerClass': 'pe-grid-header'},
             {'headerName': 'PB', 'field': 'pb', 'sortable': True, 'width': 65,
              'cellStyle': {'textAlign': 'right', 'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace', 'fontSize': '13px'},
-             'headerClass': 'pe-grid-header'},
+             'cellRenderer': "function(params) { if(params.value === null || params.value === undefined) return '<span style=\"color:#94a3b8\">—</span>'; return params.value.toFixed(2); }",
+             'headerClass': 'pe-grid-header',
+             'headerTooltip': '市净率 PB = 股价 / 每股净资产（数据缺失显示 —）'},
             {'headerName': '总市值(亿)', 'field': 'market_cap', 'sortable': True, 'width': 100,
              'cellStyle': {'textAlign': 'right', 'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace', 'fontSize': '13px'},
              'headerClass': 'pe-grid-header'},
