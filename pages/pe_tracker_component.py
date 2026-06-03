@@ -787,7 +787,7 @@ def render_pe_tracker_panel(plotly_renderer, is_mobile=False):
             }
             action_style = action_styles.get(action, {'color': '#64748b', 'bg': '#f8fafc', 'border': '#e2e8f0'})
 
-            # PB 规范化（处理 None -> None，与 Task 3 静态 PE 同模式）
+            # PB 规范化：缺失/0 → None（与下方 pe_pct 块同模式）
             pb_raw = row.get('PB', None)
             pb_val = round(float(pb_raw), 2) if (pb_raw is not None and pb_raw > 0) else None
 
