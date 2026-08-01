@@ -38,6 +38,9 @@ class SectorCrowding:
     DATA_SOURCE = 'Tushare Pro'
     SCHEMA_VERSION = 1
     HISTORY_YEARS = 3
+    # 派生缓存（precompute / precompute_all_indices 的结果）格式版本。
+    # 当缓存结构变化（如新增字段）时 +1，旧缓存会自动失效并重建。
+    DERIVED_SCHEMA_VERSION = 2
 
     CSV_COLUMNS = [
         'trade_date', 'industry', 'stock_count', 'margin_stock_count',
@@ -52,6 +55,7 @@ class SectorCrowding:
         os.makedirs(self.cache_dir, exist_ok=True)
         self.history_file = os.path.join(self.cache_dir, 'sector_crowding_history.csv')
         self.meta_file = os.path.join(self.cache_dir, 'meta.json')
+        self.derived_file = os.path.join(self.cache_dir, 'sector_crowding_derived.pkl')
         self._pro = None
         self._stock_basic = None
         self._history_cache = None
@@ -64,6 +68,10 @@ class SectorCrowding:
     # 是「点击 tab 后等很久」的根因。
     # 这里加一个模块级缓存，键为文件 mtime，跨实例共享同一份已解析 DataFrame。
     _PROCESS_HISTORY_CACHE = {}  # mtime -> DataFrame
+    # 进程级派生缓存：键为 (history mtime_ns, size, 派生格式版本)。
+    # 拥挤度面板每次挂载都会新建 SectorCrowding() 并调用 precompute() 系列方法，
+    # 这里保证同一进程内只算一次，其余全部命中内存缓存。
+    _PROCESS_DERIVED_CACHE = {}  # key -> {'pre': ..., 'pre_idx': ...}
 
     @classmethod
     def _load_history_shared(cls, history_file, csv_columns, force=False):
@@ -96,6 +104,7 @@ class SectorCrowding:
         self._history_cache = None
         self._history_mtime = None
         SectorCrowding._PROCESS_HISTORY_CACHE.clear()
+        SectorCrowding._PROCESS_DERIVED_CACHE.clear()
 
     # ==================== Tushare Pro 客户端 ====================
 
@@ -244,7 +253,85 @@ class SectorCrowding:
         进程级缓存保证多次调用在同一进程内零 IO / 零重复解析。"""
         return self._load_history(force=force)
 
-    def precompute(self):
+    # ==================== 派生缓存（计算好的结果落盘） ====================
+    # 拥挤度面板每次挂载都会调用 precompute() + precompute_all_indices()，
+    # 对 ~110 行业 × ~750 交易日的 DataFrame 做 groupby / isin 切片 / 加权聚合。
+    # 单次 ~100ms（本地）~ 数秒（线上小规格服务器），且每个新进程都要重来一遍。
+    # 这里把计算结果序列化到 data/sector_crowding/sector_crowding_derived.pkl，
+    # 用历史 CSV 的 (mtime_ns, size) 作为键：CSV 没变就直接加载落盘结果，
+    # 彻底跳过重复计算；CSV 更新后键变化自动重建。
+
+    def _derived_cache_key(self):
+        """派生缓存键：(历史 CSV mtime_ns, 大小, 派生格式版本, 指数清单)。"""
+        try:
+            st = os.stat(self.history_file)
+            key = (st.st_mtime_ns, st.st_size, self.DERIVED_SCHEMA_VERSION,
+                   tuple(self.INDEX_LIST))
+        except OSError:
+            key = (None, 0, self.DERIVED_SCHEMA_VERSION, tuple(self.INDEX_LIST))
+        return key
+
+    def _pre_to_payload(self, pre, pre_idx):
+        """把 precompute / precompute_all_indices 的结果打包为可落盘的 dict。
+        直接 pickle DataFrame，保证类型/NaN 与计算路径完全一致；
+        同时带上完整 df，冷启动时连 11MB CSV 解析都可以跳过。"""
+        payload = {
+            'pre': pre,
+            'pre_idx': {
+                code: {'name': name, 'series': s}
+                for code, (name, s) in pre_idx.items()
+            },
+        }
+        return payload
+
+    def _payload_to_pre(self, payload):
+        """把落盘 payload 还原成 precompute / precompute_all_indices 的形状。"""
+        pre = payload['pre']
+        pre_idx = {
+            code: (entry.get('name', code), entry['series'])
+            for code, entry in payload.get('pre_idx', {}).items()
+        }
+        return pre, pre_idx
+
+    def _load_derived(self):
+        """进程级 + 磁盘级加载派生缓存；未命中或损坏返回 None。"""
+        key = self._derived_cache_key()
+        if key in SectorCrowding._PROCESS_DERIVED_CACHE:
+            return SectorCrowding._PROCESS_DERIVED_CACHE[key]
+        if key[0] is None or not os.path.exists(self.derived_file):
+            return None
+        try:
+            import pickle
+            with open(self.derived_file, 'rb') as f:
+                payload = pickle.load(f)
+            if payload.get('key') != key:
+                return None
+            pre, pre_idx = self._payload_to_pre(payload)
+            cached = {'pre': pre, 'pre_idx': pre_idx}
+            if len(SectorCrowding._PROCESS_DERIVED_CACHE) > 2:
+                SectorCrowding._PROCESS_DERIVED_CACHE.clear()
+            SectorCrowding._PROCESS_DERIVED_CACHE[key] = cached
+            return cached
+        except Exception as e:
+            print(f'[SectorCrowding] 派生缓存读取失败（将重新计算）: {e}')
+            return None
+
+    def _save_derived(self, pre, pre_idx):
+        """把派生结果落盘（原子写 tmp + os.replace）。"""
+        if pre.get('df', pd.DataFrame()).empty:
+            return
+        try:
+            import pickle
+            payload = self._pre_to_payload(pre, pre_idx)
+            payload['key'] = self._derived_cache_key()
+            tmp_file = self.derived_file + '.tmp'
+            with open(tmp_file, 'wb') as f:
+                pickle.dump(payload, f, protocol=4)
+            os.replace(tmp_file, self.derived_file)
+        except Exception as e:
+            print(f'[SectorCrowding] 派生缓存写入失败: {e}')
+
+    def precompute(self, use_cache=True):
         """一次性计算面板渲染所需的全部派生数据，避免同一份逻辑被反复调用。
 
         返回 dict：
@@ -260,6 +347,10 @@ class SectorCrowding:
 
         面板每次挂载调用一次即可，多个渲染函数共享同一份缓存。
         """
+        if use_cache:
+            cached = self._load_derived()
+            if cached is not None:
+                return cached['pre']
         df = self.load_history()
         if df.empty:
             return {
@@ -283,7 +374,7 @@ class SectorCrowding:
                                               'financing_pct']].reset_index(drop=True)
             for ind, g in df.groupby('industry', sort=False)
         }
-        return {
+        pre = {
             'df': df,
             'dates': dates,
             'latest_date': latest_date,
@@ -292,6 +383,12 @@ class SectorCrowding:
             'prev_df': prev_df,
             'by_industry': by_industry,
         }
+        if use_cache:
+            pre_idx = self.precompute_all_indices(use_cache=False)
+            self._save_derived(pre, pre_idx)
+            key = self._derived_cache_key()
+            SectorCrowding._PROCESS_DERIVED_CACHE[key] = {'pre': pre, 'pre_idx': pre_idx}
+        return pre
 
     def _append_rows(self, rows):
         """追加一批聚合行到历史 CSV。"""
@@ -667,7 +764,7 @@ class SectorCrowding:
         return index_name, out
 
     # ============ 批量预计算：所有指数一次算完 ============
-    def precompute_all_indices(self):
+    def precompute_all_indices(self, use_cache=True):
         """一次性算好 INDEX_LIST 里所有指数的时间序列（dict）。
 
         旧流程里 render_index_cards 对每个指数都调一次
@@ -676,6 +773,10 @@ class SectorCrowding:
         算 10 个指数其实可以共用一次 groupby，但 weights 不同所以分开；
         关键是消除 10 次重复的 lambda 调用。
         """
+        if use_cache:
+            cached = self._load_derived()
+            if cached is not None:
+                return cached['pre_idx']
         out = {}
         df = self.load_history()
         if df.empty:

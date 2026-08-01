@@ -33,12 +33,39 @@ class TestSectorCrowdingComponent(unittest.TestCase):
     @patch('pages.sector_crowding_component.SectorCrowding')
     def test_render_panel(self, mock_sc_cls, mock_ui):
         mock_sc = mock_sc_cls.return_value
-        mock_sc.load_history.return_value = _fake_history()
+        fake = _fake_history()
+        mock_sc.load_history.return_value = fake
         mock_sc.get_latest.return_value = (
-            _fake_history().sort_values('trade_date').groupby('industry').tail(1)
+            fake.sort_values('trade_date').groupby('industry').tail(1)
         )
         mock_sc.percentile_rank.return_value = 80.0
         mock_sc.get_industry_series.return_value = _fake_history()
+        mock_sc.filter_industries_by_hierarchy.side_effect = (
+            lambda l1=None, l2=None, industries=None: industries
+        )
+        # 与真实 SectorCrowding.precompute() 的返回结构一致
+        def _precompute_result():
+            # load_view() 内部会 pre.clear() 后重新 update，必须每次返回新 dict
+            return {
+                'df': fake,
+                'dates': sorted(fake['trade_date'].unique()),
+                'latest_date': fake['trade_date'].max(),
+                'prev_date': fake['trade_date'].min(),
+                'latest_df': (
+                    fake.sort_values('trade_date').groupby('industry').tail(1)
+                ),
+                'prev_df': (
+                    fake.sort_values('trade_date').groupby('industry').head(1)
+                    .set_index('industry')[['crowding_pct']]
+                ),
+                'by_industry': {
+                    ind: g[['trade_date', 'crowding_pct', 'financing_pct']]
+                         .reset_index(drop=True)
+                    for ind, g in fake.groupby('industry', sort=False)
+                },
+            }
+        mock_sc.precompute.side_effect = _precompute_result
+        mock_sc.precompute_all_indices.return_value = {}
 
         # 让容器类支持 with 语法
         for name in ('row', 'column', 'card', 'element'):
@@ -49,7 +76,7 @@ class TestSectorCrowdingComponent(unittest.TestCase):
         render_sector_crowding_panel(plotly_renderer=renderer, is_mobile=False)
 
         self.assertTrue(mock_ui.card.called)
-        self.assertTrue(mock_ui.table.called)
+        self.assertTrue(mock_ui.html.called)
         self.assertTrue(renderer.called)
         print('板块拥挤度组件渲染成功')
 

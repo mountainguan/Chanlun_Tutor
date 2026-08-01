@@ -64,6 +64,16 @@ def main():
     dt = (datetime.datetime.now() - t0).total_seconds()
     print(f'完成：本次新增 {added} 个交易日，耗时 {dt/60:.1f} 分钟')
 
+    # 预热派生缓存：面板渲染所需的 precompute / 指数序列直接落盘，
+    # 线上部署后首个用户打开"板块拥挤度"标签即可秒开，无需实时重算。
+    print('预热派生缓存（sector_crowding_derived.pkl）...')
+    import time
+    tw = time.perf_counter()
+    pre = sc.precompute()
+    pre_idx = sc.precompute_all_indices()
+    print(f'派生缓存就绪：{len(pre.get("by_industry", {}))} 个行业序列、'
+          f'{len(pre_idx)} 个指数序列，耗时 {time.perf_counter() - tw:.2f}s')
+
     latest = sc.get_latest()
     if not latest.empty:
         top = latest.head(10)[['industry', 'crowding_pct', 'financing_pct',

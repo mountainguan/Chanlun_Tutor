@@ -1,5 +1,7 @@
 """板块拥挤度聚合逻辑单元测试（纯函数，不联网）。"""
 
+import os
+
 import pandas as pd
 
 from utils.sector_crowding import SectorCrowding
@@ -80,3 +82,61 @@ def test_percentile_rank():
     # 样本太少返回 None
     assert SectorCrowding.percentile_rank([1.0, 2.0], 1.5) is None
     assert SectorCrowding.percentile_rank(values, None) is None
+
+
+def _fake_history_df():
+    dates = pd.to_datetime(['2023-08-01', '2023-08-02', '2023-08-03'])
+    rows = []
+    for d in dates:
+        for ind, mv, rz in (('行业A', 1e12, 4e10), ('行业B', 1.5e13, 5e10)):
+            rows.append({
+                'trade_date': d, 'industry': ind,
+                'stock_count': 100, 'margin_stock_count': 80,
+                'total_mv': mv, 'rzye': rz * 0.98, 'rqye': rz * 0.02,
+                'rzrqye': rz,
+                'crowding_pct': rz / mv * 100,
+                'financing_pct': rz * 0.98 / mv * 100,
+                'short_pct': rz * 0.02 / mv * 100,
+            })
+    return pd.DataFrame(rows)
+
+
+def _redirect_sc(sc, cache_dir):
+    """把 SectorCrowding 的缓存目录指向临时目录（避免碰真实数据）。"""
+    os.makedirs(cache_dir, exist_ok=True)
+    sc.cache_dir = str(cache_dir)
+    sc.history_file = os.path.join(str(cache_dir), 'sector_crowding_history.csv')
+    sc.meta_file = os.path.join(str(cache_dir), 'meta.json')
+    sc.derived_file = os.path.join(str(cache_dir), 'sector_crowding_derived.pkl')
+
+
+def test_derived_cache_roundtrip(tmp_path):
+    """派生缓存：计算一次落盘后，新实例能直接从磁盘还原出相同结果。"""
+    sc = SectorCrowding()
+    _redirect_sc(sc, tmp_path)
+    _fake_history_df().to_csv(sc.history_file, index=False,
+                              encoding='utf-8-sig')
+    SectorCrowding._PROCESS_DERIVED_CACHE.clear()
+
+    pre1 = sc.precompute()
+    assert os.path.exists(sc.derived_file)
+
+    # 新实例 + 清进程缓存 -> 必须走磁盘缓存路径
+    SectorCrowding._PROCESS_DERIVED_CACHE.clear()
+    sc2 = SectorCrowding()
+    _redirect_sc(sc2, tmp_path)
+    pre2 = sc2.precompute()
+    pre_idx2 = sc2.precompute_all_indices()
+
+    assert list(pre2['by_industry'].keys()) == list(pre1['by_industry'].keys())
+    pd.testing.assert_frame_equal(
+        pre1['latest_df'], pre2['latest_df'], check_dtype=False)
+    pd.testing.assert_series_equal(
+        pre1['prev_df']['crowding_pct'], pre2['prev_df']['crowding_pct'],
+        check_dtype=False, check_index=False, check_names=False)
+    for ind in pre1['by_industry']:
+        pd.testing.assert_frame_equal(
+            pre1['by_industry'][ind], pre2['by_industry'][ind],
+            check_dtype=False)
+    # 指数依赖真实成分股缓存文件，未配置时为 {}，同样应一致
+    assert set(pre_idx2.keys()) == set()

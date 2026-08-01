@@ -407,8 +407,10 @@ def render_sector_crowding_panel(plotly_renderer, is_mobile=False):
     # ---------- 渲染层：趋势图 ----------
     def render_chart(industry, scroll=False):
         chart_container.clear()
-        ser = sc.get_industry_series(industry)
-        if ser.empty:
+        # 用面板挂载时预算好的 by_industry 数据，避免每次点击都对
+        # 11MB 历史做一次 O(N) 的 industry 过滤（get_industry_series）
+        ser = pre['by_industry'].get(industry)
+        if ser is None or ser.empty:
             with chart_container:
                 ui.label(f'行业 {industry} 暂无数据').classes('text-gray-400')
             return
@@ -634,19 +636,20 @@ def render_sector_crowding_panel(plotly_renderer, is_mobile=False):
         """渲染指定指数的拥挤度/融资占比 趋势图。"""
         index_chart_container.clear()
         if idx_latest is None:
-            for c, n, s in sc.INDEX_LIST:
-                if c == code:
-                    n2, df = sc.get_index_crowding_series(c, scope=s)
-                    if df is not None and not df.empty:
-                        info = {
-                            'name': n2 or n, 'df': df,
-                            'date': str(df.iloc[-1]['trade_date'])[:10],
-                            'crowding': float(df.iloc[-1]['crowding_pct']),
-                            'financing': float(df.iloc[-1]['financing_pct']),
-                        }
-                        break
-            else:
+            # 用面板挂载时一次算好的指数序列，避免点击卡片时重新做
+            # 成分股 -> 行业加权聚合（get_index_crowding_series）
+            entry = pre_idx.get(code)
+            if not entry:
                 return
+            n2, df = entry
+            if df is None or df.empty:
+                return
+            info = {
+                'name': n2, 'df': df,
+                'date': str(df.iloc[-1]['trade_date'])[:10],
+                'crowding': float(df.iloc[-1]['crowding_pct']),
+                'financing': float(df.iloc[-1]['financing_pct']),
+            }
         else:
             info = idx_latest.get(code)
         if not info or info['df'].empty:
