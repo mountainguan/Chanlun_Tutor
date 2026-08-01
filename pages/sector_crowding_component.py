@@ -188,12 +188,19 @@ def render_sector_crowding_panel(plotly_renderer, is_mobile=False):
         l2_select.options = ['全部']
         render_table_only()
 
+    # ---------- 预计算：整个面板只算一次 ----------
+    # 真实瓶颈不在 CSV 读取（115ms），而是 render_index_cards 里的
+    # get_index_crowding_series × 10：每个调用都用 lambda 在 groupby.agg 里做
+    # weighted sum，对 ~750 日期 × 10 指数 = 4 秒纯 pandas 计算。
+    # 一次面板挂载 = precompute() + precompute_all_indices()，后续 render 全 O(1) 查表。
+    pre = sc.precompute()
+    pre_idx = sc.precompute_all_indices()
+
     # ---------- 数据层：构造展示数据 ----------
     def build_display():
-        df = sc.load_history()
-        if df.empty:
+        if pre['df'].empty:
             return pd.DataFrame()
-        latest = sc.get_latest()
+        latest = pre['latest_df']
         # 按当前筛选过滤
         filtered = sc.filter_industries_by_hierarchy(
             l1=filter_state['l1'],
@@ -201,15 +208,17 @@ def render_sector_crowding_panel(plotly_renderer, is_mobile=False):
             industries=latest['industry'].tolist(),
         )
         latest = latest[latest['industry'].isin(filtered)].copy()
-        all_dates = sorted(df['trade_date'].unique())
-        prev_date = all_dates[-22] if len(all_dates) > 22 else all_dates[0]
-        prev = df[df['trade_date'] == prev_date].set_index('industry')
+        prev = pre['prev_df']  # Series indexed by industry
 
+        # O(N)：用预分组好的 by_industry 代替 df[df['industry']==ind]
         rows = []
         for _, r in latest.iterrows():
             ind = r['industry']
-            ser = df[df['industry'] == ind]['crowding_pct']
-            pct_rank = sc.percentile_rank(ser, r['crowding_pct'])
+            ser = pre['by_industry'].get(ind)
+            pct_rank = sc.percentile_rank(
+                ser['crowding_pct'] if ser is not None else None,
+                r['crowding_pct'],
+            )
             chg = (r['crowding_pct'] - prev.loc[ind, 'crowding_pct']
                    if ind in prev.index else None)
             rows.append({
@@ -228,6 +237,8 @@ def render_sector_crowding_panel(plotly_renderer, is_mobile=False):
     # ---------- 渲染层：顶部统计卡 ----------
     def render_stats(display_df, latest_date):
         stats_container.clear()
+        # 历史交易日直接用 pre['dates']，避免重复 load_history()
+        history_days = len(pre['dates'])
         if display_df.empty:
             return
         total_rzrqye = display_df['rzrqye_yi'].sum()
@@ -241,7 +252,7 @@ def render_sector_crowding_panel(plotly_renderer, is_mobile=False):
             ('高拥挤(≥3%)', f"{high_count}", 'text-red-700 bg-red-50 border-red-200'),
             ('低位(<1%)', f"{low_count}", 'text-emerald-700 bg-emerald-50 border-emerald-200'),
             ('全市场拥挤度', f"{market_ratio:.2f}%", 'text-indigo-700 bg-indigo-50 border-indigo-200'),
-            ('历史交易日', f"{len(sc.load_history()['trade_date'].unique())}",
+            ('历史交易日', f"{history_days}",
              'text-gray-700 bg-gray-100 border-gray-200'),
         ]
         for label, value, cls in cards:
@@ -254,8 +265,7 @@ def render_sector_crowding_panel(plotly_renderer, is_mobile=False):
     # ---------- 渲染层：只重渲染表格+统计（不改图表） ----------
     def render_table_only():
         display_df = build_display()
-        df_all = sc.load_history()
-        latest_date = df_all['trade_date'].max().date() if not df_all.empty else None
+        latest_date = pre['latest_date'].date() if pre['latest_date'] is not None else None
         render_stats(display_df, latest_date)
         # 默认选中当前筛选下的第一个行业
         first_industry = display_df.iloc[0]['industry'] if not display_df.empty else None
@@ -537,10 +547,13 @@ def render_sector_crowding_panel(plotly_renderer, is_mobile=False):
     def render_index_cards():
         """渲染 10 个大指数的迷你卡片（最新拥挤度/融资占比）。"""
         index_cards_container.clear()
-        # 缓存各指数的最新数据
+        # 直接用面板挂载时预算好的 series，不再做 10 次 groupby
         idx_latest = {}
         for code, name, scope in sc.INDEX_LIST:
-            n, df = sc.get_index_crowding_series(code, scope=scope)
+            entry = pre_idx.get(code)
+            if not entry:
+                continue
+            n, df = entry
             if df is None or df.empty:
                 continue
             last = df.iloc[-1]
@@ -698,9 +711,14 @@ def render_sector_crowding_panel(plotly_renderer, is_mobile=False):
 
     # ---------- 入口 ----------
     def load_view():
-        df = sc.load_history()
+        # 数据重建/更新后：让预计算缓存读到新数据
+        sc.invalidate_history_cache()
+        pre.clear()
+        pre.update(sc.precompute())
+        pre_idx.clear()
+        pre_idx.update(sc.precompute_all_indices())
         display_df = build_display()
-        latest_date = df['trade_date'].max().date() if not df.empty else None
+        latest_date = pre['latest_date'].date() if pre['latest_date'] is not None else None
         render_stats(display_df, latest_date)
         first_industry = display_df.iloc[0]['industry'] if not display_df.empty else None
         render_table(display_df, selected_industry=first_industry)

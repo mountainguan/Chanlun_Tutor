@@ -55,6 +55,47 @@ class SectorCrowding:
         self._pro = None
         self._stock_basic = None
         self._history_cache = None
+        self._history_mtime = None
+
+    # ==================== 进程级缓存 ====================
+    # SectorCrowding 历史 CSV 在三年口径下可达 11MB。
+    # 同一进程里通常会创建多个 SectorCrowding()（拥挤度面板每次重建都会新建一个），
+    # 旧实现中 _history_cache 仅限实例内，切换 tab 时仍会重新读盘 + 重新解析，
+    # 是「点击 tab 后等很久」的根因。
+    # 这里加一个模块级缓存，键为文件 mtime，跨实例共享同一份已解析 DataFrame。
+    _PROCESS_HISTORY_CACHE = {}  # mtime -> DataFrame
+
+    @classmethod
+    def _load_history_shared(cls, history_file, csv_columns, force=False):
+        """进程级历史缓存：mtime 命中即直接返回，避免重复 IO/解析。"""
+        try:
+            mtime = os.path.getmtime(history_file)
+        except OSError:
+            mtime = None
+        if not force and mtime is not None and cls._PROCESS_HISTORY_CACHE.get(mtime) is not None:
+            return cls._PROCESS_HISTORY_CACHE[mtime]
+        if not os.path.exists(history_file):
+            df = pd.DataFrame(columns=csv_columns)
+        else:
+            df = pd.read_csv(history_file, dtype={'trade_date': str})
+            for col in csv_columns:
+                if col not in df.columns:
+                    df[col] = None
+            df = df[csv_columns]
+            df['trade_date'] = pd.to_datetime(df['trade_date'], errors='coerce')
+            df = df.dropna(subset=['trade_date'])
+        # 写入进程级缓存，淘汰旧 mtime
+        if len(cls._PROCESS_HISTORY_CACHE) > 4:
+            cls._PROCESS_HISTORY_CACHE.clear()
+        if mtime is not None:
+            cls._PROCESS_HISTORY_CACHE[mtime] = df
+        return df
+
+    def invalidate_history_cache(self):
+        """主动失效（写入新数据后调用）。"""
+        self._history_cache = None
+        self._history_mtime = None
+        SectorCrowding._PROCESS_HISTORY_CACHE.clear()
 
     # ==================== Tushare Pro 客户端 ====================
 
@@ -181,26 +222,76 @@ class SectorCrowding:
     # ==================== 历史构建 ====================
 
     def _load_history(self, force=False):
-        """读取历史缓存 CSV（实例内缓存）。"""
-        if self._history_cache is not None and not force:
+        """读取历史缓存 CSV（进程级 + 实例级二级缓存）。"""
+        try:
+            mtime = os.path.getmtime(self.history_file)
+        except OSError:
+            mtime = None
+        if (not force and self._history_cache is not None
+                and self._history_mtime == mtime):
             return self._history_cache
-        if not os.path.exists(self.history_file):
-            self._history_cache = pd.DataFrame(columns=self.CSV_COLUMNS)
-            return self._history_cache
-        df = pd.read_csv(self.history_file, dtype={'trade_date': str})
-        for col in self.CSV_COLUMNS:
-            if col not in df.columns:
-                df[col] = None
-        df = df[self.CSV_COLUMNS]
-        df['trade_date'] = pd.to_datetime(df['trade_date'], errors='coerce')
-        df = df.dropna(subset=['trade_date'])
+        df = SectorCrowding._load_history_shared(
+            self.history_file, self.CSV_COLUMNS, force=force,
+        )
         self._history_cache = df
+        self._history_mtime = mtime
         return df
 
     def load_history(self, force=False):
-        """对外读取历史数据（trade_date 为 datetime.date 或 Timestamp）。"""
-        df = self._load_history(force=force)
-        return df.copy()
+        """对外读取历史数据。
+
+        注意：不再每次返回 .copy()，调用方若需修改应显式调用 .copy()。
+        进程级缓存保证多次调用在同一进程内零 IO / 零重复解析。"""
+        return self._load_history(force=force)
+
+    def precompute(self):
+        """一次性计算面板渲染所需的全部派生数据，避免同一份逻辑被反复调用。
+
+        返回 dict：
+          - df          : 完整历史
+          - dates       : 排序后的交易日 ndarray（升序）
+          - latest_date : 最新交易日 Timestamp
+          - prev_date   : 1 月前 / 上一交易日
+          - latest_df   : 最新交易日行业表
+          - prev_df     : 上一个交易日行业表（按 industry 索引的 crowding_pct Series）
+          - by_industry : dict[industry -> 该行业完整序列 DataFrame]
+                         （用于 build_display 中按行业 percentile_rank，
+                          避免对 df 做 N 次 boolean filter 的 O(N²) 行为）
+
+        面板每次挂载调用一次即可，多个渲染函数共享同一份缓存。
+        """
+        df = self.load_history()
+        if df.empty:
+            return {
+                'df': df,
+                'dates': [],
+                'latest_date': None,
+                'prev_date': None,
+                'latest_df': pd.DataFrame(),
+                'prev_df': pd.DataFrame(),
+                'by_industry': {},
+            }
+        dates = sorted(df['trade_date'].unique())
+        latest_date = dates[-1]
+        prev_date = dates[-22] if len(dates) > 22 else dates[0]
+        latest_df = df[df['trade_date'] == latest_date].copy()
+        prev_df = df[df['trade_date'] == prev_date].set_index('industry')[
+            ['crowding_pct']
+        ]
+        by_industry = {
+            ind: g.sort_values('trade_date')[['trade_date', 'crowding_pct',
+                                              'financing_pct']].reset_index(drop=True)
+            for ind, g in df.groupby('industry', sort=False)
+        }
+        return {
+            'df': df,
+            'dates': dates,
+            'latest_date': latest_date,
+            'prev_date': prev_date,
+            'latest_df': latest_df,
+            'prev_df': prev_df,
+            'by_industry': by_industry,
+        }
 
     def _append_rows(self, rows):
         """追加一批聚合行到历史 CSV。"""
@@ -215,7 +306,7 @@ class SectorCrowding:
         else:
             df.to_csv(self.history_file, mode='w', header=True, index=False,
                       encoding='utf-8-sig')
-        self._history_cache = None
+        self.invalidate_history_cache()
 
     def _save_meta(self, start_date, end_date, latest_date, total_days):
         meta = {
@@ -457,7 +548,7 @@ class SectorCrowding:
             codes.append(ts)
         return codes
 
-    def get_index_crowding_series(self, index_code, scope=None):
+    def get_index_crowding_series(self, index_code, scope=None, df=None):
         """计算给定指数（成分股聚合）的拥挤度时间序列。
 
         index_code: 指数代码 或 scope 标识
@@ -466,6 +557,8 @@ class SectorCrowding:
                     '399001'/'SZ' -> 深市全市场
                     'STAR'      -> 科创板（688 开头）
                     'GEM'       -> 创业板（300 开头）
+        df: 预加载的历史 DataFrame（可选）。同一面板内多次调用时复用，
+            避免对同一份历史做重复 isin 切片。
 
         计算口径：指数拥挤度 = 范围股票的两融余额之和 / 总市值之和 × 100%
         实现：先按证监会行业聚合，再用"范围内行业成分股数"加权。
@@ -496,7 +589,8 @@ class SectorCrowding:
             return None, None
 
         # 1) 加载历史（全行业 × 全日期）
-        df = self.load_history()
+        if df is None:
+            df = self.load_history()
         if df.empty:
             return None, None
 
@@ -543,12 +637,23 @@ class SectorCrowding:
             return None, None
         sub['weight'] = sub['industry'].map(weights).fillna(0)
 
-        # 按日期加权
+        # ============ 关键性能点 ============
+        # 旧实现用 5 个 lambda 在 groupby.agg 里做
+        #   lambda x: (x * sub.loc[x.index, 'weight']).sum()
+        # 一次面板渲染要算 10 个指数，每个 lambda 在每个 group 里都要做
+        # .loc 重索引 + Series 乘法 + sum。对 ~750 日期 × 10 指数 = ~37000 次 lambda，
+        # 实测要 4 秒。改成一次性把 weight 乘到原列里，groupby.agg 用内置 sum()，
+        # pandas 走全 C 路径。
+        sub['w_total_mv'] = sub['total_mv'] * sub['weight']
+        sub['w_rzrqye'] = sub['rzrqye'] * sub['weight']
+        sub['w_rzye'] = sub['rzye'] * sub['weight']
+        sub['w_rqye'] = sub['rqye'] * sub['weight']
+
         grouped = sub.groupby('trade_date', as_index=False).agg(
-            w_total_mv=('total_mv', lambda x: (x * sub.loc[x.index, 'weight']).sum()),
-            w_rzrqye=('rzrqye', lambda x: (x * sub.loc[x.index, 'weight']).sum()),
-            w_rzye=('rzye', lambda x: (x * sub.loc[x.index, 'weight']).sum()),
-            w_rqye=('rqye', lambda x: (x * sub.loc[x.index, 'weight']).sum()),
+            w_total_mv=('w_total_mv', 'sum'),
+            w_rzrqye=('w_rzrqye', 'sum'),
+            w_rzye=('w_rzye', 'sum'),
+            w_rqye=('w_rqye', 'sum'),
             weight_sum=('weight', 'sum'),
         )
         grouped['crowding_pct'] = grouped['w_rzrqye'] / grouped['w_total_mv'] * 100
@@ -560,6 +665,104 @@ class SectorCrowding:
         out = grouped[['trade_date', 'crowding_pct', 'financing_pct', 'short_pct',
                        'coverage']].sort_values('trade_date').reset_index(drop=True)
         return index_name, out
+
+    # ============ 批量预计算：所有指数一次算完 ============
+    def precompute_all_indices(self):
+        """一次性算好 INDEX_LIST 里所有指数的时间序列（dict）。
+
+        旧流程里 render_index_cards 对每个指数都调一次
+        get_index_crowding_series → 每次都做 isin 切片 + 5 个 weight×sum lambda。
+        这里在面板挂载时一次算完并存盘：rows 总数 ~80 行业 × 750 日 = 6 万行，
+        算 10 个指数其实可以共用一次 groupby，但 weights 不同所以分开；
+        关键是消除 10 次重复的 lambda 调用。
+        """
+        out = {}
+        df = self.load_history()
+        if df.empty:
+            return out
+        # 1) ts -> industry 映射（指数 -> 行业 -> 行业）
+        ts_to_ind = {}
+        stock_industry_path = os.path.join(self.data_dir, 'stock_industry_cache.json')
+        if os.path.exists(stock_industry_path):
+            try:
+                with open(stock_industry_path, 'r', encoding='utf-8') as f:
+                    si = json.load(f)
+                for code, info in si.items():
+                    if isinstance(info, dict):
+                        ind = info.get('industry')
+                        if not ind:
+                            continue
+                        cstr = str(code).strip()
+                        if cstr.startswith(('6', '9', '5', '8', '4')):
+                            ts_to_ind[f'{cstr}.SH'] = ind
+                        else:
+                            ts_to_ind[f'{cstr}.SZ'] = ind
+            except Exception:
+                pass
+
+        # 2) 预算 weight 列（一次），每个指数复用
+        df = df.copy()
+        # 注意：每个指数 weight 不同（按指数覆盖到的行业 -> 成分股数），
+        # 所以必须每个指数单独算。但 weight 列本身只需赋值一次即可。
+        for code, name, scope in self.INDEX_LIST:
+            # 决定成分股列表（与 get_index_crowding_series 同口径）
+            if scope is None and code in self.INDEX_LIST_SCOPE_MAP:
+                scope = self.INDEX_LIST_SCOPE_MAP[code]
+            cache_path = os.path.join(
+                self.data_dir, 'index_constituents_cache', f'index_cons_{code}.json'
+            )
+            if scope and not os.path.exists(cache_path):
+                index_name = self._SCOPE_NAMES.get(scope, code)
+                codes = self._load_all_a_share_codes(scope)
+            elif os.path.exists(cache_path):
+                index_name, codes = self._load_index_constituents(code)
+            else:
+                if scope:
+                    index_name = self._SCOPE_NAMES.get(scope, code)
+                    codes = self._load_all_a_share_codes(scope)
+                else:
+                    index_name, codes = self._load_index_constituents(code)
+            if not codes:
+                continue
+            comp_industries = {}
+            for ts in codes:
+                ind = ts_to_ind.get(ts)
+                if ind:
+                    comp_industries[ind] = comp_industries.get(ind, 0) + 1
+            if not comp_industries:
+                continue
+            ind_list = list(comp_industries.keys())
+            total_w = sum(comp_industries.values())
+
+            sub = df[df['industry'].isin(ind_list)]
+            if sub.empty:
+                continue
+            # 在 sub 上一次性算 weight×col，比 get_index_crowding_series 里的版本少一次 .copy()
+            w = sub['industry'].map(comp_industries).fillna(0)
+            w_total_mv = sub['total_mv'].values * w.values
+            w_rzrqye = sub['rzrqye'].values * w.values
+            w_rzye = sub['rzye'].values * w.values
+            w_rqye = sub['rqye'].values * w.values
+
+            # 一次性 groupby + sum（纯 C 路径，无 lambda）
+            tmp = pd.DataFrame({
+                'trade_date': sub['trade_date'].values,
+                'w_total_mv': w_total_mv,
+                'w_rzrqye': w_rzrqye,
+                'w_rzye': w_rzye,
+                'w_rqye': w_rqye,
+                'weight': w.values,
+            })
+            grouped = tmp.groupby('trade_date', as_index=False, sort=False).sum()
+            grouped['crowding_pct'] = grouped['w_rzrqye'] / grouped['w_total_mv'] * 100
+            grouped['financing_pct'] = grouped['w_rzye'] / grouped['w_total_mv'] * 100
+            grouped['short_pct'] = grouped['w_rqye'] / grouped['w_total_mv'] * 100
+            grouped['coverage'] = grouped['weight'] / total_w * 100
+
+            series = grouped[['trade_date', 'crowding_pct', 'financing_pct',
+                              'short_pct', 'coverage']].sort_values('trade_date')
+            out[code] = (index_name or name, series.reset_index(drop=True))
+        return out
 
     # ============ 证监会行业层级（一级 industry_name / 二级 industry） ============
 
