@@ -3,6 +3,7 @@ from nicegui import ui
 from pages.money_flow_component import render_money_flow_panel
 from pages.market_sentiment_component import render_market_sentiment_panel
 from pages.sector_sentiment_component import render_sector_sentiment_panel
+from pages.sector_crowding_component import render_sector_crowding_panel
 from pages.fund_radar_component import render_fund_radar_panel
 from pages.national_team_component import render_national_team_panel
 
@@ -10,6 +11,7 @@ def render_mood_tabs(active_tab, on_nav, is_mobile):
     tabs_config = [
         ('market', '大盘温度'),
         ('sector', '板块温度'),
+        ('crowd', '板块拥挤度'),
         ('money', '个股医生'),
         ('radar', '主力雷达'),
         ('national', '国家队筛选'),
@@ -34,14 +36,14 @@ def render_mood_tabs(active_tab, on_nav, is_mobile):
     if is_mobile:
         # 采用全宽网格布局 (Grid)，5等分，Segmented Control 风格
         with ui.element('div').classes('w-full px-1 mb-4'):
-            with ui.grid(columns=5).classes('w-full gap-1 p-1 bg-gray-100/80 rounded-lg border border-gray-200'):
+            with ui.grid(columns=6).classes('w-full gap-1 p-1 bg-gray-100/80 rounded-lg border border-gray-200'):
                 for tab_id, label in tabs_config:
                     is_active = (tab_id == active_tab)
                     
                     # 字体大小 text-[11px] 约为 0.6875rem，防止小屏折行
                     btn = ui.button(label, on_click=lambda t=tab_id: on_nav(t)) \
                         .props('flat no-caps dense') \
-                        .classes('w-full text-[11px] h-8 rounded-md font-bold transition-all duration-200') 
+                        .classes('w-full text-[10px] h-8 px-0 rounded-md font-bold transition-all duration-200') 
                     
                     if is_active:
                         # 选中状态：白色背景，轻微阴影，凸起感
@@ -68,6 +70,8 @@ def render_sentiment_view(active_tab, on_nav, plotly_renderer, is_mobile):
             render_market_sentiment_panel(plotly_renderer=plotly_renderer, is_mobile=is_mobile)
         elif active_tab == 'sector':
             render_sector_sentiment_panel(plotly_renderer=plotly_renderer, is_mobile=is_mobile)
+        elif active_tab == 'crowd':
+            render_sector_crowding_panel(plotly_renderer=plotly_renderer, is_mobile=is_mobile)
         elif active_tab == 'money':
             # Money flow needs full width on PC
             with ui.column().classes('w-full px-0 md:px-2'):
