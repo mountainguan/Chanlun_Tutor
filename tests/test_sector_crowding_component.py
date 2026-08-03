@@ -9,12 +9,20 @@ import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from utils.sector_crowding import SectorCrowding as RealSectorCrowding
+
 
 def _fake_history():
-    dates = pd.to_datetime(['2023-08-01', '2023-08-02', '2023-08-03'])
+    dates = pd.bdate_range('2023-08-01', periods=25)
     rows = []
-    for d in dates:
-        for ind, mv, rz in (('软件服务', 1e12, 4e10), ('银行', 1.5e13, 5e10)):
+    for t, d in enumerate(dates):
+        # 软件服务：两融按日 1% 增长、市值按日 0.3% 增长 -> 升温；
+        # 银行：两融不变、市值按日 0.5% 增长 -> 降温。
+        for ind, mv0, rz0, g_rz, g_mv in (
+                ('软件服务', 1e12, 4e10, 0.01, 0.003),
+                ('银行', 1.5e13, 5e10, 0.0, 0.005)):
+            rz = rz0 * (1 + g_rz) ** t
+            mv = mv0 * (1 + g_mv) ** t
             rows.append({
                 'trade_date': d, 'industry': ind,
                 'stock_count': 100, 'margin_stock_count': 80,
@@ -63,6 +71,7 @@ class TestSectorCrowdingComponent(unittest.TestCase):
                          .reset_index(drop=True)
                     for ind, g in fake.groupby('industry', sort=False)
                 },
+                'margin_speed': RealSectorCrowding().compute_margin_speed(df=fake),
             }
         mock_sc.precompute.side_effect = _precompute_result
         mock_sc.precompute_all_indices.return_value = {}

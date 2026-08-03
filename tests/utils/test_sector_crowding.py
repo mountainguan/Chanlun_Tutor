@@ -3,6 +3,7 @@
 import os
 
 import pandas as pd
+import numpy as np
 
 from utils.sector_crowding import SectorCrowding
 
@@ -84,6 +85,86 @@ def test_percentile_rank():
     assert SectorCrowding.percentile_rank(values, None) is None
 
 
+def _speed_history_df():
+    """25 个交易日的两行业序列：
+    行业A：两融按日 1% 复利增长、市值不变 -> 升温；
+    行业B：两融不变、市值按日 0.5% 复利增长 -> 降温。
+    """
+    n = 25
+    dates = pd.bdate_range('2023-08-01', periods=n)
+    rows = []
+    for t, d in enumerate(dates):
+        rows.append({
+            'trade_date': d, 'industry': '行业A',
+            'stock_count': 100, 'margin_stock_count': 80,
+            'total_mv': 1e12,
+            'rzye': 0.98e10 * (1.01 ** t),
+            'rqye': 0.02e10 * (1.01 ** t),
+            'rzrqye': 1e10 * (1.01 ** t),
+            'crowding_pct': 1e10 * (1.01 ** t) / 1e12 * 100,
+            'financing_pct': 0.98e10 * (1.01 ** t) / 1e12 * 100,
+            'short_pct': 0.02e10 * (1.01 ** t) / 1e12 * 100,
+        })
+        rows.append({
+            'trade_date': d, 'industry': '行业B',
+            'stock_count': 100, 'margin_stock_count': 80,
+            'total_mv': 1e12 * (1.005 ** t),
+            'rzye': 0.98e10,
+            'rqye': 0.02e10,
+            'rzrqye': 1e10,
+            'crowding_pct': 1e10 / (1e12 * (1.005 ** t)) * 100,
+            'financing_pct': 0.98e10 / (1e12 * (1.005 ** t)) * 100,
+            'short_pct': 0.02e10 / (1e12 * (1.005 ** t)) * 100,
+        })
+    return pd.DataFrame(rows), dates
+
+
+def test_margin_speed_windows():
+    """两融/市值变化：窗口齐全、增量比与拥挤度变化口径正确、日期对齐。"""
+    fake, dates = _speed_history_df()
+    out = SectorCrowding().compute_margin_speed(df=fake)
+
+    assert set(out.keys()) == {3, 5, 10, 15, 20}
+    n = len(dates)
+    a_crowd_last = 1e10 * (1.01 ** (n - 1)) / 1e12 * 100
+    b_crowd_last = 1e10 / (1e12 * (1.005 ** (n - 1))) * 100
+    for w in (3, 5, 10, 15, 20):
+        dfw = out[w]
+        assert set(dfw.index) == {'行业A', '行业B'}
+        a = dfw.loc['行业A']
+        b = dfw.loc['行业B']
+        # 日期对齐：最新日 = 序列最后一天，起点 = N 个交易日前
+        assert a['trade_date'] == dates[-1]
+        assert a['prev_date'] == dates[n - 1 - w]
+        # 行业A：两融按日 1% 复利，市值不变
+        assert abs(a['rzrqye_pct'] - ((1.01 ** w) - 1) * 100) < 1e-9
+        assert abs(a['total_mv_pct']) < 1e-9
+        # 市值不变 -> 增量比 = +inf（两融增加）；拥挤度上升
+        assert np.isposinf(a['delta_ratio'])
+        assert abs(a['crowding_chg'] - (a_crowd_last - 1e10 * (1.01 ** (n - 1 - w)) / 1e12 * 100)) < 1e-9
+        # 行业B：两融不变，市值按日 0.5% 复利
+        assert abs(b['rzrqye_pct']) < 1e-9
+        assert abs(b['total_mv_pct'] - ((1.005 ** w) - 1) * 100) < 1e-9
+        # 两融不变 -> 增量比 = 0；市值扩张 -> 拥挤度下降
+        assert abs(b['delta_ratio']) < 1e-12
+        assert abs(b['crowding_chg'] - (b_crowd_last - 1e10 / (1e12 * (1.005 ** (n - 1 - w))) * 100)) < 1e-9
+        assert b['crowding_chg'] < 0
+        # 变化额绝对值（元）
+        assert abs(a['rzrqye_chg'] - 1e10 * ((1.01 ** (n - 1)) - (1.01 ** (n - 1 - w)))) < 1.0
+        assert abs(b['total_mv_chg'] - 1e12 * ((1.005 ** (n - 1)) - (1.005 ** (n - 1 - w)))) < 1.0
+        assert abs(a['rzrqye_now'] - 1e10 * (1.01 ** (n - 1))) < 1.0
+        assert abs(b['total_mv_now'] - 1e12 * (1.005 ** (n - 1))) < 1.0
+
+
+def test_margin_speed_empty():
+    """空历史：每个窗口都返回空 DataFrame。"""
+    empty = pd.DataFrame(columns=SectorCrowding.CSV_COLUMNS)
+    out = SectorCrowding().compute_margin_speed(df=empty)
+    assert set(out.keys()) == {3, 5, 10, 15, 20}
+    for w in (3, 5, 10, 15, 20):
+        assert out[w].empty
+
+
 def _fake_history_df():
     dates = pd.to_datetime(['2023-08-01', '2023-08-02', '2023-08-03'])
     rows = []
@@ -137,6 +218,12 @@ def test_derived_cache_roundtrip(tmp_path):
     for ind in pre1['by_industry']:
         pd.testing.assert_frame_equal(
             pre1['by_industry'][ind], pre2['by_industry'][ind],
+            check_dtype=False)
+    # 两融速度：每个窗口的 DataFrame 应完全一致
+    assert set(pre2['margin_speed'].keys()) == set(pre1['margin_speed'].keys())
+    for w in pre1['margin_speed']:
+        pd.testing.assert_frame_equal(
+            pre1['margin_speed'][w], pre2['margin_speed'][w],
             check_dtype=False)
     # 指数依赖真实成分股缓存文件，未配置时为 {}，同样应一致
     assert set(pre_idx2.keys()) == set()

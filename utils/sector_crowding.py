@@ -28,6 +28,7 @@ import json
 import time
 import datetime
 import pandas as pd
+import numpy as np
 
 import tushare as ts
 
@@ -38,9 +39,11 @@ class SectorCrowding:
     DATA_SOURCE = 'Tushare Pro'
     SCHEMA_VERSION = 1
     HISTORY_YEARS = 3
+    # 两融涨跌速度模块的观察窗口（交易日数），默认 10 个交易日 ≈ 近两周。
+    SPEED_WINDOWS = (3, 5, 10, 15, 20)
     # 派生缓存（precompute / precompute_all_indices 的结果）格式版本。
     # 当缓存结构变化（如新增字段）时 +1，旧缓存会自动失效并重建。
-    DERIVED_SCHEMA_VERSION = 2
+    DERIVED_SCHEMA_VERSION = 4
 
     CSV_COLUMNS = [
         'trade_date', 'industry', 'stock_count', 'margin_stock_count',
@@ -253,6 +256,81 @@ class SectorCrowding:
         进程级缓存保证多次调用在同一进程内零 IO / 零重复解析。"""
         return self._load_history(force=force)
 
+    # ==================== 两融涨跌速度（板块升温/降温） ====================
+
+    def compute_margin_speed(self, windows=None, df=None):
+        """计算各行业近 N 个交易日（N ∈ 3/5/10/15/20）的两融/市值变化。
+
+        口径（对每个行业取最新交易日 T 与 T-N 个交易日）：
+            - 两融变化额 = rzrqye_T - rzrqye_{T-N}（元）
+            - 市值变化额 = total_mv_T - total_mv_{T-N}（元）
+            - 两融增速 % = (rzrqye_T - rzrqye_{T-N}) / rzrqye_{T-N} × 100%
+            - 市值增速 % = (total_mv_T - total_mv_{T-N}) / total_mv_{T-N} × 100%
+            - 增量比      = 两融变化额 / 市值变化额（核心指标，
+              衡量每增加 1 元市值伴随的两融增量；市值变化为 0 时为 ±inf/NaN）
+            - 拥挤度变化  = 拥挤度_T - 拥挤度_{T-N}（pp，用于升温/降温判定）
+
+        返回值：dict[window -> DataFrame]，DataFrame 按 industry 索引，列为：
+            trade_date / prev_date（最新日与 N 个交易日前）
+            rzrqye_now / rzrqye_prev / rzrqye_chg（元）
+            total_mv_now / total_mv_prev / total_mv_chg（元）
+            rzrqye_pct / total_mv_pct（%）
+            delta_ratio（增量比，无量纲）
+            crowding_pct / crowding_prev / crowding_chg（% / pp）
+
+        实现为向量化 groupby.shift（纯 pandas C 路径），
+        结果随 precompute() 一并落入派生缓存。
+        """
+        if windows is None:
+            windows = self.SPEED_WINDOWS
+        out = {w: pd.DataFrame() for w in windows}
+        if df is None:
+            df = self.load_history()
+        if df.empty:
+            return out
+
+        d = df.sort_values(['industry', 'trade_date']).copy()
+        g = d.groupby('industry', sort=False)
+        rzrqye_now = d['rzrqye'].values
+        mv_now = d['total_mv'].values
+        crowding = d['crowding_pct'].values
+        trade_date = d['trade_date'].values
+
+        cols = [
+            'trade_date', 'prev_date',
+            'rzrqye_now', 'rzrqye_prev', 'rzrqye_chg',
+            'total_mv_now', 'total_mv_prev', 'total_mv_chg',
+            'rzrqye_pct', 'total_mv_pct', 'delta_ratio',
+            'crowding_pct', 'crowding_prev', 'crowding_chg',
+        ]
+        for w in windows:
+            tmp = pd.DataFrame({
+                'industry': d['industry'].values,
+                'trade_date': trade_date,
+                'prev_date': g['trade_date'].shift(w).values,
+                'rzrqye_now': rzrqye_now,
+                'rzrqye_prev': g['rzrqye'].shift(w).values,
+                'total_mv_now': mv_now,
+                'total_mv_prev': g['total_mv'].shift(w).values,
+                'crowding_pct': crowding,
+                'crowding_prev': g['crowding_pct'].shift(w).values,
+            })
+            tmp = tmp.dropna(subset=['prev_date', 'rzrqye_prev', 'total_mv_prev'])
+            if tmp.empty:
+                out[w] = pd.DataFrame(columns=cols)
+                continue
+            last = tmp.groupby('industry', sort=False).tail(1).set_index('industry')
+            last['rzrqye_chg'] = last['rzrqye_now'] - last['rzrqye_prev']
+            last['total_mv_chg'] = last['total_mv_now'] - last['total_mv_prev']
+            last['rzrqye_pct'] = last['rzrqye_chg'] / last['rzrqye_prev'] * 100.0
+            last['total_mv_pct'] = last['total_mv_chg'] / last['total_mv_prev'] * 100.0
+            # 核心指标：增量比 = 两融变化额 / 市值变化额（市值未变时为 ±inf/NaN）
+            with np.errstate(divide='ignore', invalid='ignore'):
+                last['delta_ratio'] = last['rzrqye_chg'] / last['total_mv_chg']
+            last['crowding_chg'] = last['crowding_pct'] - last['crowding_prev']
+            out[w] = last[cols]
+        return out
+
     # ==================== 派生缓存（计算好的结果落盘） ====================
     # 拥挤度面板每次挂载都会调用 precompute() + precompute_all_indices()，
     # 对 ~110 行业 × ~750 交易日的 DataFrame 做 groupby / isin 切片 / 加权聚合。
@@ -344,6 +422,8 @@ class SectorCrowding:
           - by_industry : dict[industry -> 该行业完整序列 DataFrame]
                          （用于 build_display 中按行业 percentile_rank，
                           避免对 df 做 N 次 boolean filter 的 O(N²) 行为）
+          - margin_speed : dict[window -> 行业两融/市值增速 DataFrame]
+                           （两融涨跌速度模块，见 compute_margin_speed）
 
         面板每次挂载调用一次即可，多个渲染函数共享同一份缓存。
         """
@@ -361,6 +441,7 @@ class SectorCrowding:
                 'latest_df': pd.DataFrame(),
                 'prev_df': pd.DataFrame(),
                 'by_industry': {},
+                'margin_speed': {w: pd.DataFrame() for w in self.SPEED_WINDOWS},
             }
         dates = sorted(df['trade_date'].unique())
         latest_date = dates[-1]
@@ -374,6 +455,7 @@ class SectorCrowding:
                                               'financing_pct']].reset_index(drop=True)
             for ind, g in df.groupby('industry', sort=False)
         }
+        margin_speed = self.compute_margin_speed(df=df)
         pre = {
             'df': df,
             'dates': dates,
@@ -382,6 +464,7 @@ class SectorCrowding:
             'latest_df': latest_df,
             'prev_df': prev_df,
             'by_industry': by_industry,
+            'margin_speed': margin_speed,
         }
         if use_cache:
             pre_idx = self.precompute_all_indices(use_cache=False)
