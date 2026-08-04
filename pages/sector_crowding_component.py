@@ -3,6 +3,35 @@ from utils.sector_crowding import SectorCrowding
 import plotly.graph_objects as go
 import pandas as pd
 import asyncio
+import math
+
+
+# ============ 两融涨跌速度模块参数 ============
+# 观察窗口（交易日数）：默认 10 个交易日 ≈ 近两周。
+SPEED_WINDOWS = (3, 5, 10, 15, 20)
+# 拥挤度变化超过 ±0.05pp 视为显著升温/降温，其余视为与市值增速匹配。
+SPEED_CROWDING_TOL = 0.05
+SPEED_SORT_LABELS = {
+    'delta_ratio': '增量比（两融变化/市值变化）',
+    'rzrqye_pct': '两融增速',
+    'total_mv_pct': '市值增速',
+    'rzrqye_chg_yi': '两融变化额',
+}
+
+
+def _fmt_ratio(v):
+    """增量比格式化：NaN 显示 '—'，±inf 显示 '±∞'，否则显示百分比。"""
+    if v is None:
+        return '—'
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return '—'
+    if math.isnan(f):
+        return '—'
+    if math.isinf(f):
+        return '∞' if f > 0 else '−∞'
+    return f'{f * 100:.2f}%'
 
 
 # ============ 视觉辅助函数 ============
@@ -146,6 +175,43 @@ def render_sector_crowding_panel(plotly_renderer, is_mobile=False):
             # 右侧：选中指数的趋势图
             with ui.column().classes('w-full lg:flex-1 min-w-0'):
                 index_chart_container = ui.column().classes('w-full')
+
+    # ---------- 两融涨跌速度（板块升温/降温） ----------
+    speed_state = {'window': 10, 'sort_by': 'delta_ratio'}
+    with ui.card().classes('w-full bg-white p-4 rounded-xl shadow-sm border border-gray-200 mt-4'):
+        with ui.row().classes('items-center w-full mb-1 flex-wrap gap-2'):
+            ui.icon('speed', color='orange').classes('text-xl')
+            ui.label('两融涨跌速度（板块升温/降温）').classes('font-bold text-gray-800 text-base')
+            ui.label('· 核心指标：增量比 = 两融变化额 ÷ 市值变化额').classes('text-xs text-gray-400')
+            ui.label('').classes('flex-1')
+        with ui.row().classes('items-center w-full mb-2 gap-x-3 gap-y-2 flex-wrap'):
+            ui.icon('calendar_month', size='16px').classes('text-gray-500')
+            ui.label('观察窗口').classes('text-xs text-gray-500 font-semibold')
+            speed_window_toggle = ui.toggle(
+                {w: f'{w}日' for w in SPEED_WINDOWS},
+                value=10,
+                on_change=lambda e: on_speed_window_change(e.value),
+            ).props('dense no-caps unelevated rounded color=grey-4 toggle-color=orange-7 text-color=grey-8')
+            with speed_window_toggle:
+                ui.tooltip('对比近 3/5/10/15/20 个交易日的两融与市值变化，默认 10 日 ≈ 近两周')
+            ui.label('默认 10 日 ≈ 近两周').classes('text-[11px] text-gray-400')
+            ui.label('').classes('flex-1')
+            ui.label('排序').classes('text-xs text-gray-500 font-semibold')
+            speed_sort_select = ui.select(
+                options=SPEED_SORT_LABELS,
+                value='delta_ratio',
+                on_change=lambda e: on_speed_sort_change(e.value),
+            ).classes('min-w-[180px]').props('dense outlined')
+            speed_meta = ui.label('').classes('text-xs text-gray-400')
+        speed_summary_container = ui.element('div').classes(
+            'w-full grid grid-cols-2 md:grid-cols-4 gap-3 mb-2')
+        with ui.row().classes('w-full gap-4 items-stretch flex-col lg:flex-row'):
+            # 左侧：行业增速明细表
+            with ui.column().classes('w-full lg:w-3/5 min-w-0'):
+                speed_table_container = ui.column().classes('w-full')
+            # 右侧：两融增速 vs 市值增速 匹配散点图
+            with ui.column().classes('w-full lg:flex-1 min-w-0'):
+                speed_chart_container = ui.column().classes('w-full')
 
     # ---------- 操作按钮 ----------
     with ui.row().classes('w-full gap-2 mt-3'):
@@ -712,6 +778,236 @@ def render_sector_crowding_panel(plotly_renderer, is_mobile=False):
 
     ui.on('sc_index_click', _on_index_click)
 
+    # ---------- 两融涨跌速度：数据/渲染 ----------
+    def build_speed_display():
+        """按当前窗口构造行业两融/市值变化展示数据（核心：增量比）。"""
+        speed_map = pre.get('margin_speed', {})
+        dfw = speed_map.get(speed_state['window'])
+        if dfw is None or dfw.empty:
+            return pd.DataFrame()
+        rows = []
+        for ind, r in dfw.iterrows():
+            crowding_chg = float(r['crowding_chg'])
+            if crowding_chg >= SPEED_CROWDING_TOL:
+                status, status_color, status_bg = '升温', '#b91c1c', '#fee2e2'
+            elif crowding_chg <= -SPEED_CROWDING_TOL:
+                status, status_color, status_bg = '降温', '#047857', '#d1fae5'
+            else:
+                status, status_color, status_bg = '匹配', '#6b7280', '#f3f4f6'
+            delta_ratio = float(r['delta_ratio'])
+            if math.isfinite(delta_ratio):
+                delta_ratio_pct = delta_ratio * 100
+            else:
+                delta_ratio_pct = None
+            rows.append({
+                'industry': ind,
+                'trade_date': str(r['trade_date'])[:10],
+                'prev_date': str(r['prev_date'])[:10],
+                'rzrqye_yi': float(r['rzrqye_now']) / 1e8,
+                'rzrqye_chg_yi': float(r['rzrqye_chg']) / 1e8,
+                'total_mv_chg_yi': float(r['total_mv_chg']) / 1e8,
+                'rzrqye_pct': float(r['rzrqye_pct']),
+                'total_mv_yi': float(r['total_mv_now']) / 1e8,
+                'total_mv_pct': float(r['total_mv_pct']),
+                'delta_ratio': delta_ratio,
+                'delta_ratio_pct': delta_ratio_pct,
+                'delta_ratio_text': _fmt_ratio(delta_ratio),
+                'crowding_pct': float(r['crowding_pct']),
+                'crowding_chg': crowding_chg,
+                'status': status,
+                'status_color': status_color,
+                'status_bg': status_bg,
+            })
+        return pd.DataFrame(rows)
+
+    def render_speed_summary(display_df):
+        speed_summary_container.clear()
+        if display_df.empty:
+            return
+        n_heat = int((display_df['status'] == '升温').sum())
+        n_cool = int((display_df['status'] == '降温').sum())
+        n_match = len(display_df) - n_heat - n_cool
+        cards = [
+            ('升温行业', f'{n_heat}', 'text-red-700 bg-red-50 border-red-200'),
+            ('匹配行业', f'{n_match}', 'text-gray-700 bg-gray-100 border-gray-200'),
+            ('降温行业', f'{n_cool}', 'text-emerald-700 bg-emerald-50 border-emerald-200'),
+            ('观察窗口', f'{speed_state["window"]}个交易日',
+             'text-indigo-700 bg-indigo-50 border-indigo-200'),
+        ]
+        for label, value, cls in cards:
+            with speed_summary_container:
+                with ui.element('div').classes(
+                        f'p-2.5 rounded-lg border {cls} '
+                        f'flex flex-col items-center justify-center text-center'):
+                    ui.label(label).classes('text-[11px] text-gray-500')
+                    ui.label(value).classes('text-base font-bold')
+
+    def render_speed_table(display_df):
+        speed_table_container.clear()
+        if display_df.empty:
+            with speed_table_container:
+                with ui.column().classes('w-full items-center justify-center py-8 gap-2'):
+                    ui.icon('query_stats', size='40px').classes('text-gray-300')
+                    ui.label('历史数据不足（至少需 21 个交易日），无法计算两融/市值增速').classes(
+                        'text-gray-500 font-bold text-sm')
+                    ui.label('点击上方"重建三年历史"后刷新即可查看').classes('text-xs text-gray-400')
+            speed_meta.text = ''
+            return
+
+        sorted_df = display_df.sort_values(
+            speed_state['sort_by'], ascending=False).reset_index(drop=True)
+        first = sorted_df.iloc[0]
+        speed_meta.text = (
+            f'对比区间 {first["prev_date"]} → {first["trade_date"]}'
+            f'（{speed_state["window"]} 个交易日）'
+            f'· 按{SPEED_SORT_LABELS[speed_state["sort_by"]]}降序'
+        )
+
+        head_cells = [
+            ('行业', 'text-left', '14%'),
+            ('增量比', 'text-right', '13%'),
+            ('拥挤度%', 'text-right', '9%'),
+            ('两融变化(亿)', 'text-right', '12%'),
+            ('市值变化(亿)', 'text-right', '12%'),
+            ('两融增速%', 'text-right', '12%'),
+            ('市值增速%', 'text-right', '12%'),
+            ('状态', 'text-right', '9%'),
+        ]
+        head_html = ''.join(
+            f'<th class="px-1.5 py-2 text-[11px] font-semibold text-gray-500 '
+            f'border-b border-gray-200 {align}" '
+            f'style="width:{w};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+            f'{label}</th>'
+            for label, align, w in head_cells
+        )
+
+        body_rows = []
+        for _, r in sorted_df.iterrows():
+            rz = float(r['rzrqye_pct'])
+            mv = float(r['total_mv_pct'])
+            rz_color = ('#b91c1c' if rz > 0.05
+                        else ('#047857' if rz < -0.05 else '#6b7280'))
+            mv_color = ('#b91c1c' if mv > 0.05
+                        else ('#047857' if mv < -0.05 else '#6b7280'))
+            cc = float(r['crowding_chg'])
+            arrow = ('▲' if cc > 0 else ('▼' if cc < 0 else '·'))
+            body_rows.append(
+                f'<tr style="border-left:4px solid transparent">'
+                f'<td class="px-1.5 py-2 text-xs font-semibold text-gray-800 border-b border-gray-100" '
+                f'style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+                f'{r["industry"]}</td>'
+                f'<td class="px-1.5 py-2 text-xs border-b border-gray-100" '
+                f'style="text-align:right;color:{r["status_color"]};font-weight:700;white-space:nowrap">'
+                f'{r["delta_ratio_text"]}</td>'
+                f'<td class="px-1.5 py-2 text-xs text-gray-600 border-b border-gray-100" '
+                f'style="text-align:right;white-space:nowrap">{r["crowding_pct"]:.2f}</td>'
+                f'<td class="px-1.5 py-2 text-xs border-b border-gray-100" '
+                f'style="text-align:right;color:{rz_color};white-space:nowrap">'
+                f'{r["rzrqye_chg_yi"]:+.1f}</td>'
+                f'<td class="px-1.5 py-2 text-xs border-b border-gray-100" '
+                f'style="text-align:right;color:{mv_color};white-space:nowrap">'
+                f'{r["total_mv_chg_yi"]:+.1f}</td>'
+                f'<td class="px-1.5 py-2 text-xs border-b border-gray-100" '
+                f'style="text-align:right;color:{rz_color};font-weight:700;white-space:nowrap">'
+                f'{r["rzrqye_pct"]:+.2f}</td>'
+                f'<td class="px-1.5 py-2 text-xs border-b border-gray-100" '
+                f'style="text-align:right;color:{mv_color};white-space:nowrap">'
+                f'{r["total_mv_pct"]:+.2f}</td>'
+                f'<td class="px-1.5 py-2 border-b border-gray-100" style="text-align:right;white-space:nowrap">'
+                f'<span style="color:{r["status_color"]};background:{r["status_bg"]};'
+                f'padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600">'
+                f'{arrow} {r["status"]}</span></td>'
+                f'</tr>'
+            )
+
+        table_html = (
+            '<div style="overflow-x:auto;max-height:480px;overflow-y:auto">'
+            '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+            f'<thead style="background:#fafafa;position:sticky;top:0;z-index:1">'
+            f'{head_html}</thead>'
+            f'<tbody>{"".join(body_rows)}</tbody>'
+            '</table></div>'
+            '<div class="text-[10px] text-gray-400 mt-1">'
+            '💡 增量比 = 两融变化额 ÷ 市值变化额（核心指标）：高于当前拥挤度% 说明边际杠杆高于平均水平。'
+            '状态按拥挤度变化判定：+≥0.05pp 升温 / −≤0.05pp 降温 / 其余匹配'
+            '</div>'
+        )
+        with speed_table_container:
+            ui.html(table_html, sanitize=False)
+
+    def render_speed_chart(display_df):
+        speed_chart_container.clear()
+        if display_df.empty:
+            with speed_chart_container:
+                with ui.column().classes('w-full h-full items-center justify-center gap-2 py-8'):
+                    ui.label('暂无足够数据').classes('text-gray-400 text-sm')
+            return
+
+        top = display_df.dropna(subset=['delta_ratio_pct']).sort_values(
+            'delta_ratio_pct', ascending=False).head(15)
+        if top.empty:
+            with speed_chart_container:
+                with ui.column().classes('w-full h-full items-center justify-center gap-2 py-8'):
+                    ui.label('暂无有限增量比数据').classes('text-gray-400 text-sm')
+            return
+        top = top.iloc[::-1]  # 增量比最高的显示在最上方
+
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            y=top['industry'], x=top['delta_ratio_pct'], orientation='h',
+            name='增量比',
+            marker_color=top['status_color'].tolist(),
+            customdata=top[['crowding_pct', 'status']],
+            hovertemplate=('<b>%{y}</b><br>'
+                           '增量比 %{x:.2f}%<br>'
+                           '当前拥挤度 %{customdata[0]:.2f}%<br>'
+                           '状态 %{customdata[1]}<extra></extra>'),
+        ))
+        fig.add_trace(go.Scatter(
+            x=top['crowding_pct'], y=top['industry'], mode='markers',
+            name='当前拥挤度',
+            marker=dict(color='#7c3aed', size=8, symbol='diamond',
+                        line=dict(color='white', width=1)),
+            hovertemplate=('<b>%{y}</b><br>当前拥挤度 %{x:.2f}%<extra></extra>'),
+        ))
+
+        fig.update_layout(
+            template='plotly_white',
+            height=420,
+            margin=dict(l=70, r=20, t=30, b=40),
+            hovermode='closest',
+            legend=dict(orientation='h', yanchor='bottom', y=1.02, x=0,
+                        font=dict(size=10)),
+            xaxis=dict(
+                title=dict(text='增量比 %（两融变化额 ÷ 市值变化额）',
+                           font=dict(color='#374151', size=10)),
+                tickfont=dict(color='#374151', size=9),
+                zeroline=True, zerolinecolor='#e5e7eb',
+            ),
+            yaxis=dict(
+                title='',
+                automargin=True,
+            ),
+            transition=dict(duration=400, easing='cubic-in-out'),
+        )
+        with speed_chart_container:
+            plotly_renderer(fig).classes('w-full h-[420px]')
+
+    def on_speed_window_change(value):
+        speed_state['window'] = int(value)
+        render_speed_module()
+
+    def on_speed_sort_change(value):
+        speed_state['sort_by'] = value
+        render_speed_table(build_speed_display())
+
+    def render_speed_module():
+        """整体重渲染两融涨跌速度模块（统计卡 + 表格 + 散点图）。"""
+        display_df = build_speed_display()
+        render_speed_summary(display_df)
+        render_speed_table(display_df)
+        render_speed_chart(display_df)
+
     # ---------- 入口 ----------
     def load_view():
         # 数据重建/更新后：让预计算缓存读到新数据
@@ -732,6 +1028,11 @@ def render_sector_crowding_panel(plotly_renderer, is_mobile=False):
             render_index_cards()
         except Exception as ex:
             print(f'SectorCrowding render_index_cards error: {ex}')
+        # 两融涨跌速度（板块升温/降温）
+        try:
+            render_speed_module()
+        except Exception as ex:
+            print(f'SectorCrowding render_speed_module error: {ex}')
 
     def run_build(max_days=None):
         return sc.build_history(max_days=max_days, resume=True,
