@@ -78,13 +78,17 @@ class SectorCrowding:
 
     @classmethod
     def _load_history_shared(cls, history_file, csv_columns, force=False):
-        """进程级历史缓存：mtime 命中即直接返回，避免重复 IO/解析。"""
+        """进程级历史缓存：(文件路径, mtime) 命中即直接返回，避免重复 IO/解析。
+        键包含文件路径：多个历史文件可能共享同一 mtime（如同一批写入），
+        仅用 mtime 会把别的文件的内容错还给当前调用方。"""
         try:
             mtime = os.path.getmtime(history_file)
         except OSError:
             mtime = None
-        if not force and mtime is not None and cls._PROCESS_HISTORY_CACHE.get(mtime) is not None:
-            return cls._PROCESS_HISTORY_CACHE[mtime]
+        cache_key = (history_file, mtime)
+        if not force and mtime is not None \
+                and cls._PROCESS_HISTORY_CACHE.get(cache_key) is not None:
+            return cls._PROCESS_HISTORY_CACHE[cache_key]
         if not os.path.exists(history_file):
             df = pd.DataFrame(columns=csv_columns)
         else:
@@ -99,7 +103,7 @@ class SectorCrowding:
         if len(cls._PROCESS_HISTORY_CACHE) > 4:
             cls._PROCESS_HISTORY_CACHE.clear()
         if mtime is not None:
-            cls._PROCESS_HISTORY_CACHE[mtime] = df
+            cls._PROCESS_HISTORY_CACHE[cache_key] = df
         return df
 
     def invalidate_history_cache(self):
@@ -509,7 +513,7 @@ class SectorCrowding:
 
     def build_history(self, start_date=None, end_date=None, max_days=None,
                       resume=True, call_delay=0.35, flush_every=20,
-                      progress_cb=None):
+                      progress_cb=None, max_retries=3, retry_delay=2.0):
         """按交易日逐日拉取并构建三年板块拥挤度历史。
 
         参数：
@@ -531,9 +535,22 @@ class SectorCrowding:
                           - datetime.timedelta(days=365 * self.HISTORY_YEARS)
                           ).strftime('%Y%m%d')
 
-        cal = pro.trade_cal(exchange='SSE', start_date=start_date,
-                            end_date=end_date, is_open='1')
+        # 交易日历：网络/DNS 瞬时故障时重试，避免一次抖动导致整段重建失败
+        cal = None
+        last_err = None
+        for attempt in range(max_retries):
+            try:
+                cal = pro.trade_cal(exchange='SSE', start_date=start_date,
+                                    end_date=end_date, is_open='1')
+                if cal is not None and not cal.empty:
+                    break
+            except Exception as e:
+                last_err = e
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay * (attempt + 1))
         if cal is None or cal.empty:
+            if last_err:
+                print(f'[SectorCrowding] 交易日历拉取失败: {last_err}')
             print('[SectorCrowding] 交易日历为空，请检查日期范围')
             return 0
         dates = sorted(cal['cal_date'].astype(str).tolist())
@@ -577,7 +594,9 @@ class SectorCrowding:
         self._save_meta(
             start_date=dates[0],
             end_date=dates[-1],
-            latest_date=meta_latest.strftime('%Y%m%d') if meta_latest is not None else latest,
+            latest_date=(meta_latest.strftime('%Y%m%d')
+                         if meta_latest is not None and not pd.isna(meta_latest)
+                         else latest),
             total_days=len(dates),
         )
         print(f'[SectorCrowding] 完成，本次新增 {len(dates)} 个交易日')

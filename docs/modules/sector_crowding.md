@@ -1,13 +1,22 @@
 # 板块拥挤度模块（Sector Crowding）
 
-衡量两融杠杆资金在各行业中的聚集程度。
+板块拥挤度模块提供三个维度：
+
+1. **两融数据**：衡量两融杠杆资金在各行业中的聚集程度（行业两融余额 / 总市值）。
+2. **成交量**：前 5% 个股成交量集中度。
+3. **成交额**：前 5% 个股成交额集中度。
+
+后两个维度从**行业板块**与**指数**两个角度分别统计，集中度高于 45% 标记为拥挤。
 
 ## 1. 模块概述
 
-- **页面组件**：`pages/sector_crowding_component.py`（入口：市场情绪与资金 → 板块拥挤度标签）
-- **数据层**：`utils/sector_crowding.py`
-- **历史构建脚本**：`scripts/build_sector_crowding_history.py`
-- **缓存**：`data/sector_crowding/sector_crowding_history.csv` + `meta.json`
+- **页面组件**：`pages/sector_crowding_component.py`（入口：市场情绪与资金 → 板块拥挤度标签，顶部可切换两融 / 成交量 / 成交额维度）
+- **数据层（两融）**：`utils/sector_crowding.py`
+- **数据层（成交量 / 成交额）**：`utils/trading_crowding.py`
+- **历史构建脚本（两融）**：`scripts/build_sector_crowding_history.py`
+- **历史构建脚本（成交量 / 成交额）**：`scripts/build_trading_crowding_history.py`
+- **缓存（两融）**：`data/sector_crowding/sector_crowding_history.csv` + `meta.json`
+- **缓存（成交量 / 成交额）**：`data/trading_crowding/`（行业 + 指数两个 CSV）+ `meta.json`
 
 ## 2. 指标定义
 
@@ -31,6 +40,17 @@ $$
 | `pro.daily_basic` | 个股每日指标 | `total_mv` 单位万元，内部换算为元 |
 | `pro.stock_basic` | 行业分类 | `industry` 字段 |
 | `pro.trade_cal` | 交易日历 | 确定逐日遍历范围 |
+
+## 3.5 成交量 / 成交额维度数据源
+
+| 接口 | 用途 | 说明 |
+| --- | --- | --- |
+| `pro.daily` | 全市场日行情 | `vol` 成交量（手）、`amount` 成交额（千元） |
+| `pro.stock_basic` | 行业分类 | 兜底；优先本地 `data/stock_industry_cache.json` |
+| `pro.trade_cal` | 交易日历 | 确定逐日遍历范围 |
+
+指数成分股复用两融维度的 `data/index_constituents_cache/index_cons_*.json`，
+缺失时按 scope（沪市 / 深市 / 科创板 / 创业板）取全市场范围，口径与两融维度一致。
 
 ## 4. 构建三年历史
 
@@ -99,3 +119,60 @@ $$
 - 两融明细 T+1 发布，最新交易日（当天）无数据属正常现象
 - 行业归属使用当前 `stock_basic` 分类，历史行业变动不追溯调整
 - 拥挤度分位：当前值在自身三年序列中的百分位（`P80` 以上视为拥挤度高位）
+
+## 8. 成交量 / 成交额维度（前 5% 成交集中度）
+
+面板顶部切换至「成交量」或「成交额」后，展示前 5% 个股成交集中度。
+
+### 8.1 指标定义
+
+$$
+\text{前5\%个股成交量集中度} = \frac{\text{板块内成交量最大的前5\%个股成交量合计}}{\text{板块成交量合计}} \times 100\%
+$$
+
+$$
+\text{前5\%个股成交额集中度} = \frac{\text{板块内成交额最大的前5\%个股成交额合计}}{\text{板块成交额合计}} \times 100\%
+$$
+
+- 前 5% 数量 = `max(1, ceil(板块个股数 × 5%))`
+- **成交量维度按 vol 排序取前 5%，成交额维度按 amount 排序取前 5%，两个维度独立统计**
+- 集中度 **高于 45%** 标记为「⚠ 拥挤」
+- 统计角度：**全A市场**（全部已上市 A 股，`index_code='ALL'`）、**行业板块**（证监会行业，
+  同两融维度）与**指数**（主要指数成分股）分别计算
+- 行业分类优先使用 Tushare `stock_basic` 全市场分类（与两融维度口径一致），
+  接口失败时兜底本地 `data/stock_industry_cache.json`
+- 个股数少于 10 只的行业样本过少（前 5% 集中度易失真，如 1 只个股必为 100%），
+  不参与「拥挤」标记，界面显示「样本少」
+
+### 8.2 构建三年历史
+
+```bash
+python scripts/build_trading_crowding_history.py
+python scripts/build_trading_crowding_history.py --max-days 5
+python scripts/build_trading_crowding_history.py --start 20260101 --end 20260731
+```
+
+每天 1 次 `pro.daily` 调用，约 730 个交易日全程 10-20 分钟，断点续跑。
+输出：
+
+- `data/trading_crowding/trading_crowding_history.csv`（行业维度）
+- `data/trading_crowding/trading_crowding_index_history.csv`（指数维度 + 全A行）
+
+若历史在「全A」维度加入前构建，可运行回填脚本补拉全A行（幂等，可重复执行）：
+
+```bash
+python scripts/backfill_trading_crowding_market.py
+```
+
+### 8.3 使用示例
+
+```python
+from utils.trading_crowding import TradingCrowding
+
+tc = TradingCrowding()
+pre = tc.precompute()             # 行业维度：latest_df / by_industry
+pre_idx = tc.precompute_indices() # 指数维度：{指数代码: (指数名, 时间序列)}
+```
+
+字段：`stock_count`、`total_vol` / `top5_vol` / `vol_concentration_pct`、
+`total_amount` / `top5_amount` / `amount_concentration_pct`（指数维度另含 `coverage`）。
