@@ -89,6 +89,78 @@ def test_aggregate_market():
     assert TradingCrowding.aggregate_market(None, {}).empty
 
 
+def test_compute_market_share():
+    """板块成交占比 = 板块 total ÷ 全A total × 100%，各板块合计恒为 100%。"""
+    ind = TradingCrowding.aggregate_industries(_daily_df(), _industry_map())
+    market = TradingCrowding.aggregate_market(_daily_df(), _industry_map())
+    out = TradingCrowding.compute_market_share(ind, market)
+    assert len(out) == 2
+    a = out[out['industry'] == '行业A'].iloc[0]
+    b = out[out['industry'] == '行业B'].iloc[0]
+    # 行业A：vol 310 / 365；amount 4500 / 4850
+    assert abs(a['vol_market_share_pct'] - 310 / 365 * 100) < 1e-9
+    assert abs(a['amount_market_share_pct'] - 4500 / 4850 * 100) < 1e-9
+    assert abs(b['vol_market_share_pct'] - 55 / 365 * 100) < 1e-9
+    assert abs(b['amount_market_share_pct'] - 350 / 4850 * 100) < 1e-9
+    assert abs(out['vol_market_share_pct'].sum() - 100) < 1e-9
+    assert abs(out['amount_market_share_pct'].sum() - 100) < 1e-9
+
+
+def test_compute_market_share_missing_market():
+    """缺少全A行时占比列为 NaN，不影响原有列。"""
+    ind = TradingCrowding.aggregate_industries(_daily_df(), _industry_map())
+    out = TradingCrowding.compute_market_share(ind, pd.DataFrame())
+    assert out['vol_market_share_pct'].isna().all()
+    assert out['amount_market_share_pct'].isna().all()
+    assert 'industry' in out.columns
+    assert out['total_amount'].sum() == 4850
+    # 全A行缺失（如旧版本指数历史）同样返回 NaN
+    bad_market = pd.DataFrame({'index_code': ['IDX'],
+                               'total_vol': [1.0], 'total_amount': [1.0]})
+    out2 = TradingCrowding.compute_market_share(ind, bad_market)
+    assert out2['vol_market_share_pct'].isna().all()
+
+
+def _extreme_daily_df():
+    """8 只股票：amount 与 pct_chg 独立，便于验证涨跌幅榜占比。"""
+    return pd.DataFrame({
+        'ts_code': ['000001.SZ', '000002.SZ', '000003.SZ', '000004.SZ',
+                    '000005.SZ', '000006.SZ', '600001.SH', '600002.SH'],
+        'amount': [100, 200, 300, 400, 500, 600, 700, 800],
+        'pct_chg': [9.9, -9.8, 5.0, -5.0, 1.0, -1.0, 3.0, -3.0],
+    })
+
+
+def test_aggregate_extreme_top5():
+    """涨幅榜/跌幅榜前5%（k=max(1,ceil(8×5%))=1）成交额占全A成交额比重。"""
+    ext = TradingCrowding.aggregate_extreme(
+        _extreme_daily_df(), _industry_map())
+    assert len(ext) == 1
+    r = ext.iloc[0]
+    assert r['stock_count'] == 8
+    assert r['gain_k'] == 1
+    assert r['loss_k'] == 1
+    # 涨幅榜第 1 名 amount=100；跌幅榜第 1 名 amount=200；全A合计 3600
+    assert r['gain_top5_amount'] == 100
+    assert r['loss_top5_amount'] == 200
+    assert abs(r['gain_share_pct'] - 100 / 3600 * 100) < 1e-9
+    assert abs(r['loss_share_pct'] - 200 / 3600 * 100) < 1e-9
+
+
+def test_aggregate_extreme_min_one_and_empty():
+    """仅 1 只股票时 k=1；空输入返回空表。"""
+    df = pd.DataFrame({'ts_code': ['000001.SZ'], 'amount': [100],
+                       'pct_chg': [5.0]})
+    ext = TradingCrowding.aggregate_extreme(df, {'000001.SZ': '行业A'})
+    assert ext.iloc[0]['gain_k'] == 1
+    assert ext.iloc[0]['gain_share_pct'] == 100.0
+    assert TradingCrowding.aggregate_extreme(pd.DataFrame(), {}).empty
+    assert TradingCrowding.aggregate_extreme(None, {}).empty
+    # 缺 pct_chg 时返回空表
+    bad = pd.DataFrame({'ts_code': ['000001.SZ'], 'amount': [100]})
+    assert TradingCrowding.aggregate_extreme(bad, {}).empty
+
+
 def test_aggregate_empty_inputs():
     empty = pd.DataFrame()
     assert TradingCrowding.aggregate_industries(empty, {}).empty
@@ -125,6 +197,8 @@ def test_history_roundtrip(tmp_path):
         'total_vol': 310.0, 'top5_vol': 100.0, 'vol_concentration_pct': 32.258064,
         'total_amount': 4500.0, 'top5_amount': 1000.0,
         'amount_concentration_pct': 22.222222,
+        'vol_market_share_pct': 84.931507,
+        'amount_market_share_pct': 92.783505,
     }]
     tc._append_rows(rows, tc.history_file, TradingCrowding.CSV_COLUMNS)
     df = tc.load_history(force=True)
@@ -132,6 +206,8 @@ def test_history_roundtrip(tmp_path):
     assert df.iloc[0]['industry'] == '行业A'
     assert abs(df.iloc[0]['vol_concentration_pct'] - 32.258064) < 1e-5
     assert abs(df.iloc[0]['amount_concentration_pct'] - 22.222222) < 1e-5
+    assert abs(df.iloc[0]['vol_market_share_pct'] - 84.931507) < 1e-5
+    assert abs(df.iloc[0]['amount_market_share_pct'] - 92.783505) < 1e-5
 
 
 def _write_history(tmp_path, ind_rows, idx_rows):
@@ -173,6 +249,8 @@ def test_precompute_shapes(tmp_path):
     assert set(pre['by_industry'].keys()) == {'行业A'}
     assert 'vol_concentration_pct' in pre['by_industry']['行业A'].columns
     assert 'amount_concentration_pct' in pre['by_industry']['行业A'].columns
+    assert 'vol_market_share_pct' in pre['by_industry']['行业A'].columns
+    assert 'amount_market_share_pct' in pre['by_industry']['行业A'].columns
 
     pre_idx = tc.precompute_indices()
     assert set(pre_idx.keys()) == {'IDX'}
@@ -248,8 +326,52 @@ def test_build_history_retries_calendar(tmp_path):
     tc.fetch_day = lambda d: (
         pd.DataFrame(columns=TradingCrowding.CSV_COLUMNS),
         pd.DataFrame(columns=TradingCrowding.INDEX_CSV_COLUMNS),
+        pd.DataFrame(columns=TradingCrowding.EXTREME_CSV_COLUMNS),
     )
 
     added = tc.build_history(max_retries=3, retry_delay=0.01)
     assert calls['n'] == 3
     assert added == 2
+
+
+def test_build_history_backfills_extreme_gap(tmp_path):
+    """行业历史已到 20260102、涨跌幅榜只到 20260101 时，
+    build_history 应自动补齐极端榜缺口 20260102 + 新日期 20260103。"""
+    tmp_path = os.path.join(str(tmp_path), 'extgap')
+    os.makedirs(tmp_path, exist_ok=True)
+    tc = TradingCrowding()
+    tc.cache_dir = tmp_path
+    tc.history_file = os.path.join(tmp_path, 'trading_crowding_history.csv')
+    tc.index_history_file = os.path.join(
+        tmp_path, 'trading_crowding_index_history.csv')
+    tc.extreme_file = os.path.join(
+        tmp_path, 'trading_crowding_extreme_history.csv')
+    tc._append_rows([{
+        'trade_date': '20260102', 'industry': '行业A', 'stock_count': 6,
+        'total_vol': 310.0, 'top5_vol': 100.0, 'vol_concentration_pct': 32.0,
+        'total_amount': 4500.0, 'top5_amount': 1000.0,
+        'amount_concentration_pct': 22.0,
+        'vol_market_share_pct': 84.9, 'amount_market_share_pct': 92.8,
+    }], tc.history_file, TradingCrowding.CSV_COLUMNS)
+    tc._append_rows([{
+        'trade_date': '20260101', 'stock_count': 8, 'gain_k': 1,
+        'gain_top5_amount': 100.0, 'gain_share_pct': 2.8,
+        'loss_k': 1, 'loss_top5_amount': 200.0, 'loss_share_pct': 5.6,
+    }], tc.extreme_file, TradingCrowding.EXTREME_CSV_COLUMNS)
+
+    pro = MagicMock()
+    pro.trade_cal.return_value = pd.DataFrame(
+        {'cal_date': ['20260101', '20260102', '20260103']})
+    tc._get_pro = lambda: pro
+    calls = []
+
+    def fake_fetch(d):
+        calls.append(d)
+        return (pd.DataFrame(columns=TradingCrowding.CSV_COLUMNS),
+                pd.DataFrame(columns=TradingCrowding.INDEX_CSV_COLUMNS),
+                pd.DataFrame(columns=TradingCrowding.EXTREME_CSV_COLUMNS))
+
+    tc.fetch_day = fake_fetch
+    added = tc.build_history(max_retries=1, retry_delay=0.01, call_delay=0)
+    assert added == 2
+    assert sorted(calls) == ['20260102', '20260103']

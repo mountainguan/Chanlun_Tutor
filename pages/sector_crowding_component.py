@@ -20,12 +20,11 @@ SPEED_SORT_LABELS = {
 }
 
 # ============ 成交量 / 成交额维度参数 ============
-# 前 5% 个股成交集中度：>45% 标记拥挤（与数据层 TradingCrowding.THRESHOLD 一致）
+# 板块集中度：板块当天成交额（成交量）占全A当天成交额（成交量）的比例。
 TRADING_DIM_LABELS = {'vol': '成交量', 'amount': '成交额'}
+# 指数维度仍沿用前 5% 个股成交集中度，>45% 标记拥挤
+# （与数据层 TradingCrowding.THRESHOLD 一致）
 TRADING_THRESHOLD = 45.0
-# 个股数少于该值的行业样本过少，前5%集中度易失真（如 1-2 只个股必为 100%），
-# 不参与"拥挤"标记，界面显示"样本少"。
-TRADING_MIN_STOCKS = 10
 
 
 def _fmt_ratio(v):
@@ -1130,7 +1129,7 @@ def render_margin_content(plotly_renderer, is_mobile=False):
     load_view()
 
 
-# ============ 成交量 / 成交额维度（前5%个股成交集中度） ============
+# ============ 成交量 / 成交额维度（板块成交占比 + 指数前5%集中度） ============
 
 def _tc_color(v):
     """根据集中度返回 (背景色, 文字色, 等级标签)。阈值 >45% 为拥挤。"""
@@ -1145,12 +1144,24 @@ def _tc_color(v):
     return ('#d1fae5', '#047857', '低位')
 
 
-def _tc_bar(v, vmax=60.0):
-    """渲染一个紧凑的集中度色条（HTML），刻度 0~60%。"""
-    if v is None:
+def _share_color(rank):
+    """板块成交占比等级：按三年历史分位返回 (背景色, 文字色, 等级标签)。"""
+    if rank is None:
+        return ('transparent', '#9ca3af', '—')
+    if rank >= 80:
+        return ('#fee2e2', '#b91c1c', '高位')
+    if rank >= 60:
+        return ('#ffedd5', '#c2410c', '偏高')
+    if rank >= 40:
+        return ('#f3f4f6', '#374151', '正常')
+    return ('#d1fae5', '#047857', '低位')
+
+
+def _share_bar(share, vmax, fg='#ea580c'):
+    """渲染一个紧凑的占比色条（HTML），按当前排行最大值归一。"""
+    if share is None or vmax is None or vmax <= 0:
         return ''
-    pct = max(0, min(100, v / vmax * 100))
-    bg, fg, _ = _tc_color(v)
+    pct = max(0, min(100, share / vmax * 100))
     return (
         f'<div style="position:relative;width:100%;height:6px;background:#f3f4f6;'
         f'border-radius:3px;overflow:hidden;margin-top:4px;">'
@@ -1213,18 +1224,19 @@ def _set_tc_client_state(cid, render_chart, render_index_chart):
 
 
 def render_trading_content(plotly_renderer, is_mobile, dimension):
-    """成交量 / 成交额维度：前5%个股成交集中度（行业排行 + 指数卡片）。"""
+    """成交量 / 成交额维度：行业板块集中度（板块成交占比折线）+ 指数前5%集中度。"""
     _register_tc_listeners()
     tc = TradingCrowding()
     sc = SectorCrowding()  # 复用行业层级筛选
     metric = 'vol' if dimension == 'vol' else 'amount'
     metric_label = TRADING_DIM_LABELS[dimension]
     metric_col = f'{metric}_concentration_pct'
-    top5_col = f'top5_{metric}'
     total_col = f'total_{metric}'
+    share_col = f'{metric}_market_share_pct'
     # vol: 手 → 亿手；amount: 千元 → 亿元
     unit = 1e8 if metric == 'vol' else 1e5
     unit_label = '亿手' if metric == 'vol' else '亿'
+    market_unit_label = '亿手' if metric == 'vol' else '亿元'
     threshold = TRADING_THRESHOLD
     progress_state = {'running': False, 'done': 0, 'total': 0,
                       'cur': '', 'msg': ''}
@@ -1233,12 +1245,14 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
     # 若数据层出错，提前失败，避免留下引用了尚未定义函数的按钮等残缺 UI。
     pre = tc.precompute()
     pre_idx = tc.precompute_indices()
+    pre_ext = tc.precompute_extreme()
 
     # ---------- 指标说明卡片 ----------
     with ui.card().classes('w-full bg-white p-4 rounded-xl shadow-sm border border-gray-200'):
         with ui.row().classes('items-center gap-2 w-full'):
             ui.icon('donut_small', color='orange').classes('text-2xl')
-            ui.label(f'{metric_label}拥挤度说明').classes('text-lg font-bold text-gray-800')
+            ui.label(f'{metric_label}拥挤度 · 板块集中度').classes(
+                'text-lg font-bold text-gray-800')
             ui.label('数据源：Tushare Pro（日行情 T+1 发布）').classes(
                 'text-xs text-gray-400 ml-auto')
         with ui.row().classes('w-full gap-4 items-stretch flex-col md:flex-row mt-2'):
@@ -1247,22 +1261,23 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
                 ui.label('计算公式').classes('font-bold text-gray-700 text-sm mb-1')
                 ui.html(
                     f'<div class="text-xs text-orange-800 font-mono bg-white p-2 rounded '
-                    f'border border-orange-100">前5%个股{metric_label}集中度 = '
-                    f'前5%个股{metric_label}合计 ÷ 板块{metric_label}合计 × 100%</div>',
+                    f'border border-orange-100">板块集中度（{metric_label}占比） = '
+                    f'板块{metric_label} ÷ 全A{metric_label} × 100%</div>',
                     sanitize=False)
-                ui.label(f'衡量{metric_label}在该板块的聚集程度，越高说明交易越拥挤。').classes(
+                ui.label('衡量该板块占全市场交易的比例，占比越高说明资金越集中于该板块。').classes(
                     'text-xs text-gray-500 mt-2 leading-tight')
             with ui.card().classes(
                     'flex-1 p-3 bg-blue-50 rounded-lg border border-blue-100 shadow-none'):
                 ui.label('数据口径').classes('font-bold text-gray-700 text-sm mb-1')
-                ui.label(f'统计角度：全A市场 / 行业板块 / 指数成分股；'
-                         f'前5% = ceil(个股数×5%)；集中度高于 {threshold:.0f}% 标记为拥挤；'
-                         f'个股数少于 {TRADING_MIN_STOCKS} 的行业样本过少，不参与标记。'
+                ui.label(f'行业口径：证监会行业；全A = 当日有行业分类的A股'
+                         f'{metric_label}合计，各板块占比合计恒为 100%；'
+                         f'指数卡片仍显示前5%个股{metric_label}集中度'
+                         f'（高于 {threshold:.0f}% 标记拥挤）。'
                          ).classes('text-xs text-gray-500 leading-tight')
 
     # ---------- 概览统计 ----------
     stats_container = ui.element('div').classes(
-        'w-full grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mt-4')
+        'w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-4')
 
     # ---------- 主区域：左侧行业表格 + 右侧趋势图 ----------
     with ui.row().classes('w-full gap-4 items-stretch mt-4 flex-col lg:flex-row'):
@@ -1272,7 +1287,7 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
             with table_card:
                 with ui.row().classes('items-center w-full mb-1 flex-wrap gap-2'):
                     ui.icon('view_list', color='orange').classes('text-xl')
-                    ui.label(f'行业{metric_label}集中度排行').classes(
+                    ui.label(f'行业{metric_label}占比排行').classes(
                         'font-bold text-gray-800 text-base')
                     ui.label('（点击行查看趋势图）').classes('text-xs text-gray-400')
                 # === 行业筛选：一级板块 + 二级板块 级联下拉 ===
@@ -1305,7 +1320,7 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
                 chart_header = ui.row().classes('items-center gap-2 w-full mb-1 flex-wrap')
                 with chart_header:
                     ui.icon('show_chart', color='orange').classes('text-xl')
-                    ui.label(f'行业{metric_label}集中度趋势').classes(
+                    ui.label(f'行业{metric_label}占比趋势').classes(
                         'font-bold text-gray-800')
                     selected_chip = ui.chip('未选择', icon='touch_app',
                                             color='grey-3').props('dense outline')
@@ -1332,6 +1347,19 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
                     'w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-2')
             with ui.column().classes('w-full lg:flex-1 min-w-0'):
                 index_chart_container = ui.column().classes('w-full')
+
+    # ---------- 每日涨跌幅榜前5%成交额占比（全宽卡片） ----------
+    with ui.card().classes(
+            'w-full bg-white p-4 rounded-xl shadow-sm border border-gray-200 mt-4'):
+        with ui.row().classes('items-center w-full mb-2 flex-wrap gap-2'):
+            ui.icon('trending_up', color='orange').classes('text-xl')
+            ui.label('每日涨跌幅榜前5%成交额占比').classes(
+                'font-bold text-gray-800 text-base')
+            ui.label('· 涨幅榜 / 跌幅榜前5%个股成交额占全天成交额比重').classes(
+                'text-xs text-gray-400')
+            ui.label('').classes('flex-1')
+            extreme_chart_meta = ui.label('').classes('text-xs text-gray-500')
+        extreme_chart_container = ui.element('div').classes('w-full')
 
     # ---------- 操作按钮 ----------
     with ui.row().classes('w-full gap-2 mt-3'):
@@ -1383,33 +1411,27 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
             industries=latest['industry'].tolist(),
         )
         latest = latest[latest['industry'].isin(filtered)].copy()
-        prev = pre['prev_df']
         rows = []
         for _, r in latest.iterrows():
             ind = r['industry']
             ser = pre['by_industry'].get(ind)
-            series = ser[metric_col] if ser is not None else None
-            raw_conc = r[metric_col]
-            conc = float(raw_conc) if not pd.isna(raw_conc) else None
-            rank = SectorCrowding.percentile_rank(series, conc)
+            raw_share = r[share_col]
+            share = float(raw_share) if not pd.isna(raw_share) else None
+            series = ser[share_col] if ser is not None else None
+            rank = SectorCrowding.percentile_rank(series, share)
             chg = None
-            if conc is not None and ind in prev.index:
-                prev_val = prev.loc[ind, metric_col]
+            if share is not None and ser is not None and len(ser) > 22:
+                prev_val = ser.iloc[-22][share_col]
                 if not pd.isna(prev_val):
-                    chg = conc - float(prev_val)
+                    chg = share - float(prev_val)
             rows.append({
                 'industry': ind,
-                'concentration': round(conc, 2) if conc is not None else None,
+                'share': round(share, 3) if share is not None else None,
                 'chg': round(chg, 2) if chg is not None else None,
                 'rank': round(rank, 1) if rank is not None else None,
-                'top5': (float(r[top5_col]) / unit
-                         if not pd.isna(r[top5_col]) else None),
                 'total': (float(r[total_col]) / unit
                           if not pd.isna(r[total_col]) else None),
                 'stock_count': int(r['stock_count']),
-                'tiny': int(r['stock_count']) < TRADING_MIN_STOCKS,
-                'flag': (conc is not None and conc > threshold
-                         and int(r['stock_count']) >= TRADING_MIN_STOCKS),
             })
         return pd.DataFrame(rows)
 
@@ -1419,34 +1441,32 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
         history_days = len(pre['dates'])
         if display_df.empty:
             return
-        conc_series = pd.to_numeric(display_df['concentration'], errors='coerce')
-        high_count = int(display_df['flag'].sum())
-        max_conc = float(conc_series.max()) if not conc_series.dropna().empty else 0.0
-        all_conc = None
+        share_series = pd.to_numeric(display_df['share'], errors='coerce')
+        top = (display_df.sort_values('share', ascending=False).iloc[0]
+               if not display_df.empty else None)
+        top_ind = top['industry'] if top is not None else '—'
+        top_share = (float(top['share'])
+                     if top is not None and top['share'] is not None else None)
+        top5_sum = (float(share_series.nlargest(5).sum())
+                    if not share_series.dropna().empty else 0.0)
         all_entry = pre_idx.get('ALL')
+        all_total = None
         if all_entry and all_entry[1] is not None and not all_entry[1].empty:
-            all_val = all_entry[1].iloc[-1][metric_col]
-            if not pd.isna(all_val):
-                all_conc = float(all_val)
-        idx_high = 0
-        for code, (name, sdf) in pre_idx.items():
-            if code == 'ALL' or sdf is None or sdf.empty:
-                continue
-            last_val = sdf.iloc[-1][metric_col]
-            if not pd.isna(last_val) and float(last_val) > threshold:
-                idx_high += 1
-        all_flag = all_conc is not None and all_conc > threshold
+            raw_total = all_entry[1].iloc[-1].get(f'total_{metric}')
+            if raw_total is not None and not pd.isna(raw_total):
+                all_total = float(raw_total) / unit
         cards = [
             ('数据日期', str(latest_date), 'text-orange-700 bg-orange-50 border-orange-200'),
             ('行业数', f"{len(display_df)}", 'text-blue-700 bg-blue-50 border-blue-200'),
-            (f'拥挤行业(>{threshold:.0f}%)', f"{high_count}",
+            (f'占比最高 · {top_ind}',
+             f'{top_share:.2f}%' if top_share is not None else '—',
              'text-red-700 bg-red-50 border-red-200'),
-            ('全A集中度', f'{all_conc:.2f}%' if all_conc is not None else '—',
-             ('text-red-700 bg-red-50 border-red-200' if all_flag
-              else 'text-indigo-700 bg-indigo-50 border-indigo-200')),
-            ('最高集中度', f"{max_conc:.2f}%",
+            ('占比TOP5合计', f'{top5_sum:.2f}%',
              'text-indigo-700 bg-indigo-50 border-indigo-200'),
-            ('指数拥挤数', f"{idx_high}", 'text-red-700 bg-red-50 border-red-200'),
+            (f'全A{metric_label}',
+             f'{all_total:,.0f} {market_unit_label}'
+             if all_total is not None else '—',
+             'text-gray-700 bg-gray-100 border-gray-200'),
             ('历史交易日', f"{history_days}",
              'text-gray-700 bg-gray-100 border-gray-200'),
         ]
@@ -1479,30 +1499,26 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
             with table_container:
                 with ui.column().classes('w-full items-center justify-center py-8 gap-3'):
                     ui.icon('inbox', size='48px').classes('text-gray-300')
-                    ui.label('暂无成交集中度历史数据').classes('text-gray-500 font-bold')
+                    ui.label('暂无板块成交占比历史数据').classes('text-gray-500 font-bold')
                     ui.label('点击"重建三年历史"或运行脚本：').classes('text-xs text-gray-400')
                     ui.code('python scripts/build_trading_crowding_history.py',
                             language='bash').classes('text-xs')
             table_meta.text = '共 0 个行业'
             return
 
-        tiny_count = int(display_df['tiny'].sum())
-        tiny_note = (f'（{tiny_count} 个行业样本过少不参与拥挤标记）'
-                     if tiny_count else '')
-        table_meta.text = (f'共 {len(display_df)} 个行业，按{metric_label}集中度降序'
-                           f'{tiny_note}')
+        table_meta.text = f'共 {len(display_df)} 个行业，按{metric_label}占比降序'
         sorted_df = display_df.sort_values(
-            'concentration', ascending=False).reset_index(drop=True)
+            'share', ascending=False).reset_index(drop=True)
+        max_share = (float(sorted_df['share'].max())
+                     if not sorted_df['share'].dropna().empty else 1.0)
 
         head_cells = [
-            ('行业', 'text-left', '18%'),
-            ('集中度', 'text-right', '16%'),
-            ('1月变化', 'text-right', '11%'),
-            ('3年分位', 'text-right', '9%'),
-            (f'前5%成交({unit_label})', 'text-right', '13%'),
-            (f'板块成交({unit_label})', 'text-right', '13%'),
-            ('个股数', 'text-right', '7%'),
-            ('标记', 'text-right', '13%'),
+            ('行业', 'text-left', '22%'),
+            (f'{metric_label}占比', 'text-right', '18%'),
+            ('1月变化', 'text-right', '14%'),
+            ('3年分位', 'text-right', '14%'),
+            (f'板块成交({unit_label})', 'text-right', '18%'),
+            ('个股数', 'text-right', '14%'),
         ]
         head_html = ''.join(
             f'<th class="px-1.5 py-2 text-[11px] font-semibold text-gray-500 '
@@ -1514,16 +1530,14 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
 
         body_rows = []
         for _, r in sorted_df.iterrows():
-            conc = r['concentration']
+            share = r['share']
             chg = r['chg']
             rank = r['rank']
-            bg, fg, level = _tc_color(conc)
+            bg, fg, level = _share_color(rank)
             chg_color = _chg_color(chg)
             rank_color = ('#b91c1c' if (rank is not None and rank >= 80)
                           else ('#ea580c' if (rank is not None and rank >= 60)
                                 else '#374151'))
-            if r['tiny']:
-                bg, fg, level = ('#f3f4f6', '#6b7280', '样本少')
             is_sel = (r['industry'] == selected_industry)
             row_bg = '#fff7ed' if is_sel else '#ffffff'
             row_border = ('4px solid #ea580c' if is_sel
@@ -1532,27 +1546,8 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
             rank_str = f'{rank:.0f}' if rank is not None else '—'
             chg_arrow = ('▲' if (chg is not None and chg > 0)
                          else ('▼' if (chg is not None and chg < 0) else '·'))
-            conc_str = f'{conc:.2f}%' if conc is not None else '—'
-            top5_str = f'{r["top5"]:,.1f}' if r['top5'] is not None else '—'
+            share_str = f'{share:.2f}%' if share is not None else '—'
             total_str = f'{r["total"]:,.1f}' if r['total'] is not None else '—'
-            if r['tiny']:
-                flag_html = (
-                    '<span style="color:#6b7280;background:#f3f4f6;padding:1px 8px;'
-                    'border-radius:4px;font-size:10px;font-weight:600;'
-                    'white-space:nowrap">样本少</span>'
-                )
-            elif r['flag']:
-                flag_html = (
-                    '<span style="color:#b91c1c;background:#fee2e2;padding:1px 8px;'
-                    'border-radius:4px;font-size:10px;font-weight:700;'
-                    'white-space:nowrap">⚠ 拥挤</span>'
-                )
-            else:
-                flag_html = (
-                    '<span style="color:#374151;background:#f3f4f6;padding:1px 8px;'
-                    'border-radius:4px;font-size:10px;font-weight:600;'
-                    'white-space:nowrap">正常</span>'
-                )
             body_rows.append(
                 f'<tr class="tc-row" data-industry="{r["industry"]}" '
                 f'style="background:{row_bg};cursor:pointer;transition:background 0.15s;'
@@ -1573,24 +1568,20 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
                 f'<td class="px-1.5 py-2 border-b border-gray-100" '
                 f'style="text-align:right;white-space:nowrap">'
                 f'<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">'
-                f'<span style="color:{fg};font-weight:700;font-size:13px">{conc_str}</span>'
+                f'<span style="color:{fg};font-weight:700;font-size:13px">{share_str}</span>'
                 f'<span style="font-size:10px;color:{fg};background:{bg};padding:1px 6px;'
                 f'border-radius:4px;white-space:nowrap">{level}</span></div>'
-                f'{_tc_bar(conc)}</td>'
+                f'{_share_bar(share, max_share, fg)}</td>'
                 f'<td class="px-1.5 py-2 text-xs border-b border-gray-100" '
                 f'style="text-align:right;color:{chg_color};font-weight:600;'
                 f'white-space:nowrap">{chg_arrow} {chg_str}</td>'
                 f'<td class="px-1.5 py-2 text-xs border-b border-gray-100" '
                 f'style="text-align:right;color:{rank_color};white-space:nowrap">'
                 f'{rank_str}%</td>'
-                f'<td class="px-1.5 py-2 text-xs text-gray-600 border-b border-gray-100" '
-                f'style="text-align:right;white-space:nowrap">{top5_str}</td>'
                 f'<td class="px-1.5 py-2 text-xs text-gray-500 border-b border-gray-100" '
                 f'style="text-align:right;white-space:nowrap">{total_str}</td>'
                 f'<td class="px-1.5 py-2 text-xs text-gray-500 border-b border-gray-100" '
                 f'style="text-align:right;white-space:nowrap">{r["stock_count"]}</td>'
-                f'<td class="px-1.5 py-2 border-b border-gray-100" '
-                f'style="text-align:right;white-space:nowrap">{flag_html}</td>'
                 f'</tr>'
             )
 
@@ -1604,8 +1595,8 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
             f'<tbody>{"".join(body_rows)}</tbody>'
             '</table></div>'
             f'<div class="text-[10px] text-gray-400 mt-1">'
-            f'💡 前5%个股{metric_label}集中度 = 板块内{metric_label}最大的前5%个股合计 '
-            f'÷ 板块{metric_label}合计；集中度高于 {threshold:.0f}% 标记为拥挤'
+            f'💡 板块集中度 = 板块{metric_label} ÷ 全A{metric_label} × 100%；'
+            f'三年分位越高说明该板块交易越集中'
             '</div>'
         )
 
@@ -1619,7 +1610,7 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
         with table_container:
             ui.html(table_html, sanitize=False)
 
-    # ---------- 渲染层：行业集中度趋势图 ----------
+    # ---------- 渲染层：行业板块占比趋势折线图 ----------
     def render_chart(industry, scroll=False):
         chart_container.clear()
         ser = pre['by_industry'].get(industry)
@@ -1629,12 +1620,12 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
             return
 
         try:
-            latest_val = float(ser.iloc[-1][metric_col])
+            latest_val = float(ser.iloc[-1][share_col])
             latest_date = str(ser.iloc[-1]['trade_date'])
             chg_1m = None
             if len(ser) > 22:
-                chg_1m = float(ser.iloc[-1][metric_col]) - float(
-                    ser.iloc[-22][metric_col])
+                chg_1m = float(ser.iloc[-1][share_col]) - float(
+                    ser.iloc[-22][share_col])
             selected_chip.text = f'{industry}'
             selected_chip.props('color=orange-7')
             chg_str = (f'  ·  1月 {chg_1m:+.2f}pp' if chg_1m is not None else '')
@@ -1645,14 +1636,14 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(
-            x=ser['trade_date'], y=ser[metric_col],
-            mode='lines', name=f'{metric_label}集中度%',
+            x=ser['trade_date'], y=ser[share_col],
+            mode='lines', name=f'板块{metric_label}占比%',
             line=dict(color='#ea580c', width=2.4),
             hovertemplate=(f'%{{x|%Y-%m-%d}}<br>'
-                           f'{metric_label}集中度 %{{y:.2f}}%<extra></extra>'),
+                           f'板块{metric_label}占比 %{{y:.2f}}%<extra></extra>'),
         ))
 
-        vals = ser[metric_col].dropna()
+        vals = ser[share_col].dropna()
         for q, color, label in ((0.2, '#10b981', 'P20'),
                                 (0.5, '#f59e0b', 'P50'),
                                 (0.8, '#ef4444', 'P80')):
@@ -1660,19 +1651,15 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
             fig.add_hline(y=qv, line_dash='dot', line_color=color, line_width=1,
                           annotation_text=f'{label} {qv:.2f}%',
                           annotation_position='right')
-        fig.add_hline(y=threshold, line_dash='dash', line_color='#b91c1c',
-                      line_width=1.4,
-                      annotation_text=f'拥挤阈值 {threshold:.0f}%',
-                      annotation_position='top right')
 
-        latest_val = float(ser.iloc[-1][metric_col])
+        latest_val = float(ser.iloc[-1][share_col])
         fig.add_trace(go.Scatter(
             x=[ser.iloc[-1]['trade_date']], y=[latest_val],
             mode='markers', showlegend=False,
             marker=dict(color='#7c3aed', size=11,
                         line=dict(color='white', width=2)),
             hovertemplate=(f'最新<br>{industry}<br>'
-                           f'{metric_label}集中度 {latest_val:.2f}%<extra></extra>'),
+                           f'板块{metric_label}占比 {latest_val:.2f}%<extra></extra>'),
         ))
 
         x_min = ser['trade_date'].min()
@@ -1728,7 +1715,7 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
                 range=[default_start, x_max] if default_start is not None else None,
             ),
             yaxis=dict(
-                title=dict(text=f'前5%个股{metric_label}集中度 %',
+                title=dict(text=f'板块{metric_label}占比 %',
                            font=dict(color='#ea580c', size=11)),
                 tickfont=dict(color='#ea580c', size=10),
                 side='left',
@@ -1909,6 +1896,96 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
         with index_chart_container:
             plotly_renderer(fig).classes('w-full h-[320px]')
 
+    # ---------- 渲染层：每日涨跌幅榜前5%成交额占比（左右两张图） ----------
+    def render_extreme_chart():
+        extreme_chart_container.clear()
+        df = pre_ext['df']
+        if df is None or df.empty:
+            with extreme_chart_container:
+                with ui.column().classes(
+                        'w-full items-center justify-center py-8 gap-3'):
+                    ui.icon('query_stats', size='40px').classes('text-gray-300')
+                    ui.label('暂无涨跌幅榜成交额占比数据').classes(
+                        'text-gray-500 font-bold')
+                    ui.label('点击"更新到最新"或运行脚本：').classes(
+                        'text-xs text-gray-400')
+                    ui.code('python scripts/backfill_trading_crowding_extreme.py',
+                            language='bash').classes('text-xs')
+            extreme_chart_meta.text = '暂无数据'
+            return
+        df = df.sort_values('trade_date')
+        latest = df.iloc[-1]
+        latest_date = str(latest['trade_date'])[:10]
+        gain_val = float(latest['gain_share_pct'])
+        loss_val = float(latest['loss_share_pct'])
+        extreme_chart_meta.text = (
+            f'最新 {latest_date}  ·  涨幅榜 {gain_val:.2f}%  '
+            f'·  跌幅榜 {loss_val:.2f}%')
+
+        fig_gain = go.Figure()
+        fig_gain.add_trace(go.Scatter(
+            x=df['trade_date'], y=df['gain_share_pct'],
+            mode='lines', name='涨幅榜前5%成交额占比%',
+            line=dict(color='#dc2626', width=2.2),
+            hovertemplate=('%{x|%Y-%m-%d}<br>'
+                           '涨幅榜前5%成交额占比 %{y:.2f}%<extra></extra>'),
+        ))
+        fig_loss = go.Figure()
+        fig_loss.add_trace(go.Scatter(
+            x=df['trade_date'], y=df['loss_share_pct'],
+            mode='lines', name='跌幅榜前5%成交额占比%',
+            line=dict(color='#059669', width=2.2),
+            hovertemplate=('%{x|%Y-%m-%d}<br>'
+                           '跌幅榜前5%成交额占比 %{y:.2f}%<extra></extra>'),
+        ))
+
+        def _layout(fig):
+            # 默认展示近三个月，可拖动范围滑块查看更长历史
+            try:
+                x_max_dt = df['trade_date'].max()
+                default_start = x_max_dt - pd.DateOffset(months=3)
+                if df['trade_date'].min() > default_start:
+                    default_start = df['trade_date'].min()
+                x_range = [default_start, x_max_dt]
+            except Exception:
+                x_range = None
+            fig.update_layout(
+                template='plotly_white',
+                height=320,
+                margin=dict(l=50, r=15, t=25, b=30),
+                hovermode='x unified',
+                legend=dict(orientation='h', yanchor='bottom', y=1.02, x=0,
+                            font=dict(size=10)),
+                xaxis=dict(
+                    title='',
+                    type='date',
+                    range=x_range,
+                    rangeslider=dict(visible=True, thickness=0.08,
+                                     bgcolor='#fef3c7'),
+                ),
+                yaxis=dict(
+                    title=dict(text='占全天成交额比重 %',
+                               font=dict(color='#ea580c', size=10)),
+                    tickfont=dict(color='#ea580c', size=9),
+                    side='left',
+                ),
+                transition=dict(duration=400, easing='cubic-in-out'),
+            )
+            return fig
+
+        _layout(fig_gain)
+        _layout(fig_loss)
+        with extreme_chart_container:
+            with ui.row(wrap=False).classes('w-full gap-3 items-stretch'):
+                with ui.column().classes('min-w-0').style('flex:1 1 0;'):
+                    ui.label('涨幅榜前5%成交额占比').classes(
+                        'text-sm font-bold text-red-700 mb-1')
+                    plotly_renderer(fig_gain).classes('w-full h-[320px]')
+                with ui.column().classes('min-w-0').style('flex:1 1 0;'):
+                    ui.label('跌幅榜前5%成交额占比').classes(
+                        'text-sm font-bold text-green-700 mb-1')
+                    plotly_renderer(fig_loss).classes('w-full h-[320px]')
+
     # ---------- 入口 ----------
     def load_view():
         tc.invalidate_history_cache()
@@ -1916,6 +1993,8 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
         pre.update(tc.precompute())
         pre_idx.clear()
         pre_idx.update(tc.precompute_indices())
+        pre_ext.clear()
+        pre_ext.update(tc.precompute_extreme())
         display_df = build_display()
         latest_date = pre['latest_date'].date() if pre['latest_date'] is not None else None
         render_stats(display_df, latest_date)
@@ -1927,6 +2006,10 @@ def render_trading_content(plotly_renderer, is_mobile, dimension):
             render_index_cards()
         except Exception as ex:
             print(f'TradingCrowding render_index_cards error: {ex}')
+        try:
+            render_extreme_chart()
+        except Exception as ex:
+            print(f'TradingCrowding render_extreme_chart error: {ex}')
 
     def run_build(max_days=None):
         return tc.build_history(max_days=max_days, resume=True,
@@ -2029,7 +2112,7 @@ def render_sector_crowding_panel(plotly_renderer, is_mobile=False):
             with ui.row().classes('items-center gap-2 w-full flex-wrap'):
                 ui.icon('local_fire_department', color='orange').classes('text-xl')
                 ui.label('拥挤度维度').classes('font-bold text-gray-800 text-sm')
-                ui.label('两融数据 / 成交量 / 成交额（前5%成交集中度）').classes(
+                ui.label('两融数据 / 成交量 / 成交额（板块成交占比折线）').classes(
                     'text-xs text-gray-400')
                 ui.label('').classes('flex-1')
                 dim_toggle = ui.toggle(

@@ -4,6 +4,8 @@
 
 定义：板块（行业 / 指数）内按成交量（成交额）排序的【前 5% 个股】合计
 占板块总量的比例，用于衡量交易的拥挤程度。
+附加指标【板块成交占比】：每个板块当天成交量（成交额）占全A当天
+成交量（成交额）的比例，衡量该板块在全市场中的交易权重。
 
 数据源（Tushare Pro，token 从环境变量 TUSHARE_TOKEN 或
 项目根目录 / data 目录下的 tushare_token.txt 读取）：
@@ -15,6 +17,8 @@
 计算口径：
     - 行业集中度 = 行业内成交量(成交额)前 5% 个股合计 ÷ 行业总量 × 100%
     - 指数集中度 = 指数成分股内成交量(成交额)前 5% 个股合计 ÷ 指数总量 × 100%
+    - 板块成交占比 = 板块成交量(成交额)合计 ÷ 全A成交量(成交额)合计 × 100%
+    - 涨跌幅榜占比 = 每日涨幅榜 / 跌幅榜前 5% 个股成交额合计 ÷ 全A成交额 × 100%
     - 前 5% 数量   = max(1, ceil(个股数 × 5%))
     - 集中度 > 45% 标记为拥挤（成交量维度与成交额维度分别统计）
 
@@ -41,7 +45,7 @@ class TradingCrowding:
     """成交集中度拥挤度数据层：拉取、聚合、缓存、查询。"""
 
     DATA_SOURCE = 'Tushare Pro'
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 3
     HISTORY_YEARS = 3
     # 前 5% 个股占比（成交量 / 成交额分别按各自排序取前 5%）
     TOP_PCT = 0.05
@@ -52,11 +56,17 @@ class TradingCrowding:
         'trade_date', 'industry', 'stock_count',
         'total_vol', 'top5_vol', 'vol_concentration_pct',
         'total_amount', 'top5_amount', 'amount_concentration_pct',
+        'vol_market_share_pct', 'amount_market_share_pct',
     ]
     INDEX_CSV_COLUMNS = [
         'trade_date', 'index_code', 'index_name', 'stock_count', 'coverage',
         'total_vol', 'top5_vol', 'vol_concentration_pct',
         'total_amount', 'top5_amount', 'amount_concentration_pct',
+    ]
+    EXTREME_CSV_COLUMNS = [
+        'trade_date', 'stock_count',
+        'gain_k', 'gain_top5_amount', 'gain_share_pct',
+        'loss_k', 'loss_top5_amount', 'loss_share_pct',
     ]
 
     def __init__(self):
@@ -67,6 +77,8 @@ class TradingCrowding:
         self.history_file = os.path.join(self.cache_dir, 'trading_crowding_history.csv')
         self.index_history_file = os.path.join(
             self.cache_dir, 'trading_crowding_index_history.csv')
+        self.extreme_file = os.path.join(
+            self.cache_dir, 'trading_crowding_extreme_history.csv')
         self.meta_file = os.path.join(self.cache_dir, 'meta.json')
         self._pro = None
         self._industry_map = None
@@ -308,15 +320,94 @@ class TradingCrowding:
                 else float(r['amount_concentration_pct'])),
         }], columns=TradingCrowding.INDEX_CSV_COLUMNS[1:])
 
+    @staticmethod
+    def compute_market_share(industry_df, market_df):
+        """纯函数（便于测试）：给行业聚合结果附加板块成交占比。
+
+        板块成交占比 = 板块 total_vol / total_amount ÷ 全A total_vol /
+        total_amount × 100%，衡量每个板块当天成交量（成交额）占全A当天
+        成交量（成交额）的比例。
+
+        market_df 需为 aggregate_market 的返回（含 index_code='ALL' 行）；
+        缺少全A行或全A总量缺失时，对应列为 NaN。
+        返回带 vol_market_share_pct / amount_market_share_pct 的新 DataFrame。
+        """
+        if industry_df is None:
+            return pd.DataFrame()
+        out = industry_df.copy()
+        out['vol_market_share_pct'] = np.nan
+        out['amount_market_share_pct'] = np.nan
+        if market_df is None or market_df.empty:
+            return out
+        all_rows = market_df[market_df['index_code'] == 'ALL']
+        if all_rows.empty:
+            return out
+        r = all_rows.iloc[0]
+        for metric in ('vol', 'amount'):
+            total_market = r.get(f'total_{metric}')
+            if total_market is None or pd.isna(total_market) \
+                    or float(total_market) <= 0:
+                continue
+            total_sector = pd.to_numeric(out[f'total_{metric}'],
+                                         errors='coerce')
+            out[f'{metric}_market_share_pct'] = np.where(
+                total_sector > 0,
+                total_sector / float(total_market) * 100.0,
+                np.nan,
+            )
+        return out
+
+    @staticmethod
+    def aggregate_extreme(daily_df, industry_map, top_pct=0.05):
+        """纯函数（便于测试）：每日涨幅榜 / 跌幅榜前 top_pct 个股成交额占比。
+
+        口径：当日全部 A 股（具有行业分类，成交额 > 0）按 pct_chg 降序取前
+        k = max(1, ceil(股票数 × top_pct)) 只为「涨幅榜」，升序取前 k 只为
+        「跌幅榜」，分别计算其成交额合计 ÷ 全A成交额 × 100%。
+        返回单行 DataFrame，列同 EXTREME_CSV_COLUMNS（不含 trade_date）。
+        """
+        if daily_df is None or daily_df.empty:
+            return pd.DataFrame(columns=TradingCrowding.EXTREME_CSV_COLUMNS[1:])
+        cols = [c for c in ('ts_code', 'amount', 'pct_chg')
+                if c in daily_df.columns]
+        if len(cols) < 3:
+            return pd.DataFrame(columns=TradingCrowding.EXTREME_CSV_COLUMNS[1:])
+        d = daily_df[cols].copy()
+        if industry_map:
+            d = d[d['ts_code'].isin(industry_map)]
+        d['amount'] = pd.to_numeric(d['amount'], errors='coerce')
+        d['pct_chg'] = pd.to_numeric(d['pct_chg'], errors='coerce')
+        d = d.dropna(subset=['amount', 'pct_chg'])
+        d = d[d['amount'] > 0]
+        if d.empty:
+            return pd.DataFrame(columns=TradingCrowding.EXTREME_CSV_COLUMNS[1:])
+        n = len(d)
+        k = max(1, int(math.ceil(n * top_pct)))
+        total_amount = float(d['amount'].sum())
+        gain = d.sort_values('pct_chg', ascending=False).head(k)
+        loss = d.sort_values('pct_chg', ascending=True).head(k)
+        gain_amount = float(gain['amount'].sum())
+        loss_amount = float(loss['amount'].sum())
+        return pd.DataFrame([{
+            'stock_count': n,
+            'gain_k': k,
+            'gain_top5_amount': gain_amount,
+            'gain_share_pct': gain_amount / total_amount * 100.0,
+            'loss_k': k,
+            'loss_top5_amount': loss_amount,
+            'loss_share_pct': loss_amount / total_amount * 100.0,
+        }], columns=TradingCrowding.EXTREME_CSV_COLUMNS[1:])
+
     def fetch_day(self, trade_date, max_retries=3, retry_delay=2.0):
         """拉取并聚合单个交易日的成交集中度数据。
-        trade_date: 'YYYYMMDD'。返回 (行业 DataFrame, 指数 DataFrame)，
-        指数 DataFrame 含 10 个大指数 + 1 行「全A」市场维度。"""
+        trade_date: 'YYYYMMDD'。返回 (行业 DataFrame, 指数 DataFrame,
+        涨跌幅榜 DataFrame)，指数 DataFrame 含 10 个大指数 + 1 行「全A」市场维度。"""
         pro = self._get_pro()
         industry_map = self._get_industry_map()
         index_groups = self._get_index_groups()
         empty = (pd.DataFrame(columns=self.CSV_COLUMNS),
-                 pd.DataFrame(columns=self.INDEX_CSV_COLUMNS))
+                 pd.DataFrame(columns=self.INDEX_CSV_COLUMNS),
+                 pd.DataFrame(columns=self.EXTREME_CSV_COLUMNS))
         last_err = None
         for attempt in range(max_retries):
             try:
@@ -326,10 +417,12 @@ class TradingCrowding:
                 ind_df = self.aggregate_industries(daily_df, industry_map)
                 idx_df = self.aggregate_indices(daily_df, index_groups)
                 market_df = self.aggregate_market(daily_df, industry_map)
+                extreme_df = self.aggregate_extreme(daily_df, industry_map)
+                ind_df = self.compute_market_share(ind_df, market_df)
                 if not market_df.empty:
                     idx_df = (pd.concat([idx_df, market_df], ignore_index=True)
                               if not idx_df.empty else market_df)
-                return ind_df, idx_df
+                return ind_df, idx_df, extreme_df
             except Exception as e:
                 last_err = e
                 if attempt < max_retries - 1:
@@ -355,6 +448,24 @@ class TradingCrowding:
         print(f'[TradingCrowding] {trade_date} 全A拉取失败: {last_err}')
         return pd.DataFrame(columns=self.INDEX_CSV_COLUMNS)
 
+    def fetch_extreme(self, trade_date, max_retries=3, retry_delay=2.0):
+        """仅拉取单个交易日的涨跌幅榜前5%成交额占比（用于历史回填）。"""
+        pro = self._get_pro()
+        industry_map = self._get_industry_map()
+        last_err = None
+        for attempt in range(max_retries):
+            try:
+                daily_df = pro.daily(trade_date=trade_date)
+                if daily_df is None or daily_df.empty:
+                    return pd.DataFrame(columns=self.EXTREME_CSV_COLUMNS)
+                return self.aggregate_extreme(daily_df, industry_map)
+            except Exception as e:
+                last_err = e
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay * (attempt + 1))
+        print(f'[TradingCrowding] {trade_date} 涨跌幅榜拉取失败: {last_err}')
+        return pd.DataFrame(columns=self.EXTREME_CSV_COLUMNS)
+
     # ==================== 历史缓存 ====================
 
     def load_history(self, force=False):
@@ -366,6 +477,11 @@ class TradingCrowding:
         """指数维度历史（进程级缓存，mtime 命中直接返回）。"""
         return SectorCrowding._load_history_shared(
             self.index_history_file, self.INDEX_CSV_COLUMNS, force=force)
+
+    def load_extreme_history(self, force=False):
+        """涨跌幅榜前5%成交额占比历史（进程级缓存，mtime 命中直接返回）。"""
+        return SectorCrowding._load_history_shared(
+            self.extreme_file, self.EXTREME_CSV_COLUMNS, force=force)
 
     def invalidate_history_cache(self):
         SectorCrowding._PROCESS_HISTORY_CACHE.clear()
@@ -435,7 +551,8 @@ class TradingCrowding:
                 print(f'[TradingCrowding] 交易日历拉取失败: {last_err}')
             print('[TradingCrowding] 交易日历为空，请检查日期范围')
             return 0
-        dates = sorted(cal['cal_date'].astype(str).tolist())
+        all_dates = sorted(cal['cal_date'].astype(str).tolist())
+        dates = list(all_dates)
 
         if resume and os.path.exists(self.history_file) \
                 and os.path.getsize(self.history_file) > 0:
@@ -443,6 +560,20 @@ class TradingCrowding:
             if not existing.empty:
                 last = existing['trade_date'].max().strftime('%Y%m%d')
                 dates = [d for d in dates if d > last]
+
+        # 自愈：涨跌幅榜历史落后于行业历史时，补齐行业已覆盖的缺失日期
+        if resume and os.path.exists(self.extreme_file) \
+                and os.path.getsize(self.extreme_file) > 0:
+            existing = self.load_history()
+            if not existing.empty:
+                last = existing['trade_date'].max().strftime('%Y%m%d')
+                ext = self.load_extreme_history()
+                if not ext.empty:
+                    ext_last = ext['trade_date'].max().strftime('%Y%m%d')
+                    if ext_last < last:
+                        missing = [d for d in all_dates
+                                   if ext_last < d <= last]
+                        dates = sorted(set(dates) | set(missing))
 
         if max_days is not None:
             dates = dates[:max_days]
@@ -452,18 +583,21 @@ class TradingCrowding:
 
         print(f'[TradingCrowding] 开始构建历史：{dates[0]} ~ {dates[-1]}，'
               f'共 {len(dates)} 个交易日')
-        ind_rows, idx_rows = [], []
+        ind_rows, idx_rows, ext_rows = [], [], []
         done = 0
         latest = None
         for d in dates:
-            ind_df, idx_df = self.fetch_day(d)
+            ind_df, idx_df, ext_df = self.fetch_day(d)
             if not ind_df.empty:
                 ind_df['trade_date'] = d
                 ind_rows.extend(ind_df.to_dict('records'))
             if not idx_df.empty:
                 idx_df['trade_date'] = d
                 idx_rows.extend(idx_df.to_dict('records'))
-            if not ind_df.empty or not idx_df.empty:
+            if not ext_df.empty:
+                ext_df['trade_date'] = d
+                ext_rows.extend(ext_df.to_dict('records'))
+            if not ind_df.empty or not idx_df.empty or not ext_df.empty:
                 latest = d
             done += 1
             if progress_cb:
@@ -475,6 +609,10 @@ class TradingCrowding:
                 self._append_rows(idx_rows, self.index_history_file,
                                   self.INDEX_CSV_COLUMNS)
                 idx_rows = []
+            if len(ext_rows) >= flush_every:
+                self._append_rows(ext_rows, self.extreme_file,
+                                  self.EXTREME_CSV_COLUMNS)
+                ext_rows = []
             if done % 20 == 0:
                 print(f'[TradingCrowding] 进度 {done}/{len(dates)}，'
                       f'最新成功日期 {latest}')
@@ -485,6 +623,9 @@ class TradingCrowding:
         if idx_rows:
             self._append_rows(idx_rows, self.index_history_file,
                               self.INDEX_CSV_COLUMNS)
+        if ext_rows:
+            self._append_rows(ext_rows, self.extreme_file,
+                              self.EXTREME_CSV_COLUMNS)
 
         meta_latest = self.load_history(force=True)['trade_date'].max()
         self._save_meta(
@@ -522,7 +663,8 @@ class TradingCrowding:
         ]
         by_industry = {
             ind: g.sort_values('trade_date')[
-                ['trade_date', 'vol_concentration_pct', 'amount_concentration_pct']
+                ['trade_date', 'vol_concentration_pct', 'amount_concentration_pct',
+                 'vol_market_share_pct', 'amount_market_share_pct']
             ].reset_index(drop=True)
             for ind, g in df.groupby('industry', sort=False)
         }
@@ -548,9 +690,25 @@ class TradingCrowding:
             out[code] = (
                 name,
                 g[['trade_date', 'vol_concentration_pct',
-                   'amount_concentration_pct', 'stock_count', 'coverage']],
+                   'amount_concentration_pct', 'stock_count', 'coverage',
+                   'total_vol', 'total_amount']],
             )
         return out
+
+    def precompute_extreme(self):
+        """涨跌幅榜前5%成交额占比面板数据（单日行 + 全历史）。"""
+        df = self.load_extreme_history()
+        if df.empty:
+            return {'df': df, 'dates': [], 'latest_date': None,
+                    'latest_df': pd.DataFrame()}
+        dates = sorted(df['trade_date'].unique())
+        latest_date = dates[-1]
+        return {
+            'df': df,
+            'dates': dates,
+            'latest_date': latest_date,
+            'latest_df': df[df['trade_date'] == latest_date].copy(),
+        }
 
     def get_latest(self, date_str=None):
         """返回最新交易日（或指定日期）的行业集中度表，按成交额集中度降序。"""

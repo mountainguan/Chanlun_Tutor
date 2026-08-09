@@ -23,6 +23,7 @@ def _fake_industry_history():
                 'vol_concentration_pct': vol_conc,
                 'total_amount': 1e7, 'top5_amount': 4e6,
                 'amount_concentration_pct': amt_conc,
+                'vol_market_share_pct': 10.0, 'amount_market_share_pct': 5.0,
             })
     return pd.DataFrame(rows)
 
@@ -63,7 +64,8 @@ def _fake_pre(fake):
             ['vol_concentration_pct', 'amount_concentration_pct']],
         'by_industry': {
             ind: g.sort_values('trade_date')[
-                ['trade_date', 'vol_concentration_pct', 'amount_concentration_pct']
+                ['trade_date', 'vol_concentration_pct', 'amount_concentration_pct',
+                 'vol_market_share_pct', 'amount_market_share_pct']
             ].reset_index(drop=True)
             for ind, g in fake.groupby('industry', sort=False)
         },
@@ -86,6 +88,13 @@ class TestTradingCrowdingComponent(unittest.TestCase):
                                 fake_idx[fake_idx['index_code'] == '000300']),
                      'ALL': ('全A', fake_idx[fake_idx['index_code'] == 'ALL'])}
         )
+        mock_tc.precompute_extreme.side_effect = lambda: {
+            'df': pd.DataFrame(columns=[
+                'trade_date', 'stock_count', 'gain_k', 'gain_top5_amount',
+                'gain_share_pct', 'loss_k', 'loss_top5_amount',
+                'loss_share_pct']),
+            'dates': [], 'latest_date': None, 'latest_df': pd.DataFrame(),
+        }
         mock_sc = mock_sc_cls.return_value
         mock_sc.get_industry_hierarchy.return_value = {
             'l1_list': ['全部'],
@@ -108,6 +117,59 @@ class TestTradingCrowdingComponent(unittest.TestCase):
         self.assertTrue(mock_ui.html.called)
         self.assertTrue(renderer.called)
         print('成交集中度拥挤度组件渲染成功')
+
+
+class TestTradingCrowdingExtremeChart(unittest.TestCase):
+    """涨跌幅榜前5%成交额占比卡片渲染冒烟测试。"""
+
+    @patch('pages.sector_crowding_component.ui')
+    @patch('pages.sector_crowding_component.SectorCrowding')
+    @patch('pages.sector_crowding_component.TradingCrowding')
+    def test_render_extreme_chart(self, mock_tc_cls, mock_sc_cls, mock_ui):
+        fake = _fake_industry_history()
+        fake_idx = _fake_index_history()
+        mock_tc = mock_tc_cls.return_value
+        mock_tc.precompute.side_effect = lambda: _fake_pre(fake)
+        mock_tc.precompute_indices.side_effect = (
+            lambda: {'000300': ('沪深300',
+                                fake_idx[fake_idx['index_code'] == '000300']),
+                     'ALL': ('全A', fake_idx[fake_idx['index_code'] == 'ALL'])}
+        )
+        fake_ext = pd.DataFrame({
+            'trade_date': pd.to_datetime(['2026-01-05', '2026-01-06']),
+            'stock_count': [5000, 5000],
+            'gain_k': [250, 250],
+            'gain_top5_amount': [1e7, 1.1e7],
+            'gain_share_pct': [3.5, 3.8],
+            'loss_k': [250, 250],
+            'loss_top5_amount': [9e6, 8.5e6],
+            'loss_share_pct': [3.1, 2.9],
+        })
+        mock_tc.precompute_extreme.side_effect = lambda: {
+            'df': fake_ext,
+            'dates': ['2026-01-05', '2026-01-06'],
+            'latest_date': pd.to_datetime('2026-01-06'),
+            'latest_df': fake_ext.iloc[[-1]],
+        }
+        mock_sc = mock_sc_cls.return_value
+        mock_sc.get_industry_hierarchy.return_value = {
+            'l1_list': ['全部'],
+            'l1_to_l2_to_csrc': {},
+        }
+        mock_sc_cls.percentile_rank.return_value = 80.0
+        mock_sc.filter_industries_by_hierarchy.side_effect = (
+            lambda l1=None, l2=None, industries=None: industries
+        )
+        for name in ('row', 'column', 'card', 'element'):
+            getattr(mock_ui, name).return_value.__enter__.return_value = MagicMock()
+
+        renderer = MagicMock()
+        from pages.sector_crowding_component import render_trading_content
+        render_trading_content(plotly_renderer=renderer, is_mobile=False,
+                               dimension='amount')
+        # 行业图 + 指数图 + 涨跌幅榜图（左涨幅榜 + 右跌幅榜）
+        self.assertEqual(renderer.call_count, 4)
+        print('涨跌幅榜前5%成交额占比卡片渲染成功')
 
 
 class TestTradingCrowdingListeners(unittest.TestCase):
