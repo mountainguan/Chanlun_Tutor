@@ -2,11 +2,11 @@
     "煤炭开采": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 5.33,
+            "temperature": 27.8,
             "turnover": 14466709504.0,
             "score_vol": 15.01,
-            "score_margin": -9.67,
-            "is_mock": true
+            "score_margin": 12.8,
+            "is_mock": false
         },
         "history": [
             {
@@ -1443,11 +1443,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 5.33,
+                "temperature": 27.8,
                 "turnover": 14466709504.0,
                 "score_vol": 15.01,
-                "score_margin": -9.67,
-                "is_mock": true
+                "score_margin": 12.8,
+                "is_mock": false
             }
         ],
         "group": "煤炭"
@@ -1455,11 +1455,11 @@
     "焦炭加工": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -9.4,
+            "temperature": 55.7,
             "turnover": 1295000192.0,
             "score_vol": 40.6,
-            "score_margin": -50.0,
-            "is_mock": true
+            "score_margin": 15.1,
+            "is_mock": false
         },
         "history": [
             {
@@ -2896,11 +2896,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -9.4,
+                "temperature": 55.7,
                 "turnover": 1295000192.0,
                 "score_vol": 40.6,
-                "score_margin": -50.0,
-                "is_mock": true
+                "score_margin": 15.1,
+                "is_mock": false
             }
         ],
         "group": "煤炭"
@@ -2908,11 +2908,11 @@
     "油气开采": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 8.5,
+            "temperature": -20.8,
             "turnover": 3846423552.0,
             "score_vol": -41.5,
-            "score_margin": 50.0,
-            "is_mock": true
+            "score_margin": 20.71,
+            "is_mock": false
         },
         "history": [
             {
@@ -4349,11 +4349,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 8.5,
+                "temperature": -20.8,
                 "turnover": 3846423552.0,
                 "score_vol": -41.5,
-                "score_margin": 50.0,
-                "is_mock": true
+                "score_margin": 20.71,
+                "is_mock": false
             }
         ],
         "group": "石油"
@@ -4361,11 +4361,11 @@
     "油服工程": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -49.68,
+            "temperature": -47.94,
             "turnover": 4819379200.0,
             "score_vol": -30.73,
-            "score_margin": -18.95,
-            "is_mock": true
+            "score_margin": -17.22,
+            "is_mock": false
         },
         "history": [
             {
@@ -5802,11 +5802,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -49.68,
+                "temperature": -47.94,
                 "turnover": 4819379200.0,
                 "score_vol": -30.73,
-                "score_margin": -18.95,
-                "is_mock": true
+                "score_margin": -17.22,
+                "is_mock": false
             }
         ],
         "group": "石油"
@@ -5814,11 +5814,11 @@
     "石油化工": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 15.39,
+            "temperature": -4.38,
             "turnover": 3816987904.0,
             "score_vol": -22.66,
-            "score_margin": 38.05,
-            "is_mock": true
+            "score_margin": 18.28,
+            "is_mock": false
         },
         "history": [
             {
@@ -7255,11 +7255,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 15.39,
+                "temperature": -4.38,
                 "turnover": 3816987904.0,
                 "score_vol": -22.66,
-                "score_margin": 38.05,
-                "is_mock": true
+                "score_margin": 18.28,
+                "is_mock": false
             }
         ],
         "group": "石油"
@@ -7271,7 +7271,7 @@
             "turnover": 2594604800.0,
             "score_vol": -16.07,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -8712,7 +8712,7 @@
                 "turnover": 2594604800.0,
                 "score_vol": -16.07,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "化工"
@@ -8720,11 +8720,11 @@
     "化纤": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -19.93,
+            "temperature": -11.66,
             "turnover": 7986375168.0,
             "score_vol": -2.92,
-            "score_margin": -17.0,
-            "is_mock": true
+            "score_margin": -8.74,
+            "is_mock": false
         },
         "history": [
             {
@@ -10161,11 +10161,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -19.93,
+                "temperature": -11.66,
                 "turnover": 7986375168.0,
                 "score_vol": -2.92,
-                "score_margin": -17.0,
-                "is_mock": true
+                "score_margin": -8.74,
+                "is_mock": false
             }
         ],
         "group": "化工"
@@ -10173,11 +10173,11 @@
     "化学原料": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 8.49,
+            "temperature": 5.01,
             "turnover": 23102121984.0,
             "score_vol": 1.72,
-            "score_margin": 6.77,
-            "is_mock": true
+            "score_margin": 3.29,
+            "is_mock": false
         },
         "history": [
             {
@@ -11614,11 +11614,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 8.49,
+                "temperature": 5.01,
                 "turnover": 23102121984.0,
                 "score_vol": 1.72,
-                "score_margin": 6.77,
-                "is_mock": true
+                "score_margin": 3.29,
+                "is_mock": false
             }
         ],
         "group": "化工"
@@ -11626,11 +11626,11 @@
     "化学制品": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 16.18,
+            "temperature": 19.24,
             "turnover": 48433745920.0,
             "score_vol": 16.06,
-            "score_margin": 0.12,
-            "is_mock": true
+            "score_margin": 3.18,
+            "is_mock": false
         },
         "history": [
             {
@@ -13067,11 +13067,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 16.18,
+                "temperature": 19.24,
                 "turnover": 48433745920.0,
                 "score_vol": 16.06,
-                "score_margin": 0.12,
-                "is_mock": true
+                "score_margin": 3.18,
+                "is_mock": false
             }
         ],
         "group": "化工"
@@ -13079,11 +13079,11 @@
     "塑料": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 14.26,
+            "temperature": 13.29,
             "turnover": 27980939264.0,
             "score_vol": 9.53,
-            "score_margin": 4.73,
-            "is_mock": true
+            "score_margin": 3.75,
+            "is_mock": false
         },
         "history": [
             {
@@ -14520,11 +14520,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 14.26,
+                "temperature": 13.29,
                 "turnover": 27980939264.0,
                 "score_vol": 9.53,
-                "score_margin": 4.73,
-                "is_mock": true
+                "score_margin": 3.75,
+                "is_mock": false
             }
         ],
         "group": "化工"
@@ -14532,11 +14532,11 @@
     "橡胶": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 6.88,
+            "temperature": -3.93,
             "turnover": 3544591872.0,
             "score_vol": -1.41,
-            "score_margin": 8.28,
-            "is_mock": true
+            "score_margin": -2.52,
+            "is_mock": false
         },
         "history": [
             {
@@ -15973,11 +15973,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 6.88,
+                "temperature": -3.93,
                 "turnover": 3544591872.0,
                 "score_vol": -1.41,
-                "score_margin": 8.28,
-                "is_mock": true
+                "score_margin": -2.52,
+                "is_mock": false
             }
         ],
         "group": "化工"
@@ -15985,11 +15985,11 @@
     "农用化工": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 0.08,
+            "temperature": -13.22,
             "turnover": 14906013696.0,
             "score_vol": -4.43,
-            "score_margin": 4.51,
-            "is_mock": true
+            "score_margin": -8.79,
+            "is_mock": false
         },
         "history": [
             {
@@ -17426,11 +17426,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 0.08,
+                "temperature": -13.22,
                 "turnover": 14906013696.0,
                 "score_vol": -4.43,
-                "score_margin": 4.51,
-                "is_mock": true
+                "score_margin": -8.79,
+                "is_mock": false
             }
         ],
         "group": "化工"
@@ -17442,7 +17442,7 @@
             "turnover": 1479136128.0,
             "score_vol": -17.45,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -18883,7 +18883,7 @@
                 "turnover": 1479136128.0,
                 "score_vol": -17.45,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "钢铁"
@@ -18891,11 +18891,11 @@
     "普钢": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -22.91,
+            "temperature": -21.12,
             "turnover": 4950450688.0,
             "score_vol": -4.26,
-            "score_margin": -18.66,
-            "is_mock": true
+            "score_margin": -16.86,
+            "is_mock": false
         },
         "history": [
             {
@@ -20332,11 +20332,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -22.91,
+                "temperature": -21.12,
                 "turnover": 4950450688.0,
                 "score_vol": -4.26,
-                "score_margin": -18.66,
-                "is_mock": true
+                "score_margin": -16.86,
+                "is_mock": false
             }
         ],
         "group": "钢铁"
@@ -20348,7 +20348,7 @@
             "turnover": 1312208000.0,
             "score_vol": -21.62,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -21789,7 +21789,7 @@
                 "turnover": 1312208000.0,
                 "score_vol": -21.62,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "钢铁"
@@ -21797,11 +21797,11 @@
     "工业金属": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 37.27,
+            "temperature": 56.85,
             "turnover": 70192889856.0,
             "score_vol": 21.03,
-            "score_margin": 16.23,
-            "is_mock": true
+            "score_margin": 35.82,
+            "is_mock": false
         },
         "history": [
             {
@@ -23238,11 +23238,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 37.27,
+                "temperature": 56.85,
                 "turnover": 70192889856.0,
                 "score_vol": 21.03,
-                "score_margin": 16.23,
-                "is_mock": true
+                "score_margin": 35.82,
+                "is_mock": false
             }
         ],
         "group": "有色"
@@ -23250,11 +23250,11 @@
     "贵金属": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 31.72,
+            "temperature": 41.17,
             "turnover": 25176926208.0,
             "score_vol": 38.06,
-            "score_margin": -6.34,
-            "is_mock": true
+            "score_margin": 3.11,
+            "is_mock": false
         },
         "history": [
             {
@@ -24691,11 +24691,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 31.72,
+                "temperature": 41.17,
                 "turnover": 25176926208.0,
                 "score_vol": 38.06,
-                "score_margin": -6.34,
-                "is_mock": true
+                "score_margin": 3.11,
+                "is_mock": false
             }
         ],
         "group": "有色"
@@ -24703,11 +24703,11 @@
     "能源金属": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 13.52,
+            "temperature": 22.98,
             "turnover": 28082503680.0,
             "score_vol": 17.79,
-            "score_margin": -4.27,
-            "is_mock": true
+            "score_margin": 5.19,
+            "is_mock": false
         },
         "history": [
             {
@@ -26144,11 +26144,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 13.52,
+                "temperature": 22.98,
                 "turnover": 28082503680.0,
                 "score_vol": 17.79,
-                "score_margin": -4.27,
-                "is_mock": true
+                "score_margin": 5.19,
+                "is_mock": false
             }
         ],
         "group": "有色"
@@ -26156,11 +26156,11 @@
     "稀有金属": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 71.3,
+            "temperature": 79.25,
             "turnover": 72390688768.0,
             "score_vol": 62.55,
-            "score_margin": 8.75,
-            "is_mock": true
+            "score_margin": 16.7,
+            "is_mock": false
         },
         "history": [
             {
@@ -27597,11 +27597,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 71.3,
+                "temperature": 79.25,
                 "turnover": 72390688768.0,
                 "score_vol": 62.55,
-                "score_margin": 8.75,
-                "is_mock": true
+                "score_margin": 16.7,
+                "is_mock": false
             }
         ],
         "group": "有色"
@@ -27613,7 +27613,7 @@
             "turnover": 11732401152.0,
             "score_vol": 19.21,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -29054,7 +29054,7 @@
                 "turnover": 11732401152.0,
                 "score_vol": 19.21,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "有色"
@@ -29062,11 +29062,11 @@
     "水泥": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 9.5,
+            "temperature": 17.73,
             "turnover": 3707490816.0,
             "score_vol": 14.05,
-            "score_margin": -4.55,
-            "is_mock": true
+            "score_margin": 3.68,
+            "is_mock": false
         },
         "history": [
             {
@@ -30503,11 +30503,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 9.5,
+                "temperature": 17.73,
                 "turnover": 3707490816.0,
                 "score_vol": 14.05,
-                "score_margin": -4.55,
-                "is_mock": true
+                "score_margin": 3.68,
+                "is_mock": false
             }
         ],
         "group": "建材"
@@ -30515,11 +30515,11 @@
     "玻璃纤维": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 57.74,
+            "temperature": 60.59,
             "turnover": 46865514496.0,
             "score_vol": 46.27,
-            "score_margin": 11.47,
-            "is_mock": true
+            "score_margin": 14.32,
+            "is_mock": false
         },
         "history": [
             {
@@ -31956,11 +31956,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 57.74,
+                "temperature": 60.59,
                 "turnover": 46865514496.0,
                 "score_vol": 46.27,
-                "score_margin": 11.47,
-                "is_mock": true
+                "score_margin": 14.32,
+                "is_mock": false
             }
         ],
         "group": "建材"
@@ -31972,7 +31972,7 @@
             "turnover": 4164811264.0,
             "score_vol": -18.04,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -33413,7 +33413,7 @@
                 "turnover": 4164811264.0,
                 "score_vol": -18.04,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "建材"
@@ -33421,11 +33421,11 @@
     "非金属材料": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 17.66,
+            "temperature": 29.87,
             "turnover": 7177522176.0,
             "score_vol": 27.87,
-            "score_margin": -10.21,
-            "is_mock": true
+            "score_margin": 1.99,
+            "is_mock": false
         },
         "history": [
             {
@@ -34862,11 +34862,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 17.66,
+                "temperature": 29.87,
                 "turnover": 7177522176.0,
                 "score_vol": 27.87,
-                "score_margin": -10.21,
-                "is_mock": true
+                "score_margin": 1.99,
+                "is_mock": false
             }
         ],
         "group": "建材"
@@ -34878,7 +34878,7 @@
             "turnover": 4448855040.0,
             "score_vol": 47.87,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -36319,7 +36319,7 @@
                 "turnover": 4448855040.0,
                 "score_vol": 47.87,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "农林牧渔"
@@ -36331,7 +36331,7 @@
             "turnover": 4217225216.0,
             "score_vol": -35.96,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -37772,7 +37772,7 @@
                 "turnover": 4217225216.0,
                 "score_vol": -35.96,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "农林牧渔"
@@ -37780,11 +37780,11 @@
     "林业": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -39.83,
+            "temperature": 60.17,
             "turnover": 1066964032.0,
             "score_vol": 10.17,
-            "score_margin": -50.0,
-            "is_mock": true
+            "score_margin": 50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -39221,11 +39221,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -39.83,
+                "temperature": 60.17,
                 "turnover": 1066964032.0,
                 "score_vol": 10.17,
-                "score_margin": -50.0,
-                "is_mock": true
+                "score_margin": 50.0,
+                "is_mock": false
             }
         ],
         "group": "农林牧渔"
@@ -39237,7 +39237,7 @@
             "turnover": 462466368.0,
             "score_vol": -8.53,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -40678,7 +40678,7 @@
                 "turnover": 462466368.0,
                 "score_vol": -8.53,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "农林牧渔"
@@ -40690,7 +40690,7 @@
             "turnover": 2756648448.0,
             "score_vol": -13.71,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -42131,7 +42131,7 @@
                 "turnover": 2756648448.0,
                 "score_vol": -13.71,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "农林牧渔"
@@ -42143,7 +42143,7 @@
             "turnover": 2078121984.0,
             "score_vol": 21.76,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -43584,7 +43584,7 @@
                 "turnover": 2078121984.0,
                 "score_vol": 21.76,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "农林牧渔"
@@ -43596,7 +43596,7 @@
             "turnover": 957400256.0,
             "score_vol": 15.44,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -45037,7 +45037,7 @@
                 "turnover": 957400256.0,
                 "score_vol": 15.44,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "农林牧渔"
@@ -45045,11 +45045,11 @@
     "酿酒": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -21.4,
+            "temperature": -16.53,
             "turnover": 14477886464.0,
             "score_vol": -31.39,
-            "score_margin": 9.98,
-            "is_mock": true
+            "score_margin": 14.86,
+            "is_mock": false
         },
         "history": [
             {
@@ -46486,11 +46486,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -21.4,
+                "temperature": -16.53,
                 "turnover": 14477886464.0,
                 "score_vol": -31.39,
-                "score_margin": 9.98,
-                "is_mock": true
+                "score_margin": 14.86,
+                "is_mock": false
             }
         ],
         "group": "食品饮料"
@@ -46498,11 +46498,11 @@
     "饮料乳品": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -58.61,
+            "temperature": -51.98,
             "turnover": 6975637504.0,
             "score_vol": -9.29,
-            "score_margin": -49.32,
-            "is_mock": true
+            "score_margin": -42.69,
+            "is_mock": false
         },
         "history": [
             {
@@ -47939,11 +47939,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -58.61,
+                "temperature": -51.98,
                 "turnover": 6975637504.0,
                 "score_vol": -9.29,
-                "score_margin": -49.32,
-                "is_mock": true
+                "score_margin": -42.69,
+                "is_mock": false
             }
         ],
         "group": "食品饮料"
@@ -47951,11 +47951,11 @@
     "调味品": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -2.52,
+            "temperature": 5.05,
             "turnover": 5088852480.0,
             "score_vol": -4.36,
-            "score_margin": 1.84,
-            "is_mock": true
+            "score_margin": 9.4,
+            "is_mock": false
         },
         "history": [
             {
@@ -49392,11 +49392,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -2.52,
+                "temperature": 5.05,
                 "turnover": 5088852480.0,
                 "score_vol": -4.36,
-                "score_margin": 1.84,
-                "is_mock": true
+                "score_margin": 9.4,
+                "is_mock": false
             }
         ],
         "group": "食品饮料"
@@ -49408,7 +49408,7 @@
             "turnover": 1969909120.0,
             "score_vol": -25.42,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -50849,7 +50849,7 @@
                 "turnover": 1969909120.0,
                 "score_vol": -25.42,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "食品饮料"
@@ -50857,11 +50857,11 @@
     "食品加工": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -17.16,
+            "temperature": -41.43,
             "turnover": 6358531584.0,
             "score_vol": 8.57,
-            "score_margin": -25.72,
-            "is_mock": true
+            "score_margin": -50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -52298,11 +52298,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -17.16,
+                "temperature": -41.43,
                 "turnover": 6358531584.0,
                 "score_vol": 8.57,
-                "score_margin": -25.72,
-                "is_mock": true
+                "score_margin": -50.0,
+                "is_mock": false
             }
         ],
         "group": "食品饮料"
@@ -52310,11 +52310,11 @@
     "纺织制造": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -7.26,
+            "temperature": -25.1,
             "turnover": 3555268352.0,
             "score_vol": -4.95,
-            "score_margin": -2.31,
-            "is_mock": true
+            "score_margin": -20.15,
+            "is_mock": false
         },
         "history": [
             {
@@ -53751,11 +53751,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -7.26,
+                "temperature": -25.1,
                 "turnover": 3555268352.0,
                 "score_vol": -4.95,
-                "score_margin": -2.31,
-                "is_mock": true
+                "score_margin": -20.15,
+                "is_mock": false
             }
         ],
         "group": "纺织服饰"
@@ -53763,11 +53763,11 @@
     "服装家纺": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -9.26,
+            "temperature": -20.95,
             "turnover": 5745093120.0,
             "score_vol": -20.02,
-            "score_margin": 10.76,
-            "is_mock": true
+            "score_margin": -0.94,
+            "is_mock": false
         },
         "history": [
             {
@@ -55204,11 +55204,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -9.26,
+                "temperature": -20.95,
                 "turnover": 5745093120.0,
                 "score_vol": -20.02,
-                "score_margin": 10.76,
-                "is_mock": true
+                "score_margin": -0.94,
+                "is_mock": false
             }
         ],
         "group": "纺织服饰"
@@ -55216,11 +55216,11 @@
     "饰品": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 41.42,
+            "temperature": 25.37,
             "turnover": 3247891968.0,
             "score_vol": 75.37,
-            "score_margin": -33.95,
-            "is_mock": true
+            "score_margin": -50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -56657,11 +56657,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 41.42,
+                "temperature": 25.37,
                 "turnover": 3247891968.0,
                 "score_vol": 75.37,
-                "score_margin": -33.95,
-                "is_mock": true
+                "score_margin": -50.0,
+                "is_mock": false
             }
         ],
         "group": "纺织服饰"
@@ -56669,11 +56669,11 @@
     "造纸": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -62.04,
+            "temperature": -5.0,
             "turnover": 2883474432.0,
             "score_vol": -20.46,
-            "score_margin": -41.58,
-            "is_mock": true
+            "score_margin": 15.45,
+            "is_mock": false
         },
         "history": [
             {
@@ -58110,11 +58110,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -62.04,
+                "temperature": -5.0,
                 "turnover": 2883474432.0,
                 "score_vol": -20.46,
-                "score_margin": -41.58,
-                "is_mock": true
+                "score_margin": 15.45,
+                "is_mock": false
             }
         ],
         "group": "轻工制造"
@@ -58122,11 +58122,11 @@
     "包装印刷": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -26.6,
+            "temperature": 3.28,
             "turnover": 6490770944.0,
             "score_vol": -1.49,
-            "score_margin": -25.11,
-            "is_mock": true
+            "score_margin": 4.76,
+            "is_mock": false
         },
         "history": [
             {
@@ -59563,11 +59563,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -26.6,
+                "temperature": 3.28,
                 "turnover": 6490770944.0,
                 "score_vol": -1.49,
-                "score_margin": -25.11,
-                "is_mock": true
+                "score_margin": 4.76,
+                "is_mock": false
             }
         ],
         "group": "轻工制造"
@@ -59575,11 +59575,11 @@
     "家居用品": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -41.7,
+            "temperature": -50.26,
             "turnover": 5955019776.0,
             "score_vol": -0.26,
-            "score_margin": -41.45,
-            "is_mock": true
+            "score_margin": -50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -61016,11 +61016,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -41.7,
+                "temperature": -50.26,
                 "turnover": 5955019776.0,
                 "score_vol": -0.26,
-                "score_margin": -41.45,
-                "is_mock": true
+                "score_margin": -50.0,
+                "is_mock": false
             }
         ],
         "group": "轻工制造"
@@ -61032,7 +61032,7 @@
             "turnover": 1676388352.0,
             "score_vol": 2.75,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -62473,7 +62473,7 @@
                 "turnover": 1676388352.0,
                 "score_vol": 2.75,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "轻工制造"
@@ -62481,11 +62481,11 @@
     "白色家电": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -51.14,
+            "temperature": -72.61,
             "turnover": 6157168640.0,
             "score_vol": -22.61,
-            "score_margin": -28.53,
-            "is_mock": true
+            "score_margin": -50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -63922,11 +63922,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -51.14,
+                "temperature": -72.61,
                 "turnover": 6157168640.0,
                 "score_vol": -22.61,
-                "score_margin": -28.53,
-                "is_mock": true
+                "score_margin": -50.0,
+                "is_mock": false
             }
         ],
         "group": "家电"
@@ -63934,11 +63934,11 @@
     "黑色家电": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -73.85,
+            "temperature": -3.47,
             "turnover": 2405926144.0,
             "score_vol": -23.85,
-            "score_margin": -50.0,
-            "is_mock": true
+            "score_margin": 20.37,
+            "is_mock": false
         },
         "history": [
             {
@@ -65375,11 +65375,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -73.85,
+                "temperature": -3.47,
                 "turnover": 2405926144.0,
                 "score_vol": -23.85,
-                "score_margin": -50.0,
-                "is_mock": true
+                "score_margin": 20.37,
+                "is_mock": false
             }
         ],
         "group": "家电"
@@ -65391,7 +65391,7 @@
             "turnover": 2546872576.0,
             "score_vol": -10.05,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -66832,7 +66832,7 @@
                 "turnover": 2546872576.0,
                 "score_vol": -10.05,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "家电"
@@ -66844,7 +66844,7 @@
             "turnover": 730845184.0,
             "score_vol": -15.04,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -68285,7 +68285,7 @@
                 "turnover": 730845184.0,
                 "score_vol": -15.04,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "家电"
@@ -68293,11 +68293,11 @@
     "家电零部件": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 21.55,
+            "temperature": 31.42,
             "turnover": 6096593408.0,
             "score_vol": -18.58,
-            "score_margin": 40.13,
-            "is_mock": true
+            "score_margin": 50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -69734,11 +69734,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 21.55,
+                "temperature": 31.42,
                 "turnover": 6096593408.0,
                 "score_vol": -18.58,
-                "score_margin": 40.13,
-                "is_mock": true
+                "score_margin": 50.0,
+                "is_mock": false
             }
         ],
         "group": "家电"
@@ -69746,11 +69746,11 @@
     "一般零售": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -19.73,
+            "temperature": -24.64,
             "turnover": 4557701632.0,
             "score_vol": -26.48,
-            "score_margin": 6.75,
-            "is_mock": true
+            "score_margin": 1.83,
+            "is_mock": false
         },
         "history": [
             {
@@ -71187,11 +71187,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -19.73,
+                "temperature": -24.64,
                 "turnover": 4557701632.0,
                 "score_vol": -26.48,
-                "score_margin": 6.75,
-                "is_mock": true
+                "score_margin": 1.83,
+                "is_mock": false
             }
         ],
         "group": "商贸"
@@ -71203,7 +71203,7 @@
             "turnover": 2590132992.0,
             "score_vol": -15.56,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -72644,7 +72644,7 @@
                 "turnover": 2590132992.0,
                 "score_vol": -15.56,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "商贸"
@@ -72652,11 +72652,11 @@
     "专业连锁": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 14.52,
+            "temperature": -29.88,
             "turnover": 838264896.0,
             "score_vol": -29.09,
-            "score_margin": 43.61,
-            "is_mock": true
+            "score_margin": -0.79,
+            "is_mock": false
         },
         "history": [
             {
@@ -74093,11 +74093,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 14.52,
+                "temperature": -29.88,
                 "turnover": 838264896.0,
                 "score_vol": -29.09,
-                "score_margin": 43.61,
-                "is_mock": true
+                "score_margin": -0.79,
+                "is_mock": false
             }
         ],
         "group": "商贸"
@@ -74109,7 +74109,7 @@
             "turnover": 1333364992.0,
             "score_vol": -12.76,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -75550,7 +75550,7 @@
                 "turnover": 1333364992.0,
                 "score_vol": -12.76,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "商贸"
@@ -75562,7 +75562,7 @@
             "turnover": 11891169280.0,
             "score_vol": 35.36,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -77003,7 +77003,7 @@
                 "turnover": 11891169280.0,
                 "score_vol": 35.36,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "商贸"
@@ -77011,11 +77011,11 @@
     "乘用车": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -16.45,
+            "temperature": -29.63,
             "turnover": 7608629248.0,
             "score_vol": -22.7,
-            "score_margin": 6.25,
-            "is_mock": true
+            "score_margin": -6.93,
+            "is_mock": false
         },
         "history": [
             {
@@ -78452,11 +78452,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -16.45,
+                "temperature": -29.63,
                 "turnover": 7608629248.0,
                 "score_vol": -22.7,
-                "score_margin": 6.25,
-                "is_mock": true
+                "score_margin": -6.93,
+                "is_mock": false
             }
         ],
         "group": "汽车"
@@ -78464,11 +78464,11 @@
     "商用车": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -40.74,
+            "temperature": -33.9,
             "turnover": 4089421568.0,
             "score_vol": -13.75,
-            "score_margin": -26.99,
-            "is_mock": true
+            "score_margin": -20.15,
+            "is_mock": false
         },
         "history": [
             {
@@ -79905,11 +79905,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -40.74,
+                "temperature": -33.9,
                 "turnover": 4089421568.0,
                 "score_vol": -13.75,
-                "score_margin": -26.99,
-                "is_mock": true
+                "score_margin": -20.15,
+                "is_mock": false
             }
         ],
         "group": "汽车"
@@ -79917,11 +79917,11 @@
     "汽车零部件": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -6.68,
+            "temperature": -6.85,
             "turnover": 44526333952.0,
             "score_vol": -9.52,
-            "score_margin": 2.83,
-            "is_mock": true
+            "score_margin": 2.67,
+            "is_mock": false
         },
         "history": [
             {
@@ -81358,11 +81358,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -6.68,
+                "temperature": -6.85,
                 "turnover": 44526333952.0,
                 "score_vol": -9.52,
-                "score_margin": 2.83,
-                "is_mock": true
+                "score_margin": 2.67,
+                "is_mock": false
             }
         ],
         "group": "汽车"
@@ -81370,11 +81370,11 @@
     "汽车服务": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 40.17,
+            "temperature": 36.08,
             "turnover": 773283840.0,
             "score_vol": -9.83,
-            "score_margin": 50.0,
-            "is_mock": true
+            "score_margin": 45.92,
+            "is_mock": false
         },
         "history": [
             {
@@ -82811,11 +82811,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 40.17,
+                "temperature": 36.08,
                 "turnover": 773283840.0,
                 "score_vol": -9.83,
-                "score_margin": 50.0,
-                "is_mock": true
+                "score_margin": 45.92,
+                "is_mock": false
             }
         ],
         "group": "汽车"
@@ -82827,7 +82827,7 @@
             "turnover": 3518686976.0,
             "score_vol": 5.78,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -84268,7 +84268,7 @@
                 "turnover": 3518686976.0,
                 "score_vol": 5.78,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "汽车"
@@ -84276,11 +84276,11 @@
     "化学制药": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 25.56,
+            "temperature": 10.82,
             "turnover": 51454906368.0,
             "score_vol": 14.65,
-            "score_margin": 10.91,
-            "is_mock": true
+            "score_margin": -3.84,
+            "is_mock": false
         },
         "history": [
             {
@@ -85717,11 +85717,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 25.56,
+                "temperature": 10.82,
                 "turnover": 51454906368.0,
                 "score_vol": 14.65,
-                "score_margin": 10.91,
-                "is_mock": true
+                "score_margin": -3.84,
+                "is_mock": false
             }
         ],
         "group": "医药医疗"
@@ -85729,11 +85729,11 @@
     "生物制品": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 32.22,
+            "temperature": 25.47,
             "turnover": 36182446080.0,
             "score_vol": 21.87,
-            "score_margin": 10.34,
-            "is_mock": true
+            "score_margin": 3.59,
+            "is_mock": false
         },
         "history": [
             {
@@ -87170,11 +87170,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 32.22,
+                "temperature": 25.47,
                 "turnover": 36182446080.0,
                 "score_vol": 21.87,
-                "score_margin": 10.34,
-                "is_mock": true
+                "score_margin": 3.59,
+                "is_mock": false
             }
         ],
         "group": "医药医疗"
@@ -87182,11 +87182,11 @@
     "医疗器械": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 7.44,
+            "temperature": 7.51,
             "turnover": 22332340224.0,
             "score_vol": 5.98,
-            "score_margin": 1.46,
-            "is_mock": true
+            "score_margin": 1.53,
+            "is_mock": false
         },
         "history": [
             {
@@ -88623,11 +88623,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 7.44,
+                "temperature": 7.51,
                 "turnover": 22332340224.0,
                 "score_vol": 5.98,
-                "score_margin": 1.46,
-                "is_mock": true
+                "score_margin": 1.53,
+                "is_mock": false
             }
         ],
         "group": "医药医疗"
@@ -88635,11 +88635,11 @@
     "医疗服务": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 24.74,
+            "temperature": 25.34,
             "turnover": 48356823040.0,
             "score_vol": 26.57,
-            "score_margin": -1.83,
-            "is_mock": true
+            "score_margin": -1.24,
+            "is_mock": false
         },
         "history": [
             {
@@ -90076,11 +90076,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 24.74,
+                "temperature": 25.34,
                 "turnover": 48356823040.0,
                 "score_vol": 26.57,
-                "score_margin": -1.83,
-                "is_mock": true
+                "score_margin": -1.24,
+                "is_mock": false
             }
         ],
         "group": "医药医疗"
@@ -90088,11 +90088,11 @@
     "医药商业": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 31.18,
+            "temperature": 26.95,
             "turnover": 8178096640.0,
             "score_vol": 32.52,
-            "score_margin": -1.34,
-            "is_mock": true
+            "score_margin": -5.58,
+            "is_mock": false
         },
         "history": [
             {
@@ -91529,11 +91529,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 31.18,
+                "temperature": 26.95,
                 "turnover": 8178096640.0,
                 "score_vol": 32.52,
-                "score_margin": -1.34,
-                "is_mock": true
+                "score_margin": -5.58,
+                "is_mock": false
             }
         ],
         "group": "医药医疗"
@@ -91541,11 +91541,11 @@
     "中药": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -9.86,
+            "temperature": -13.44,
             "turnover": 16091639808.0,
             "score_vol": -11.45,
-            "score_margin": 1.59,
-            "is_mock": true
+            "score_margin": -1.99,
+            "is_mock": false
         },
         "history": [
             {
@@ -92982,11 +92982,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -9.86,
+                "temperature": -13.44,
                 "turnover": 16091639808.0,
                 "score_vol": -11.45,
-                "score_margin": 1.59,
-                "is_mock": true
+                "score_margin": -1.99,
+                "is_mock": false
             }
         ],
         "group": "医药医疗"
@@ -92994,11 +92994,11 @@
     "医疗美容": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 17.8,
+            "temperature": 17.72,
             "turnover": 1119743616.0,
             "score_vol": -14.75,
-            "score_margin": 32.55,
-            "is_mock": true
+            "score_margin": 32.47,
+            "is_mock": false
         },
         "history": [
             {
@@ -94435,11 +94435,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 17.8,
+                "temperature": 17.72,
                 "turnover": 1119743616.0,
                 "score_vol": -14.75,
-                "score_margin": 32.55,
-                "is_mock": true
+                "score_margin": 32.47,
+                "is_mock": false
             }
         ],
         "group": "医药医疗"
@@ -94447,11 +94447,11 @@
     "电机制造": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 23.42,
+            "temperature": 22.41,
             "turnover": 6620080640.0,
             "score_vol": 23.32,
-            "score_margin": 0.1,
-            "is_mock": true
+            "score_margin": -0.91,
+            "is_mock": false
         },
         "history": [
             {
@@ -95888,11 +95888,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 23.42,
+                "temperature": 22.41,
                 "turnover": 6620080640.0,
                 "score_vol": 23.32,
-                "score_margin": 0.1,
-                "is_mock": true
+                "score_margin": -0.91,
+                "is_mock": false
             }
         ],
         "group": "电力设备"
@@ -95900,11 +95900,11 @@
     "电池": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -2.3,
+            "temperature": -7.39,
             "turnover": 57105612800.0,
             "score_vol": -11.57,
-            "score_margin": 9.27,
-            "is_mock": true
+            "score_margin": 4.18,
+            "is_mock": false
         },
         "history": [
             {
@@ -97341,11 +97341,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -2.3,
+                "temperature": -7.39,
                 "turnover": 57105612800.0,
                 "score_vol": -11.57,
-                "score_margin": 9.27,
-                "is_mock": true
+                "score_margin": 4.18,
+                "is_mock": false
             }
         ],
         "group": "电力设备"
@@ -97353,11 +97353,11 @@
     "电网设备": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -11.86,
+            "temperature": -15.45,
             "turnover": 42610737152.0,
             "score_vol": -14.02,
-            "score_margin": 2.16,
-            "is_mock": true
+            "score_margin": -1.42,
+            "is_mock": false
         },
         "history": [
             {
@@ -98794,11 +98794,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -11.86,
+                "temperature": -15.45,
                 "turnover": 42610737152.0,
                 "score_vol": -14.02,
-                "score_margin": 2.16,
-                "is_mock": true
+                "score_margin": -1.42,
+                "is_mock": false
             }
         ],
         "group": "电力设备"
@@ -98806,11 +98806,11 @@
     "光伏设备": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 8.83,
+            "temperature": 13.22,
             "turnover": 39870943232.0,
             "score_vol": 11.09,
-            "score_margin": -2.26,
-            "is_mock": true
+            "score_margin": 2.13,
+            "is_mock": false
         },
         "history": [
             {
@@ -100247,11 +100247,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 8.83,
+                "temperature": 13.22,
                 "turnover": 39870943232.0,
                 "score_vol": 11.09,
-                "score_margin": -2.26,
-                "is_mock": true
+                "score_margin": 2.13,
+                "is_mock": false
             }
         ],
         "group": "电力设备"
@@ -100259,11 +100259,11 @@
     "风电设备": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 11.29,
+            "temperature": 10.91,
             "turnover": 10766520320.0,
             "score_vol": 1.35,
-            "score_margin": 9.93,
-            "is_mock": true
+            "score_margin": 9.56,
+            "is_mock": false
         },
         "history": [
             {
@@ -101700,11 +101700,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 11.29,
+                "temperature": 10.91,
                 "turnover": 10766520320.0,
                 "score_vol": 1.35,
-                "score_margin": 9.93,
-                "is_mock": true
+                "score_margin": 9.56,
+                "is_mock": false
             }
         ],
         "group": "电力设备"
@@ -101712,11 +101712,11 @@
     "其他发电设备": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -8.48,
+            "temperature": -22.78,
             "turnover": 13931159552.0,
             "score_vol": -9.97,
-            "score_margin": 1.5,
-            "is_mock": true
+            "score_margin": -12.8,
+            "is_mock": false
         },
         "history": [
             {
@@ -103153,11 +103153,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -8.48,
+                "temperature": -22.78,
                 "turnover": 13931159552.0,
                 "score_vol": -9.97,
-                "score_margin": 1.5,
-                "is_mock": true
+                "score_margin": -12.8,
+                "is_mock": false
             }
         ],
         "group": "电力设备"
@@ -103169,7 +103169,7 @@
             "turnover": 4094033408.0,
             "score_vol": -20.24,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -104610,7 +104610,7 @@
                 "turnover": 4094033408.0,
                 "score_vol": -20.24,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "国防军工"
@@ -104618,211 +104618,211 @@
     "航空装备": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -16.77,
+            "temperature": -12.0,
             "turnover": 10426409984.0,
             "score_vol": -13.98,
-            "score_margin": -2.79,
-            "is_mock": true
+            "score_margin": 1.97,
+            "is_mock": false
         },
         "history": [
             {
                 "date": "2025-11-12",
-                "temperature": 25.63,
+                "temperature": 24.97,
                 "turnover": 10823382016.0,
                 "score_vol": -3.08,
-                "score_margin": 28.71,
+                "score_margin": 28.05,
                 "is_mock": false
             },
             {
                 "date": "2025-11-13",
-                "temperature": 5.18,
+                "temperature": 5.02,
                 "turnover": 8332896256.0,
                 "score_vol": -26.89,
-                "score_margin": 32.07,
+                "score_margin": 31.91,
                 "is_mock": false
             },
             {
                 "date": "2025-11-14",
-                "temperature": -8.06,
+                "temperature": -8.32,
                 "turnover": 11094910976.0,
                 "score_vol": 2.67,
-                "score_margin": -10.74,
+                "score_margin": -11.0,
                 "is_mock": false
             },
             {
                 "date": "2025-11-17",
-                "temperature": 29.95,
+                "temperature": 29.46,
                 "turnover": 16351151104.0,
                 "score_vol": 51.71,
-                "score_margin": -21.76,
+                "score_margin": -22.24,
                 "is_mock": false
             },
             {
                 "date": "2025-11-18",
-                "temperature": -16.85,
+                "temperature": -17.04,
                 "turnover": 10761058304.0,
                 "score_vol": -1.69,
-                "score_margin": -15.17,
-                "is_mock": false
-            },
-            {
-                "date": "2025-11-19",
-                "temperature": 3.65,
-                "turnover": 12654350336.0,
-                "score_vol": 26.76,
-                "score_margin": -23.11,
-                "is_mock": false
-            },
-            {
-                "date": "2025-11-20",
-                "temperature": -3.43,
-                "turnover": 8628246528.0,
-                "score_vol": -12.31,
-                "score_margin": 8.88,
-                "is_mock": false
-            },
-            {
-                "date": "2025-11-21",
-                "temperature": -13.43,
-                "turnover": 12623039488.0,
-                "score_vol": 12.27,
-                "score_margin": -25.7,
-                "is_mock": false
-            },
-            {
-                "date": "2025-11-24",
-                "temperature": 65.23,
-                "turnover": 18500861952.0,
-                "score_vol": 80.58,
                 "score_margin": -15.35,
                 "is_mock": false
             },
             {
+                "date": "2025-11-19",
+                "temperature": 3.23,
+                "turnover": 12654350336.0,
+                "score_vol": 26.76,
+                "score_margin": -23.53,
+                "is_mock": false
+            },
+            {
+                "date": "2025-11-20",
+                "temperature": -3.96,
+                "turnover": 8628246528.0,
+                "score_vol": -12.31,
+                "score_margin": 8.36,
+                "is_mock": false
+            },
+            {
+                "date": "2025-11-21",
+                "temperature": -13.73,
+                "turnover": 12623039488.0,
+                "score_vol": 12.27,
+                "score_margin": -26.0,
+                "is_mock": false
+            },
+            {
+                "date": "2025-11-24",
+                "temperature": 65.78,
+                "turnover": 18500861952.0,
+                "score_vol": 80.58,
+                "score_margin": -14.8,
+                "is_mock": false
+            },
+            {
                 "date": "2025-11-25",
-                "temperature": 35.53,
+                "temperature": 39.17,
                 "turnover": 15339564032.0,
                 "score_vol": 41.41,
-                "score_margin": -5.88,
+                "score_margin": -2.24,
                 "is_mock": false
             },
             {
                 "date": "2025-11-26",
-                "temperature": 8.18,
+                "temperature": 10.02,
                 "turnover": 13941476352.0,
                 "score_vol": 27.29,
-                "score_margin": -19.1,
+                "score_margin": -17.27,
                 "is_mock": false
             },
             {
                 "date": "2025-11-27",
-                "temperature": -17.52,
+                "temperature": -12.13,
                 "turnover": 10033784832.0,
                 "score_vol": -5.55,
-                "score_margin": -11.96,
+                "score_margin": -6.58,
                 "is_mock": false
             },
             {
                 "date": "2025-11-28",
-                "temperature": 17.81,
+                "temperature": 21.48,
                 "turnover": 9655484416.0,
                 "score_vol": -3.73,
-                "score_margin": 21.54,
+                "score_margin": 25.2,
                 "is_mock": false
             },
             {
                 "date": "2025-12-01",
-                "temperature": 30.41,
+                "temperature": 31.26,
                 "turnover": 16454003712.0,
                 "score_vol": 34.38,
-                "score_margin": -3.97,
+                "score_margin": -3.12,
                 "is_mock": false
             },
             {
                 "date": "2025-12-02",
-                "temperature": 22.55,
+                "temperature": 23.28,
                 "turnover": 15141429248.0,
                 "score_vol": 41.56,
-                "score_margin": -19.01,
+                "score_margin": -18.28,
                 "is_mock": false
             },
             {
                 "date": "2025-12-03",
-                "temperature": 22.36,
+                "temperature": 23.18,
                 "turnover": 13974676480.0,
                 "score_vol": 20.84,
-                "score_margin": 1.52,
+                "score_margin": 2.34,
                 "is_mock": false
             },
             {
                 "date": "2025-12-04",
-                "temperature": 64.08,
+                "temperature": 64.59,
                 "turnover": 12978291712.0,
                 "score_vol": 20.57,
-                "score_margin": 43.52,
+                "score_margin": 44.02,
                 "is_mock": false
             },
             {
                 "date": "2025-12-05",
-                "temperature": 53.02,
+                "temperature": 53.0,
                 "turnover": 15278846976.0,
                 "score_vol": 26.05,
-                "score_margin": 26.97,
+                "score_margin": 26.95,
                 "is_mock": false
             },
             {
                 "date": "2025-12-08",
-                "temperature": 70.73,
+                "temperature": 71.41,
                 "turnover": 21772263424.0,
                 "score_vol": 45.96,
-                "score_margin": 24.78,
+                "score_margin": 25.46,
                 "is_mock": false
             },
             {
                 "date": "2025-12-09",
-                "temperature": 28.58,
+                "temperature": 28.7,
                 "turnover": 15346924544.0,
                 "score_vol": 8.06,
-                "score_margin": 20.52,
+                "score_margin": 20.65,
                 "is_mock": false
             },
             {
                 "date": "2025-12-10",
-                "temperature": 49.21,
+                "temperature": 48.72,
                 "turnover": 15210661888.0,
                 "score_vol": 12.3,
-                "score_margin": 36.91,
+                "score_margin": 36.43,
                 "is_mock": false
             },
             {
                 "date": "2025-12-11",
-                "temperature": 55.63,
+                "temperature": 55.29,
                 "turnover": 17471942656.0,
                 "score_vol": 18.93,
-                "score_margin": 36.7,
+                "score_margin": 36.36,
                 "is_mock": false
             },
             {
                 "date": "2025-12-12",
-                "temperature": 49.9,
+                "temperature": 49.71,
                 "turnover": 25371045888.0,
                 "score_vol": 46.48,
-                "score_margin": 3.42,
+                "score_margin": 3.23,
                 "is_mock": false
             },
             {
                 "date": "2025-12-15",
-                "temperature": 108.32,
+                "temperature": 108.46,
                 "turnover": 24286728192.0,
                 "score_vol": 60.51,
-                "score_margin": 47.81,
+                "score_margin": 47.94,
                 "is_mock": false
             },
             {
                 "date": "2025-12-16",
-                "temperature": 85.23,
+                "temperature": 86.71,
                 "turnover": 21004947456.0,
                 "score_vol": 37.38,
-                "score_margin": 47.86,
+                "score_margin": 49.33,
                 "is_mock": false
             },
             {
@@ -104843,10 +104843,10 @@
             },
             {
                 "date": "2025-12-19",
-                "temperature": 81.07,
+                "temperature": 81.09,
                 "turnover": 24212062208.0,
                 "score_vol": 44.24,
-                "score_margin": 36.83,
+                "score_margin": 36.85,
                 "is_mock": false
             },
             {
@@ -104875,34 +104875,34 @@
             },
             {
                 "date": "2025-12-25",
-                "temperature": 81.23,
+                "temperature": 81.1,
                 "turnover": 30060892160.0,
                 "score_vol": 51.02,
-                "score_margin": 30.22,
+                "score_margin": 30.08,
                 "is_mock": false
             },
             {
                 "date": "2025-12-26",
-                "temperature": 48.34,
+                "temperature": 49.61,
                 "turnover": 30615504896.0,
                 "score_vol": 31.78,
-                "score_margin": 16.56,
+                "score_margin": 17.83,
                 "is_mock": false
             },
             {
                 "date": "2025-12-29",
-                "temperature": 46.32,
+                "temperature": 46.39,
                 "turnover": 29052188672.0,
                 "score_vol": 23.23,
-                "score_margin": 23.09,
+                "score_margin": 23.16,
                 "is_mock": false
             },
             {
                 "date": "2025-12-30",
-                "temperature": 61.77,
+                "temperature": 61.97,
                 "turnover": 30997366784.0,
                 "score_vol": 28.23,
-                "score_margin": 33.55,
+                "score_margin": 33.74,
                 "is_mock": false
             },
             {
@@ -104915,162 +104915,162 @@
             },
             {
                 "date": "2026-01-05",
-                "temperature": 57.43,
+                "temperature": 58.46,
                 "turnover": 32575981568.0,
                 "score_vol": 8.64,
-                "score_margin": 48.78,
+                "score_margin": 49.81,
                 "is_mock": false
             },
             {
                 "date": "2026-01-06",
-                "temperature": 39.66,
+                "temperature": 40.62,
                 "turnover": 37363003392.0,
                 "score_vol": 10.84,
-                "score_margin": 28.82,
+                "score_margin": 29.77,
                 "is_mock": false
             },
             {
                 "date": "2026-01-07",
-                "temperature": 3.78,
+                "temperature": 4.32,
                 "turnover": 34147866624.0,
                 "score_vol": -0.91,
-                "score_margin": 4.69,
+                "score_margin": 5.23,
                 "is_mock": false
             },
             {
                 "date": "2026-01-08",
-                "temperature": 15.95,
+                "temperature": 15.86,
                 "turnover": 48513007616.0,
                 "score_vol": 37.36,
-                "score_margin": -21.4,
+                "score_margin": -21.49,
                 "is_mock": false
             },
             {
                 "date": "2026-01-09",
-                "temperature": 34.66,
+                "temperature": 34.19,
                 "turnover": 63942479872.0,
                 "score_vol": 53.33,
-                "score_margin": -18.67,
+                "score_margin": -19.14,
                 "is_mock": false
             },
             {
                 "date": "2026-01-12",
-                "temperature": 2.75,
+                "temperature": 2.64,
                 "turnover": 61765070848.0,
                 "score_vol": 24.05,
-                "score_margin": -21.3,
+                "score_margin": -21.41,
                 "is_mock": false
             },
             {
                 "date": "2026-01-13",
-                "temperature": 16.57,
+                "temperature": 16.28,
                 "turnover": 50929647616.0,
                 "score_vol": 0.27,
-                "score_margin": 16.31,
+                "score_margin": 16.02,
                 "is_mock": false
             },
             {
                 "date": "2026-01-14",
-                "temperature": 13.49,
+                "temperature": 12.99,
                 "turnover": 44770201600.0,
                 "score_vol": -17.16,
-                "score_margin": 30.65,
+                "score_margin": 30.15,
                 "is_mock": false
             },
             {
                 "date": "2026-01-15",
-                "temperature": -47.85,
+                "temperature": -48.55,
                 "turnover": 31116621824.0,
                 "score_vol": -21.19,
-                "score_margin": -26.66,
+                "score_margin": -27.36,
                 "is_mock": false
             },
             {
                 "date": "2026-01-16",
-                "temperature": -6.73,
+                "temperature": -6.04,
                 "turnover": 25640214528.0,
                 "score_vol": -36.98,
-                "score_margin": 30.26,
+                "score_margin": 30.95,
                 "is_mock": false
             },
             {
                 "date": "2026-01-19",
-                "temperature": -40.75,
+                "temperature": -41.11,
                 "turnover": 39681536000.0,
                 "score_vol": 8.39,
-                "score_margin": -49.14,
+                "score_margin": -49.5,
                 "is_mock": false
             },
             {
                 "date": "2026-01-20",
-                "temperature": -30.36,
+                "temperature": -31.08,
                 "turnover": 38908690432.0,
                 "score_vol": 3.56,
-                "score_margin": -33.92,
+                "score_margin": -34.64,
                 "is_mock": false
             },
             {
                 "date": "2026-01-21",
-                "temperature": -24.56,
+                "temperature": -25.02,
                 "turnover": 29586067456.0,
                 "score_vol": -16.03,
-                "score_margin": -8.53,
+                "score_margin": -9.0,
                 "is_mock": false
             },
             {
                 "date": "2026-01-22",
-                "temperature": -4.4,
+                "temperature": -5.26,
                 "turnover": 43544211456.0,
                 "score_vol": 16.94,
-                "score_margin": -21.34,
+                "score_margin": -22.2,
                 "is_mock": false
             },
             {
                 "date": "2026-01-23",
-                "temperature": -2.78,
+                "temperature": -3.26,
                 "turnover": 42140520448.0,
                 "score_vol": -2.04,
-                "score_margin": -0.74,
+                "score_margin": -1.22,
                 "is_mock": false
             },
             {
                 "date": "2026-01-26",
-                "temperature": 5.71,
+                "temperature": 5.19,
                 "turnover": 35334656000.0,
                 "score_vol": -20.66,
-                "score_margin": 26.38,
+                "score_margin": 25.85,
                 "is_mock": false
             },
             {
                 "date": "2026-01-27",
-                "temperature": -56.56,
+                "temperature": -56.71,
                 "turnover": 36848996352.0,
                 "score_vol": -6.71,
-                "score_margin": -49.85,
+                "score_margin": -50.0,
                 "is_mock": false
             },
             {
                 "date": "2026-01-28",
-                "temperature": -57.49,
+                "temperature": -58.02,
                 "turnover": 29727072256.0,
                 "score_vol": -25.54,
-                "score_margin": -31.95,
+                "score_margin": -32.48,
                 "is_mock": false
             },
             {
                 "date": "2026-01-29",
-                "temperature": -68.59,
+                "temperature": -69.14,
                 "turnover": 31053629440.0,
                 "score_vol": -27.26,
-                "score_margin": -41.33,
+                "score_margin": -41.88,
                 "is_mock": false
             },
             {
                 "date": "2026-01-30",
-                "temperature": -71.33,
+                "temperature": -72.14,
                 "turnover": 27977510912.0,
                 "score_vol": -24.27,
-                "score_margin": -47.06,
+                "score_margin": -47.87,
                 "is_mock": false
             },
             {
@@ -105083,18 +105083,18 @@
             },
             {
                 "date": "2026-02-03",
-                "temperature": -59.91,
+                "temperature": -60.74,
                 "turnover": 28857032704.0,
                 "score_vol": -11.33,
-                "score_margin": -48.58,
+                "score_margin": -49.4,
                 "is_mock": false
             },
             {
                 "date": "2026-02-04",
-                "temperature": -30.01,
+                "temperature": -30.91,
                 "turnover": 36780781568.0,
                 "score_vol": 14.78,
-                "score_margin": -44.8,
+                "score_margin": -45.69,
                 "is_mock": false
             },
             {
@@ -105107,42 +105107,42 @@
             },
             {
                 "date": "2026-02-06",
-                "temperature": -53.72,
+                "temperature": -54.25,
                 "turnover": 23952623616.0,
                 "score_vol": -9.08,
-                "score_margin": -44.64,
+                "score_margin": -45.17,
                 "is_mock": false
             },
             {
                 "date": "2026-02-09",
-                "temperature": -30.2,
+                "temperature": -30.91,
                 "turnover": 22175590400.0,
                 "score_vol": -16.97,
-                "score_margin": -13.23,
+                "score_margin": -13.94,
                 "is_mock": false
             },
             {
                 "date": "2026-02-10",
-                "temperature": -19.9,
+                "temperature": -20.56,
                 "turnover": 23665930240.0,
                 "score_vol": -4.03,
-                "score_margin": -15.88,
+                "score_margin": -16.53,
                 "is_mock": false
             },
             {
                 "date": "2026-02-11",
-                "temperature": -30.82,
+                "temperature": -31.6,
                 "turnover": 18817814528.0,
                 "score_vol": -18.63,
-                "score_margin": -12.2,
+                "score_margin": -12.97,
                 "is_mock": false
             },
             {
                 "date": "2026-02-12",
-                "temperature": -49.87,
+                "temperature": -49.83,
                 "turnover": 20751529984.0,
                 "score_vol": -16.66,
-                "score_margin": -33.21,
+                "score_margin": -33.16,
                 "is_mock": false
             },
             {
@@ -105155,506 +105155,506 @@
             },
             {
                 "date": "2026-02-24",
-                "temperature": -39.87,
+                "temperature": -40.45,
                 "turnover": 28396683264.0,
                 "score_vol": 8.54,
-                "score_margin": -48.42,
+                "score_margin": -49.0,
                 "is_mock": false
             },
             {
                 "date": "2026-02-25",
-                "temperature": -26.57,
+                "temperature": -27.28,
                 "turnover": 23434692608.0,
                 "score_vol": -18.3,
-                "score_margin": -8.27,
+                "score_margin": -8.98,
                 "is_mock": false
             },
             {
                 "date": "2026-02-26",
-                "temperature": -26.74,
+                "temperature": -26.34,
                 "turnover": 30528491520.0,
                 "score_vol": 2.95,
-                "score_margin": -29.69,
+                "score_margin": -29.29,
                 "is_mock": false
             },
             {
                 "date": "2026-02-27",
-                "temperature": -16.77,
+                "temperature": -17.24,
                 "turnover": 27635222528.0,
                 "score_vol": -2.68,
-                "score_margin": -14.09,
+                "score_margin": -14.57,
                 "is_mock": false
             },
             {
                 "date": "2026-03-02",
-                "temperature": 17.18,
+                "temperature": 16.61,
                 "turnover": 44964827136.0,
                 "score_vol": 29.62,
-                "score_margin": -12.44,
+                "score_margin": -13.02,
                 "is_mock": false
             },
             {
                 "date": "2026-03-03",
-                "temperature": -12.45,
+                "temperature": -12.91,
                 "turnover": 42072719360.0,
                 "score_vol": 15.44,
-                "score_margin": -27.9,
+                "score_margin": -28.36,
                 "is_mock": false
             },
             {
                 "date": "2026-03-04",
-                "temperature": -36.54,
+                "temperature": -36.97,
                 "turnover": 30835177472.0,
                 "score_vol": 11.9,
-                "score_margin": -48.43,
+                "score_margin": -48.86,
                 "is_mock": false
             },
             {
                 "date": "2026-03-05",
-                "temperature": -33.76,
+                "temperature": -34.44,
                 "turnover": 26998085632.0,
                 "score_vol": -3.69,
-                "score_margin": -30.07,
+                "score_margin": -30.75,
                 "is_mock": false
             },
             {
                 "date": "2026-03-06",
-                "temperature": -22.24,
+                "temperature": -22.86,
                 "turnover": 31488696320.0,
                 "score_vol": 19.37,
-                "score_margin": -41.6,
+                "score_margin": -42.23,
                 "is_mock": false
             },
             {
                 "date": "2026-03-09",
-                "temperature": -57.14,
+                "temperature": -57.64,
                 "turnover": 28087560192.0,
                 "score_vol": -11.88,
-                "score_margin": -45.26,
+                "score_margin": -45.76,
                 "is_mock": false
             },
             {
                 "date": "2026-03-10",
-                "temperature": -47.76,
+                "temperature": -48.27,
                 "turnover": 22962884608.0,
                 "score_vol": -20.64,
-                "score_margin": -27.12,
+                "score_margin": -27.64,
                 "is_mock": false
             },
             {
                 "date": "2026-03-11",
-                "temperature": -49.29,
+                "temperature": -49.76,
                 "turnover": 22979055616.0,
                 "score_vol": -23.35,
-                "score_margin": -25.94,
-                "is_mock": false
-            },
-            {
-                "date": "2026-03-12",
-                "temperature": -65.28,
-                "turnover": 22402570240.0,
-                "score_vol": -21.32,
-                "score_margin": -43.97,
-                "is_mock": false
-            },
-            {
-                "date": "2026-03-13",
-                "temperature": -52.02,
-                "turnover": 18131279872.0,
-                "score_vol": -33.39,
-                "score_margin": -18.63,
-                "is_mock": false
-            },
-            {
-                "date": "2026-03-16",
-                "temperature": -67.28,
-                "turnover": 16400044032.0,
-                "score_vol": -36.69,
-                "score_margin": -30.58,
-                "is_mock": false
-            },
-            {
-                "date": "2026-03-17",
-                "temperature": -73.77,
-                "turnover": 14680388608.0,
-                "score_vol": -39.52,
-                "score_margin": -34.25,
-                "is_mock": false
-            },
-            {
-                "date": "2026-03-18",
-                "temperature": -31.37,
-                "turnover": 15347165184.0,
-                "score_vol": -30.77,
-                "score_margin": -0.61,
-                "is_mock": false
-            },
-            {
-                "date": "2026-03-19",
-                "temperature": -58.33,
-                "turnover": 15550661632.0,
-                "score_vol": -31.39,
-                "score_margin": -26.94,
-                "is_mock": false
-            },
-            {
-                "date": "2026-03-20",
-                "temperature": -83.34,
-                "turnover": 15528584192.0,
-                "score_vol": -35.92,
-                "score_margin": -47.42,
-                "is_mock": false
-            },
-            {
-                "date": "2026-03-23",
-                "temperature": -65.94,
-                "turnover": 18560487424.0,
-                "score_vol": -25.35,
-                "score_margin": -40.58,
-                "is_mock": false
-            },
-            {
-                "date": "2026-03-24",
-                "temperature": -38.31,
-                "turnover": 15058258944.0,
-                "score_vol": -27.53,
-                "score_margin": -10.78,
-                "is_mock": false
-            },
-            {
-                "date": "2026-03-25",
-                "temperature": -48.42,
-                "turnover": 15445173248.0,
-                "score_vol": -28.2,
-                "score_margin": -20.22,
-                "is_mock": false
-            },
-            {
-                "date": "2026-03-26",
-                "temperature": -41.62,
-                "turnover": 12442420224.0,
-                "score_vol": -33.4,
-                "score_margin": -8.22,
-                "is_mock": false
-            },
-            {
-                "date": "2026-03-27",
-                "temperature": -57.22,
-                "turnover": 10078414848.0,
-                "score_vol": -41.95,
-                "score_margin": -15.27,
-                "is_mock": false
-            },
-            {
-                "date": "2026-03-30",
-                "temperature": -30.62,
-                "turnover": 12748199936.0,
-                "score_vol": -25.16,
-                "score_margin": -5.46,
-                "is_mock": false
-            },
-            {
-                "date": "2026-03-31",
-                "temperature": 1.52,
-                "turnover": 15725018112.0,
-                "score_vol": -7.46,
-                "score_margin": 8.99,
-                "is_mock": false
-            },
-            {
-                "date": "2026-04-01",
-                "temperature": -36.49,
-                "turnover": 12160847872.0,
-                "score_vol": -26.09,
-                "score_margin": -10.4,
-                "is_mock": false
-            },
-            {
-                "date": "2026-04-02",
-                "temperature": -46.99,
-                "turnover": 12302957568.0,
-                "score_vol": -15.95,
-                "score_margin": -31.05,
-                "is_mock": false
-            },
-            {
-                "date": "2026-04-03",
-                "temperature": -39.72,
-                "turnover": 9960173568.0,
-                "score_vol": -20.3,
-                "score_margin": -19.42,
-                "is_mock": false
-            },
-            {
-                "date": "2026-04-07",
-                "temperature": -35.04,
-                "turnover": 9520309248.0,
-                "score_vol": -19.1,
-                "score_margin": -15.94,
-                "is_mock": false
-            },
-            {
-                "date": "2026-04-08",
-                "temperature": -1.88,
-                "turnover": 15529028608.0,
-                "score_vol": -10.25,
-                "score_margin": 8.37,
-                "is_mock": false
-            },
-            {
-                "date": "2026-04-09",
-                "temperature": -20.14,
-                "turnover": 11319232512.0,
-                "score_vol": -23.05,
-                "score_margin": 2.91,
-                "is_mock": false
-            },
-            {
-                "date": "2026-04-10",
-                "temperature": -37.9,
-                "turnover": 15698035712.0,
-                "score_vol": 0.09,
-                "score_margin": -38.0,
-                "is_mock": false
-            },
-            {
-                "date": "2026-04-13",
-                "temperature": -11.66,
-                "turnover": 16672598016.0,
-                "score_vol": 14.74,
                 "score_margin": -26.4,
                 "is_mock": false
             },
             {
+                "date": "2026-03-12",
+                "temperature": -65.76,
+                "turnover": 22402570240.0,
+                "score_vol": -21.32,
+                "score_margin": -44.45,
+                "is_mock": false
+            },
+            {
+                "date": "2026-03-13",
+                "temperature": -52.49,
+                "turnover": 18131279872.0,
+                "score_vol": -33.39,
+                "score_margin": -19.1,
+                "is_mock": false
+            },
+            {
+                "date": "2026-03-16",
+                "temperature": -67.9,
+                "turnover": 16400044032.0,
+                "score_vol": -36.69,
+                "score_margin": -31.21,
+                "is_mock": false
+            },
+            {
+                "date": "2026-03-17",
+                "temperature": -74.21,
+                "turnover": 14680388608.0,
+                "score_vol": -39.52,
+                "score_margin": -34.69,
+                "is_mock": false
+            },
+            {
+                "date": "2026-03-18",
+                "temperature": -31.93,
+                "turnover": 15347165184.0,
+                "score_vol": -30.77,
+                "score_margin": -1.16,
+                "is_mock": false
+            },
+            {
+                "date": "2026-03-19",
+                "temperature": -58.96,
+                "turnover": 15550661632.0,
+                "score_vol": -31.39,
+                "score_margin": -27.56,
+                "is_mock": false
+            },
+            {
+                "date": "2026-03-20",
+                "temperature": -83.78,
+                "turnover": 15528584192.0,
+                "score_vol": -35.92,
+                "score_margin": -47.86,
+                "is_mock": false
+            },
+            {
+                "date": "2026-03-23",
+                "temperature": -66.29,
+                "turnover": 18560487424.0,
+                "score_vol": -25.35,
+                "score_margin": -40.94,
+                "is_mock": false
+            },
+            {
+                "date": "2026-03-24",
+                "temperature": -38.5,
+                "turnover": 15058258944.0,
+                "score_vol": -27.53,
+                "score_margin": -10.97,
+                "is_mock": false
+            },
+            {
+                "date": "2026-03-25",
+                "temperature": -48.88,
+                "turnover": 15445173248.0,
+                "score_vol": -28.2,
+                "score_margin": -20.68,
+                "is_mock": false
+            },
+            {
+                "date": "2026-03-26",
+                "temperature": -42.07,
+                "turnover": 12442420224.0,
+                "score_vol": -33.4,
+                "score_margin": -8.68,
+                "is_mock": false
+            },
+            {
+                "date": "2026-03-27",
+                "temperature": -57.41,
+                "turnover": 10078414848.0,
+                "score_vol": -41.95,
+                "score_margin": -15.46,
+                "is_mock": false
+            },
+            {
+                "date": "2026-03-30",
+                "temperature": -30.61,
+                "turnover": 12748199936.0,
+                "score_vol": -25.16,
+                "score_margin": -5.44,
+                "is_mock": false
+            },
+            {
+                "date": "2026-03-31",
+                "temperature": 1.4,
+                "turnover": 15725018112.0,
+                "score_vol": -7.46,
+                "score_margin": 8.86,
+                "is_mock": false
+            },
+            {
+                "date": "2026-04-01",
+                "temperature": -36.4,
+                "turnover": 12160847872.0,
+                "score_vol": -26.09,
+                "score_margin": -10.31,
+                "is_mock": false
+            },
+            {
+                "date": "2026-04-02",
+                "temperature": -47.39,
+                "turnover": 12302957568.0,
+                "score_vol": -15.95,
+                "score_margin": -31.45,
+                "is_mock": false
+            },
+            {
+                "date": "2026-04-03",
+                "temperature": -39.61,
+                "turnover": 9960173568.0,
+                "score_vol": -20.3,
+                "score_margin": -19.31,
+                "is_mock": false
+            },
+            {
+                "date": "2026-04-07",
+                "temperature": -34.79,
+                "turnover": 9520309248.0,
+                "score_vol": -19.1,
+                "score_margin": -15.7,
+                "is_mock": false
+            },
+            {
+                "date": "2026-04-08",
+                "temperature": -1.67,
+                "turnover": 15529028608.0,
+                "score_vol": -10.25,
+                "score_margin": 8.58,
+                "is_mock": false
+            },
+            {
+                "date": "2026-04-09",
+                "temperature": -19.88,
+                "turnover": 11319232512.0,
+                "score_vol": -23.05,
+                "score_margin": 3.16,
+                "is_mock": false
+            },
+            {
+                "date": "2026-04-10",
+                "temperature": -37.81,
+                "turnover": 15698035712.0,
+                "score_vol": 0.09,
+                "score_margin": -37.9,
+                "is_mock": false
+            },
+            {
+                "date": "2026-04-13",
+                "temperature": -11.79,
+                "turnover": 16672598016.0,
+                "score_vol": 14.74,
+                "score_margin": -26.53,
+                "is_mock": false
+            },
+            {
                 "date": "2026-04-14",
-                "temperature": 35.51,
+                "temperature": 36.02,
                 "turnover": 17384144896.0,
                 "score_vol": 7.7,
-                "score_margin": 27.81,
+                "score_margin": 28.32,
                 "is_mock": false
             },
             {
                 "date": "2026-04-15",
-                "temperature": 35.67,
+                "temperature": 35.74,
                 "turnover": 20818204672.0,
                 "score_vol": 25.2,
-                "score_margin": 10.47,
+                "score_margin": 10.54,
                 "is_mock": false
             },
             {
                 "date": "2026-04-16",
-                "temperature": 10.3,
+                "temperature": 10.32,
                 "turnover": 18205075456.0,
                 "score_vol": 12.6,
-                "score_margin": -2.3,
+                "score_margin": -2.29,
                 "is_mock": false
             },
             {
                 "date": "2026-04-17",
-                "temperature": 5.02,
+                "temperature": 5.0,
                 "turnover": 18923884544.0,
                 "score_vol": 12.54,
-                "score_margin": -7.52,
+                "score_margin": -7.54,
                 "is_mock": false
             },
             {
                 "date": "2026-04-20",
-                "temperature": 72.09,
+                "temperature": 72.03,
                 "turnover": 23118557184.0,
                 "score_vol": 26.93,
-                "score_margin": 45.16,
+                "score_margin": 45.1,
                 "is_mock": false
             },
             {
                 "date": "2026-04-21",
-                "temperature": 62.02,
+                "temperature": 61.92,
                 "turnover": 21658314752.0,
                 "score_vol": 25.96,
-                "score_margin": 36.07,
+                "score_margin": 35.96,
                 "is_mock": false
             },
             {
                 "date": "2026-04-22",
-                "temperature": 40.73,
+                "temperature": 40.91,
                 "turnover": 19341645824.0,
                 "score_vol": 5.54,
-                "score_margin": 35.19,
+                "score_margin": 35.37,
                 "is_mock": false
             },
             {
                 "date": "2026-04-23",
-                "temperature": 36.69,
+                "temperature": 36.71,
                 "turnover": 26299977728.0,
                 "score_vol": 28.37,
-                "score_margin": 8.32,
+                "score_margin": 8.34,
                 "is_mock": false
             },
             {
                 "date": "2026-04-24",
-                "temperature": 19.82,
+                "temperature": 19.84,
                 "turnover": 19197456384.0,
                 "score_vol": -1.03,
-                "score_margin": 20.85,
+                "score_margin": 20.88,
                 "is_mock": false
             },
             {
                 "date": "2026-04-27",
-                "temperature": 18.35,
+                "temperature": 18.19,
                 "turnover": 18169729024.0,
                 "score_vol": -5.2,
-                "score_margin": 23.55,
+                "score_margin": 23.39,
                 "is_mock": false
             },
             {
                 "date": "2026-04-28",
-                "temperature": 7.11,
+                "temperature": 7.25,
                 "turnover": 21698322432.0,
                 "score_vol": 14.12,
-                "score_margin": -7.0,
+                "score_margin": -6.87,
                 "is_mock": false
             },
             {
                 "date": "2026-04-29",
-                "temperature": -13.45,
+                "temperature": -13.01,
                 "turnover": 18243151872.0,
                 "score_vol": -5.52,
-                "score_margin": -7.93,
+                "score_margin": -7.49,
                 "is_mock": false
             },
             {
                 "date": "2026-04-30",
-                "temperature": 21.41,
+                "temperature": 21.72,
                 "turnover": 20861960192.0,
                 "score_vol": 1.16,
-                "score_margin": 20.25,
+                "score_margin": 20.56,
                 "is_mock": false
             },
             {
                 "date": "2026-05-06",
-                "temperature": 11.07,
+                "temperature": 11.18,
                 "turnover": 24468549632.0,
                 "score_vol": 0.3,
-                "score_margin": 10.77,
+                "score_margin": 10.88,
                 "is_mock": false
             },
             {
                 "date": "2026-05-07",
-                "temperature": 13.58,
+                "temperature": 14.02,
                 "turnover": 21647654912.0,
                 "score_vol": -9.03,
-                "score_margin": 22.61,
+                "score_margin": 23.05,
                 "is_mock": false
             },
             {
                 "date": "2026-05-08",
-                "temperature": 63.54,
+                "temperature": 63.35,
                 "turnover": 31379490816.0,
                 "score_vol": 32.26,
-                "score_margin": 31.29,
+                "score_margin": 31.09,
                 "is_mock": false
             },
             {
                 "date": "2026-05-11",
-                "temperature": 24.79,
+                "temperature": 24.69,
                 "turnover": 30824687616.0,
                 "score_vol": 10.12,
-                "score_margin": 14.68,
+                "score_margin": 14.57,
                 "is_mock": false
             },
             {
                 "date": "2026-05-12",
-                "temperature": 0.3,
+                "temperature": 0.17,
                 "turnover": 27449387008.0,
                 "score_vol": 5.19,
-                "score_margin": -4.89,
+                "score_margin": -5.02,
                 "is_mock": false
             },
             {
                 "date": "2026-05-13",
-                "temperature": 6.83,
+                "temperature": 6.44,
                 "turnover": 27101681664.0,
                 "score_vol": 3.0,
-                "score_margin": 3.82,
+                "score_margin": 3.44,
                 "is_mock": false
             },
             {
                 "date": "2026-05-14",
-                "temperature": -12.71,
+                "temperature": -12.91,
                 "turnover": 26180974592.0,
                 "score_vol": -4.04,
-                "score_margin": -8.67,
+                "score_margin": -8.86,
                 "is_mock": false
             },
             {
                 "date": "2026-05-15",
-                "temperature": -36.96,
+                "temperature": -35.47,
                 "turnover": 23067162624.0,
                 "score_vol": -14.62,
-                "score_margin": -22.35,
+                "score_margin": -20.86,
                 "is_mock": false
             },
             {
                 "date": "2026-05-18",
-                "temperature": -34.53,
+                "temperature": -33.5,
                 "turnover": 20381896704.0,
                 "score_vol": -11.99,
-                "score_margin": -22.54,
+                "score_margin": -21.51,
                 "is_mock": false
             },
             {
                 "date": "2026-05-19",
-                "temperature": -25.45,
+                "temperature": -24.19,
                 "turnover": 19170725888.0,
                 "score_vol": -16.4,
-                "score_margin": -9.05,
+                "score_margin": -7.8,
                 "is_mock": false
             },
             {
                 "date": "2026-05-20",
-                "temperature": -34.13,
+                "temperature": -32.96,
                 "turnover": 18506862592.0,
                 "score_vol": -20.33,
-                "score_margin": -13.8,
+                "score_margin": -12.63,
                 "is_mock": false
             },
             {
                 "date": "2026-05-21",
-                "temperature": -50.96,
+                "temperature": -49.72,
                 "turnover": 22946615296.0,
                 "score_vol": -14.87,
-                "score_margin": -36.09,
+                "score_margin": -34.85,
                 "is_mock": false
             },
             {
                 "date": "2026-05-22",
-                "temperature": -51.61,
+                "temperature": -50.77,
                 "turnover": 19050147840.0,
                 "score_vol": -14.05,
-                "score_margin": -37.56,
+                "score_margin": -36.72,
                 "is_mock": false
             },
             {
                 "date": "2026-05-25",
-                "temperature": -17.92,
+                "temperature": -17.1,
                 "turnover": 20702959616.0,
                 "score_vol": -14.75,
-                "score_margin": -3.18,
+                "score_margin": -2.35,
                 "is_mock": false
             },
             {
                 "date": "2026-05-26",
-                "temperature": -52.89,
+                "temperature": -52.18,
                 "turnover": 17164302336.0,
                 "score_vol": -28.2,
-                "score_margin": -24.69,
+                "score_margin": -23.97,
                 "is_mock": false
             },
             {
                 "date": "2026-05-27",
-                "temperature": -42.31,
+                "temperature": -41.18,
                 "turnover": 16327405568.0,
                 "score_vol": -30.48,
-                "score_margin": -11.84,
+                "score_margin": -10.7,
                 "is_mock": false
             },
             {
@@ -105667,106 +105667,106 @@
             },
             {
                 "date": "2026-05-29",
-                "temperature": -40.21,
+                "temperature": -39.59,
                 "turnover": 18990409728.0,
                 "score_vol": -19.34,
-                "score_margin": -20.87,
+                "score_margin": -20.25,
                 "is_mock": false
             },
             {
                 "date": "2026-06-01",
-                "temperature": -63.21,
+                "temperature": -62.79,
                 "turnover": 14124492800.0,
                 "score_vol": -29.83,
-                "score_margin": -33.37,
+                "score_margin": -32.96,
                 "is_mock": false
             },
             {
                 "date": "2026-06-02",
-                "temperature": -57.49,
+                "temperature": -57.04,
                 "turnover": 12446164992.0,
                 "score_vol": -35.0,
-                "score_margin": -22.49,
+                "score_margin": -22.04,
                 "is_mock": false
             },
             {
                 "date": "2026-06-03",
-                "temperature": -40.85,
+                "temperature": -39.99,
                 "turnover": 12752663552.0,
                 "score_vol": -39.01,
-                "score_margin": -1.84,
+                "score_margin": -0.98,
                 "is_mock": false
             },
             {
                 "date": "2026-06-04",
-                "temperature": -55.11,
+                "temperature": -55.03,
                 "turnover": 13580698624.0,
                 "score_vol": -25.29,
-                "score_margin": -29.82,
+                "score_margin": -29.73,
                 "is_mock": false
             },
             {
                 "date": "2026-06-05",
-                "temperature": -2.22,
+                "temperature": -1.84,
                 "turnover": 14846579712.0,
                 "score_vol": -23.52,
-                "score_margin": 21.3,
+                "score_margin": 21.68,
                 "is_mock": false
             },
             {
                 "date": "2026-06-08",
-                "temperature": -25.0,
+                "temperature": -24.62,
                 "turnover": 15419113472.0,
                 "score_vol": -10.25,
-                "score_margin": -14.75,
+                "score_margin": -14.37,
                 "is_mock": false
             },
             {
                 "date": "2026-06-09",
-                "temperature": -38.59,
+                "temperature": -38.5,
                 "turnover": 11138302976.0,
                 "score_vol": -29.05,
-                "score_margin": -9.55,
+                "score_margin": -9.45,
                 "is_mock": false
             },
             {
                 "date": "2026-06-10",
-                "temperature": -28.54,
+                "temperature": -28.53,
                 "turnover": 12611201024.0,
                 "score_vol": -16.51,
-                "score_margin": -12.03,
+                "score_margin": -12.02,
                 "is_mock": false
             },
             {
                 "date": "2026-06-11",
-                "temperature": -20.23,
+                "temperature": -20.44,
                 "turnover": 14474826752.0,
                 "score_vol": 0.4,
-                "score_margin": -20.64,
+                "score_margin": -20.84,
                 "is_mock": false
             },
             {
                 "date": "2026-06-12",
-                "temperature": 15.07,
+                "temperature": 14.59,
                 "turnover": 23598950400.0,
                 "score_vol": 29.45,
-                "score_margin": -14.39,
+                "score_margin": -14.87,
                 "is_mock": false
             },
             {
                 "date": "2026-06-15",
-                "temperature": 16.54,
+                "temperature": 16.45,
                 "turnover": 19823486976.0,
                 "score_vol": 15.79,
-                "score_margin": 0.75,
+                "score_margin": 0.66,
                 "is_mock": false
             },
             {
                 "date": "2026-06-16",
-                "temperature": 11.04,
+                "temperature": 10.76,
                 "turnover": 17562978304.0,
                 "score_vol": 2.26,
-                "score_margin": 8.78,
+                "score_margin": 8.51,
                 "is_mock": false
             },
             {
@@ -105779,130 +105779,130 @@
             },
             {
                 "date": "2026-06-18",
-                "temperature": 11.1,
+                "temperature": 11.62,
                 "turnover": 18721202176.0,
                 "score_vol": 3.05,
-                "score_margin": 8.06,
+                "score_margin": 8.57,
                 "is_mock": false
             },
             {
                 "date": "2026-06-22",
-                "temperature": -4.92,
+                "temperature": -4.52,
                 "turnover": 18255906816.0,
                 "score_vol": -9.54,
-                "score_margin": 4.61,
+                "score_margin": 5.02,
                 "is_mock": false
             },
             {
                 "date": "2026-06-23",
-                "temperature": -20.15,
+                "temperature": -17.72,
                 "turnover": 19914459136.0,
                 "score_vol": 7.86,
-                "score_margin": -28.0,
+                "score_margin": -25.57,
                 "is_mock": false
             },
             {
                 "date": "2026-06-24",
-                "temperature": -11.11,
+                "temperature": -9.93,
                 "turnover": 17389094912.0,
                 "score_vol": -1.34,
-                "score_margin": -9.77,
+                "score_margin": -8.59,
                 "is_mock": false
             },
             {
                 "date": "2026-06-25",
-                "temperature": -29.78,
+                "temperature": -28.39,
                 "turnover": 16288567296.0,
                 "score_vol": -15.05,
-                "score_margin": -14.74,
+                "score_margin": -13.34,
                 "is_mock": false
             },
             {
                 "date": "2026-06-26",
-                "temperature": 36.5,
+                "temperature": 37.52,
                 "turnover": 17028307968.0,
                 "score_vol": -8.63,
-                "score_margin": 45.13,
+                "score_margin": 46.15,
                 "is_mock": false
             },
             {
                 "date": "2026-06-29",
-                "temperature": 28.18,
+                "temperature": 29.06,
                 "turnover": 15608194048.0,
                 "score_vol": -14.26,
-                "score_margin": 42.44,
+                "score_margin": 43.31,
                 "is_mock": false
             },
             {
                 "date": "2026-06-30",
-                "temperature": 17.51,
+                "temperature": 18.76,
                 "turnover": 16032964608.0,
                 "score_vol": -5.32,
-                "score_margin": 22.83,
+                "score_margin": 24.07,
                 "is_mock": false
             },
             {
                 "date": "2026-07-01",
-                "temperature": 34.6,
+                "temperature": 35.37,
                 "turnover": 16153944064.0,
                 "score_vol": -14.47,
-                "score_margin": 49.07,
+                "score_margin": 49.84,
                 "is_mock": false
             },
             {
                 "date": "2026-07-02",
-                "temperature": -10.94,
+                "temperature": -10.31,
                 "turnover": 15332219904.0,
                 "score_vol": -14.13,
-                "score_margin": 3.19,
+                "score_margin": 3.82,
                 "is_mock": false
             },
             {
                 "date": "2026-07-03",
-                "temperature": 7.03,
+                "temperature": 7.27,
                 "turnover": 20065892352.0,
                 "score_vol": 20.29,
-                "score_margin": -13.26,
+                "score_margin": -13.02,
                 "is_mock": false
             },
             {
                 "date": "2026-07-06",
-                "temperature": 2.71,
+                "temperature": 3.62,
                 "turnover": 16036125696.0,
                 "score_vol": -1.34,
-                "score_margin": 4.06,
+                "score_margin": 4.97,
                 "is_mock": false
             },
             {
                 "date": "2026-07-07",
-                "temperature": -7.21,
+                "temperature": -6.93,
                 "turnover": 12618237952.0,
                 "score_vol": -6.56,
-                "score_margin": -0.64,
+                "score_margin": -0.37,
                 "is_mock": false
             },
             {
                 "date": "2026-07-08",
-                "temperature": -28.51,
+                "temperature": -28.44,
                 "turnover": 11111892992.0,
                 "score_vol": -17.25,
-                "score_margin": -11.26,
+                "score_margin": -11.19,
                 "is_mock": false
             },
             {
                 "date": "2026-07-09",
-                "temperature": -10.02,
+                "temperature": -9.85,
                 "turnover": 11844066304.0,
                 "score_vol": -21.86,
-                "score_margin": 11.84,
+                "score_margin": 12.01,
                 "is_mock": false
             },
             {
                 "date": "2026-07-10",
-                "temperature": 42.81,
+                "temperature": 43.01,
                 "turnover": 22279794688.0,
                 "score_vol": 25.12,
-                "score_margin": 17.69,
+                "score_margin": 17.9,
                 "is_mock": false
             },
             {
@@ -105915,155 +105915,155 @@
             },
             {
                 "date": "2026-07-14",
-                "temperature": -35.26,
+                "temperature": -35.8,
                 "turnover": 12765580288.0,
                 "score_vol": -7.2,
-                "score_margin": -28.06,
+                "score_margin": -28.6,
                 "is_mock": false
             },
             {
                 "date": "2026-07-15",
-                "temperature": -2.07,
+                "temperature": -1.72,
                 "turnover": 11486756864.0,
                 "score_vol": 11.18,
-                "score_margin": -13.25,
+                "score_margin": -12.89,
                 "is_mock": false
             },
             {
                 "date": "2026-07-16",
-                "temperature": -34.13,
+                "temperature": -33.29,
                 "turnover": 9014469632.0,
                 "score_vol": -25.35,
-                "score_margin": -8.78,
+                "score_margin": -7.94,
                 "is_mock": false
             },
             {
                 "date": "2026-07-17",
-                "temperature": -42.8,
+                "temperature": -42.79,
                 "turnover": 10809391104.0,
                 "score_vol": -17.74,
-                "score_margin": -25.06,
+                "score_margin": -25.05,
                 "is_mock": false
             },
             {
                 "date": "2026-07-20",
-                "temperature": -33.24,
+                "temperature": -33.56,
                 "turnover": 12246502400.0,
                 "score_vol": -8.16,
-                "score_margin": -25.08,
+                "score_margin": -25.4,
                 "is_mock": false
             },
             {
                 "date": "2026-07-21",
-                "temperature": -39.3,
+                "temperature": -39.15,
                 "turnover": 12588715008.0,
                 "score_vol": -12.28,
-                "score_margin": -27.03,
+                "score_margin": -26.87,
                 "is_mock": false
             },
             {
                 "date": "2026-07-22",
-                "temperature": -25.05,
+                "temperature": -25.31,
                 "turnover": 9847372800.0,
                 "score_vol": -22.32,
-                "score_margin": -2.73,
+                "score_margin": -2.98,
                 "is_mock": false
             },
             {
                 "date": "2026-07-23",
-                "temperature": -26.32,
+                "temperature": -26.9,
                 "turnover": 10461033472.0,
                 "score_vol": -0.57,
-                "score_margin": -25.75,
+                "score_margin": -26.33,
                 "is_mock": false
             },
             {
                 "date": "2026-07-24",
-                "temperature": -13.74,
+                "temperature": -14.46,
                 "turnover": 11060188160.0,
                 "score_vol": 18.71,
-                "score_margin": -32.46,
+                "score_margin": -33.17,
                 "is_mock": false
             },
             {
                 "date": "2026-07-27",
-                "temperature": -34.26,
+                "temperature": -34.44,
                 "turnover": 10040061952.0,
                 "score_vol": -0.3,
-                "score_margin": -33.96,
+                "score_margin": -34.13,
                 "is_mock": false
             },
             {
                 "date": "2026-07-28",
-                "temperature": -29.57,
+                "temperature": -29.7,
                 "turnover": 8515152896.0,
                 "score_vol": -12.84,
-                "score_margin": -16.73,
+                "score_margin": -16.86,
                 "is_mock": false
             },
             {
                 "date": "2026-07-29",
-                "temperature": -33.92,
+                "temperature": -34.15,
                 "turnover": 10544169984.0,
                 "score_vol": -5.15,
-                "score_margin": -28.76,
+                "score_margin": -29.0,
                 "is_mock": false
             },
             {
                 "date": "2026-07-30",
-                "temperature": -44.82,
+                "temperature": -45.03,
                 "turnover": 10095992832.0,
                 "score_vol": -11.02,
-                "score_margin": -33.8,
+                "score_margin": -34.01,
                 "is_mock": false
             },
             {
                 "date": "2026-07-31",
-                "temperature": -17.54,
+                "temperature": -17.47,
                 "turnover": 11404184576.0,
                 "score_vol": -5.23,
-                "score_margin": -12.31,
+                "score_margin": -12.25,
                 "is_mock": false
             },
             {
                 "date": "2026-08-03",
-                "temperature": -12.37,
+                "temperature": -12.99,
                 "turnover": 9967115264.0,
                 "score_vol": 5.81,
-                "score_margin": -18.19,
+                "score_margin": -18.8,
                 "is_mock": false
             },
             {
                 "date": "2026-08-04",
-                "temperature": -5.32,
+                "temperature": -5.45,
                 "turnover": 9859456000.0,
                 "score_vol": -5.14,
-                "score_margin": -0.18,
+                "score_margin": -0.31,
                 "is_mock": false
             },
             {
                 "date": "2026-08-05",
-                "temperature": -8.24,
+                "temperature": -8.21,
                 "turnover": 10927656960.0,
                 "score_vol": -12.25,
-                "score_margin": 4.01,
+                "score_margin": 4.04,
                 "is_mock": false
             },
             {
                 "date": "2026-08-06",
-                "temperature": -1.99,
+                "temperature": -2.41,
                 "turnover": 12055217152.0,
                 "score_vol": 0.93,
-                "score_margin": -2.92,
+                "score_margin": -3.33,
                 "is_mock": false
             },
             {
                 "date": "2026-08-07",
-                "temperature": -16.77,
+                "temperature": -12.0,
                 "turnover": 10426409984.0,
                 "score_vol": -13.98,
-                "score_margin": -2.79,
-                "is_mock": true
+                "score_margin": 1.97,
+                "is_mock": false
             }
         ],
         "group": "国防军工"
@@ -106071,11 +106071,11 @@
     "航天装备": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 11.88,
+            "temperature": -36.21,
             "turnover": 7740068864.0,
             "score_vol": -17.33,
-            "score_margin": 29.21,
-            "is_mock": true
+            "score_margin": -18.88,
+            "is_mock": false
         },
         "history": [
             {
@@ -106096,10 +106096,10 @@
             },
             {
                 "date": "2025-11-14",
-                "temperature": -55.96,
+                "temperature": -56.65,
                 "turnover": 4082072064.0,
                 "score_vol": -33.76,
-                "score_margin": -22.21,
+                "score_margin": -22.89,
                 "is_mock": false
             },
             {
@@ -106128,50 +106128,50 @@
             },
             {
                 "date": "2025-11-20",
-                "temperature": -1.49,
+                "temperature": -2.81,
                 "turnover": 3129735168.0,
                 "score_vol": -40.59,
-                "score_margin": 39.1,
+                "score_margin": 37.77,
                 "is_mock": false
             },
             {
                 "date": "2025-11-21",
-                "temperature": -64.34,
+                "temperature": -64.94,
                 "turnover": 4252154624.0,
                 "score_vol": -27.79,
-                "score_margin": -36.56,
+                "score_margin": -37.15,
                 "is_mock": false
             },
             {
                 "date": "2025-11-24",
-                "temperature": 22.02,
+                "temperature": 23.95,
                 "turnover": 6207250944.0,
                 "score_vol": 21.66,
-                "score_margin": 0.35,
+                "score_margin": 2.29,
                 "is_mock": false
             },
             {
                 "date": "2025-11-25",
-                "temperature": -29.35,
+                "temperature": -20.43,
                 "turnover": 6211907072.0,
                 "score_vol": 15.87,
-                "score_margin": -45.22,
+                "score_margin": -36.3,
                 "is_mock": false
             },
             {
                 "date": "2025-11-26",
-                "temperature": 13.54,
+                "temperature": 19.65,
                 "turnover": 4470441984.0,
                 "score_vol": -13.53,
-                "score_margin": 27.07,
+                "score_margin": 33.18,
                 "is_mock": false
             },
             {
                 "date": "2025-11-27",
-                "temperature": -68.07,
+                "temperature": -54.71,
                 "turnover": 3936770816.0,
                 "score_vol": -18.07,
-                "score_margin": -50.0,
+                "score_margin": -36.64,
                 "is_mock": false
             },
             {
@@ -106408,10 +106408,10 @@
             },
             {
                 "date": "2026-01-12",
-                "temperature": -62.16,
+                "temperature": -62.41,
                 "turnover": 40060555264.0,
                 "score_vol": -27.29,
-                "score_margin": -34.87,
+                "score_margin": -35.13,
                 "is_mock": false
             },
             {
@@ -106544,34 +106544,34 @@
             },
             {
                 "date": "2026-02-04",
-                "temperature": -58.04,
+                "temperature": -59.37,
                 "turnover": 24175931392.0,
                 "score_vol": -16.47,
-                "score_margin": -41.57,
+                "score_margin": -42.9,
                 "is_mock": false
             },
             {
                 "date": "2026-02-05",
-                "temperature": -39.73,
+                "temperature": -40.98,
                 "turnover": 15742803968.0,
                 "score_vol": -36.21,
-                "score_margin": -3.52,
+                "score_margin": -4.76,
                 "is_mock": false
             },
             {
                 "date": "2026-02-06",
-                "temperature": -56.83,
+                "temperature": -57.48,
                 "turnover": 14097041408.0,
                 "score_vol": -39.57,
-                "score_margin": -17.25,
+                "score_margin": -17.91,
                 "is_mock": false
             },
             {
                 "date": "2026-02-09",
-                "temperature": -20.94,
+                "temperature": -21.96,
                 "turnover": 13919165440.0,
                 "score_vol": -42.01,
-                "score_margin": 21.07,
+                "score_margin": 20.05,
                 "is_mock": false
             },
             {
@@ -106584,18 +106584,18 @@
             },
             {
                 "date": "2026-02-11",
-                "temperature": -6.28,
+                "temperature": -7.36,
                 "turnover": 11616265216.0,
                 "score_vol": -39.37,
-                "score_margin": 33.09,
+                "score_margin": 32.01,
                 "is_mock": false
             },
             {
                 "date": "2026-02-12",
-                "temperature": 2.67,
+                "temperature": 3.25,
                 "turnover": 11123416064.0,
                 "score_vol": -45.37,
-                "score_margin": 48.04,
+                "score_margin": 48.61,
                 "is_mock": false
             },
             {
@@ -106616,58 +106616,58 @@
             },
             {
                 "date": "2026-02-25",
-                "temperature": -8.48,
+                "temperature": -9.58,
                 "turnover": 16657430528.0,
                 "score_vol": -20.7,
-                "score_margin": 12.22,
+                "score_margin": 11.12,
                 "is_mock": false
             },
             {
                 "date": "2026-02-26",
-                "temperature": 4.73,
+                "temperature": 5.48,
                 "turnover": 19506966528.0,
                 "score_vol": -8.24,
-                "score_margin": 12.97,
+                "score_margin": 13.72,
                 "is_mock": false
             },
             {
                 "date": "2026-02-27",
-                "temperature": 17.13,
+                "temperature": 16.53,
                 "turnover": 18592530432.0,
                 "score_vol": -7.0,
-                "score_margin": 24.14,
+                "score_margin": 23.53,
                 "is_mock": false
             },
             {
                 "date": "2026-03-02",
-                "temperature": 42.48,
+                "temperature": 41.68,
                 "turnover": 34930638848.0,
                 "score_vol": 48.91,
-                "score_margin": -6.43,
+                "score_margin": -7.23,
                 "is_mock": false
             },
             {
                 "date": "2026-03-03",
-                "temperature": 43.17,
+                "temperature": 42.87,
                 "turnover": 25639053312.0,
                 "score_vol": 10.29,
-                "score_margin": 32.89,
+                "score_margin": 32.58,
                 "is_mock": false
             },
             {
                 "date": "2026-03-04",
-                "temperature": 37.99,
+                "temperature": 37.95,
                 "turnover": 15359624192.0,
                 "score_vol": -10.69,
-                "score_margin": 48.68,
+                "score_margin": 48.63,
                 "is_mock": false
             },
             {
                 "date": "2026-03-05",
-                "temperature": 17.13,
+                "temperature": 16.43,
                 "turnover": 17721790464.0,
                 "score_vol": 2.66,
-                "score_margin": 14.47,
+                "score_margin": 13.77,
                 "is_mock": false
             },
             {
@@ -106680,18 +106680,18 @@
             },
             {
                 "date": "2026-03-09",
-                "temperature": 17.56,
+                "temperature": 17.31,
                 "turnover": 15174339584.0,
                 "score_vol": -20.36,
-                "score_margin": 37.92,
+                "score_margin": 37.67,
                 "is_mock": false
             },
             {
                 "date": "2026-03-10",
-                "temperature": -4.69,
+                "temperature": -5.16,
                 "turnover": 16395941888.0,
                 "score_vol": -5.01,
-                "score_margin": 0.31,
+                "score_margin": -0.15,
                 "is_mock": false
             },
             {
@@ -106712,66 +106712,66 @@
             },
             {
                 "date": "2026-03-13",
-                "temperature": -17.27,
+                "temperature": -17.72,
                 "turnover": 13274676224.0,
                 "score_vol": -15.67,
-                "score_margin": -1.6,
+                "score_margin": -2.05,
                 "is_mock": false
             },
             {
                 "date": "2026-03-16",
-                "temperature": -20.98,
+                "temperature": -21.61,
                 "turnover": 10773777408.0,
                 "score_vol": -28.32,
-                "score_margin": 7.34,
+                "score_margin": 6.72,
                 "is_mock": false
             },
             {
                 "date": "2026-03-17",
-                "temperature": -24.87,
+                "temperature": -25.17,
                 "turnover": 9123948544.0,
                 "score_vol": -35.12,
-                "score_margin": 10.25,
+                "score_margin": 9.95,
                 "is_mock": false
             },
             {
                 "date": "2026-03-18",
-                "temperature": -15.41,
+                "temperature": -16.05,
                 "turnover": 13323212800.0,
                 "score_vol": 1.8,
-                "score_margin": -17.21,
+                "score_margin": -17.85,
                 "is_mock": false
             },
             {
                 "date": "2026-03-19",
-                "temperature": 3.12,
+                "temperature": 2.53,
                 "turnover": 9254140928.0,
                 "score_vol": -30.75,
-                "score_margin": 33.87,
+                "score_margin": 33.28,
                 "is_mock": false
             },
             {
                 "date": "2026-03-20",
-                "temperature": -34.12,
+                "temperature": -34.4,
                 "turnover": 8961302528.0,
                 "score_vol": -37.47,
-                "score_margin": 3.35,
+                "score_margin": 3.07,
                 "is_mock": false
             },
             {
                 "date": "2026-03-23",
-                "temperature": -18.96,
+                "temperature": -19.1,
                 "turnover": 10547697664.0,
                 "score_vol": -30.75,
-                "score_margin": 11.79,
+                "score_margin": 11.64,
                 "is_mock": false
             },
             {
                 "date": "2026-03-24",
-                "temperature": 1.94,
+                "temperature": 1.92,
                 "turnover": 9663205376.0,
                 "score_vol": -26.34,
-                "score_margin": 28.29,
+                "score_margin": 28.27,
                 "is_mock": false
             },
             {
@@ -106784,90 +106784,90 @@
             },
             {
                 "date": "2026-03-26",
-                "temperature": -23.76,
+                "temperature": -24.27,
                 "turnover": 8984055808.0,
                 "score_vol": -23.15,
-                "score_margin": -0.61,
+                "score_margin": -1.12,
                 "is_mock": false
             },
             {
                 "date": "2026-03-27",
-                "temperature": -32.16,
+                "temperature": -32.25,
                 "turnover": 6635877888.0,
                 "score_vol": -38.7,
-                "score_margin": 6.54,
+                "score_margin": 6.46,
                 "is_mock": false
             },
             {
                 "date": "2026-03-30",
-                "temperature": -30.16,
+                "temperature": -30.17,
                 "turnover": 10459518976.0,
                 "score_vol": 0.2,
-                "score_margin": -30.36,
+                "score_margin": -30.37,
                 "is_mock": false
             },
             {
                 "date": "2026-03-31",
-                "temperature": -3.9,
+                "temperature": -4.2,
                 "turnover": 15235328000.0,
                 "score_vol": 42.79,
-                "score_margin": -46.69,
+                "score_margin": -46.99,
                 "is_mock": false
             },
             {
                 "date": "2026-04-01",
-                "temperature": -44.44,
+                "temperature": -44.38,
                 "turnover": 10059678720.0,
                 "score_vol": -5.29,
-                "score_margin": -39.15,
+                "score_margin": -39.1,
                 "is_mock": false
             },
             {
                 "date": "2026-04-02",
-                "temperature": -10.47,
+                "temperature": -10.82,
                 "turnover": 6684059136.0,
                 "score_vol": -28.77,
-                "score_margin": 18.3,
+                "score_margin": 17.95,
                 "is_mock": false
             },
             {
                 "date": "2026-04-03",
-                "temperature": -26.88,
+                "temperature": -26.53,
                 "turnover": 6423776256.0,
                 "score_vol": -21.26,
-                "score_margin": -5.62,
+                "score_margin": -5.27,
                 "is_mock": false
             },
             {
                 "date": "2026-04-07",
-                "temperature": -7.1,
+                "temperature": -6.44,
                 "turnover": 5556923392.0,
                 "score_vol": -28.55,
-                "score_margin": 21.45,
+                "score_margin": 22.11,
                 "is_mock": false
             },
             {
                 "date": "2026-04-08",
-                "temperature": 10.48,
+                "temperature": 10.83,
                 "turnover": 10685641728.0,
                 "score_vol": -6.18,
-                "score_margin": 16.67,
+                "score_margin": 17.02,
                 "is_mock": false
             },
             {
                 "date": "2026-04-09",
-                "temperature": -18.88,
+                "temperature": -18.51,
                 "turnover": 7906510848.0,
                 "score_vol": -19.53,
-                "score_margin": 0.65,
+                "score_margin": 1.02,
                 "is_mock": false
             },
             {
                 "date": "2026-04-10",
-                "temperature": 11.17,
+                "temperature": 11.83,
                 "turnover": 7179961856.0,
                 "score_vol": -31.6,
-                "score_margin": 42.76,
+                "score_margin": 43.43,
                 "is_mock": false
             },
             {
@@ -106880,10 +106880,10 @@
             },
             {
                 "date": "2026-04-14",
-                "temperature": 16.55,
+                "temperature": 16.92,
                 "turnover": 15099056128.0,
                 "score_vol": 40.9,
-                "score_margin": -24.35,
+                "score_margin": -23.98,
                 "is_mock": false
             },
             {
@@ -106896,10 +106896,10 @@
             },
             {
                 "date": "2026-04-16",
-                "temperature": 20.05,
+                "temperature": 20.14,
                 "turnover": 11458455552.0,
                 "score_vol": 5.6,
-                "score_margin": 14.45,
+                "score_margin": 14.53,
                 "is_mock": false
             },
             {
@@ -106912,10 +106912,10 @@
             },
             {
                 "date": "2026-04-20",
-                "temperature": 39.63,
+                "temperature": 39.23,
                 "turnover": 23892250624.0,
                 "score_vol": 88.01,
-                "score_margin": -48.38,
+                "score_margin": -48.78,
                 "is_mock": false
             },
             {
@@ -106952,82 +106952,82 @@
             },
             {
                 "date": "2026-04-27",
-                "temperature": -31.28,
+                "temperature": -31.69,
                 "turnover": 15732879360.0,
                 "score_vol": 0.32,
-                "score_margin": -31.6,
+                "score_margin": -32.01,
                 "is_mock": false
             },
             {
                 "date": "2026-04-28",
-                "temperature": 12.37,
+                "temperature": 12.76,
                 "turnover": 12075436032.0,
                 "score_vol": -20.78,
-                "score_margin": 33.15,
+                "score_margin": 33.54,
                 "is_mock": false
             },
             {
                 "date": "2026-04-29",
-                "temperature": -8.51,
+                "temperature": -7.63,
                 "turnover": 10457752576.0,
                 "score_vol": -30.74,
-                "score_margin": 22.23,
+                "score_margin": 23.11,
                 "is_mock": false
             },
             {
                 "date": "2026-04-30",
-                "temperature": -16.5,
+                "temperature": -16.28,
                 "turnover": 16281109504.0,
                 "score_vol": 1.17,
-                "score_margin": -17.67,
+                "score_margin": -17.45,
                 "is_mock": false
             },
             {
                 "date": "2026-05-06",
-                "temperature": -26.25,
+                "temperature": -26.28,
                 "turnover": 18900703232.0,
                 "score_vol": -1.65,
-                "score_margin": -24.6,
+                "score_margin": -24.63,
                 "is_mock": false
             },
             {
                 "date": "2026-05-07",
-                "temperature": -16.78,
+                "temperature": -16.35,
                 "turnover": 16344022016.0,
                 "score_vol": -13.02,
-                "score_margin": -3.76,
+                "score_margin": -3.33,
                 "is_mock": false
             },
             {
                 "date": "2026-05-08",
-                "temperature": 7.76,
+                "temperature": 7.24,
                 "turnover": 29704093696.0,
                 "score_vol": 55.17,
-                "score_margin": -47.41,
+                "score_margin": -47.93,
                 "is_mock": false
             },
             {
                 "date": "2026-05-11",
-                "temperature": -26.68,
+                "temperature": -27.04,
                 "turnover": 26264662016.0,
                 "score_vol": 15.18,
-                "score_margin": -41.86,
+                "score_margin": -42.22,
                 "is_mock": false
             },
             {
                 "date": "2026-05-12",
-                "temperature": -29.95,
+                "temperature": -30.21,
                 "turnover": 18841186304.0,
                 "score_vol": -10.81,
-                "score_margin": -19.15,
+                "score_margin": -19.4,
                 "is_mock": false
             },
             {
                 "date": "2026-05-13",
-                "temperature": 1.05,
+                "temperature": 0.45,
                 "turnover": 16863389696.0,
                 "score_vol": -20.93,
-                "score_margin": 21.98,
+                "score_margin": 21.38,
                 "is_mock": false
             },
             {
@@ -107040,18 +107040,18 @@
             },
             {
                 "date": "2026-05-15",
-                "temperature": -74.99,
+                "temperature": -72.94,
                 "turnover": 16171510784.0,
                 "score_vol": -26.56,
-                "score_margin": -48.42,
+                "score_margin": -46.38,
                 "is_mock": false
             },
             {
                 "date": "2026-05-18",
-                "temperature": -60.01,
+                "temperature": -58.41,
                 "turnover": 13170030592.0,
                 "score_vol": -29.19,
-                "score_margin": -30.82,
+                "score_margin": -29.23,
                 "is_mock": false
             },
             {
@@ -107064,26 +107064,26 @@
             },
             {
                 "date": "2026-05-20",
-                "temperature": -39.97,
+                "temperature": -37.96,
                 "turnover": 11221803008.0,
                 "score_vol": -40.68,
-                "score_margin": 0.72,
+                "score_margin": 2.72,
                 "is_mock": false
             },
             {
                 "date": "2026-05-21",
-                "temperature": -51.66,
+                "temperature": -49.17,
                 "turnover": 12486749184.0,
                 "score_vol": -41.35,
-                "score_margin": -10.31,
+                "score_margin": -7.83,
                 "is_mock": false
             },
             {
                 "date": "2026-05-22",
-                "temperature": -17.51,
+                "temperature": -15.31,
                 "turnover": 9000058880.0,
                 "score_vol": -45.96,
-                "score_margin": 28.46,
+                "score_margin": 30.66,
                 "is_mock": false
             },
             {
@@ -107096,18 +107096,18 @@
             },
             {
                 "date": "2026-05-26",
-                "temperature": -52.44,
+                "temperature": -51.22,
                 "turnover": 10700222464.0,
                 "score_vol": -37.24,
-                "score_margin": -15.2,
+                "score_margin": -13.98,
                 "is_mock": false
             },
             {
                 "date": "2026-05-27",
-                "temperature": -20.75,
+                "temperature": -18.67,
                 "turnover": 9557249024.0,
                 "score_vol": -41.78,
-                "score_margin": 21.03,
+                "score_margin": 23.11,
                 "is_mock": false
             },
             {
@@ -107120,26 +107120,26 @@
             },
             {
                 "date": "2026-05-29",
-                "temperature": -24.12,
+                "temperature": -22.8,
                 "turnover": 10528922624.0,
                 "score_vol": -34.33,
-                "score_margin": 10.21,
+                "score_margin": 11.52,
                 "is_mock": false
             },
             {
                 "date": "2026-06-01",
-                "temperature": -34.9,
+                "temperature": -33.68,
                 "turnover": 6921158144.0,
                 "score_vol": -49.39,
-                "score_margin": 14.48,
+                "score_margin": 15.71,
                 "is_mock": false
             },
             {
                 "date": "2026-06-02",
-                "temperature": -63.6,
+                "temperature": -62.89,
                 "turnover": 7933444096.0,
                 "score_vol": -38.46,
-                "score_margin": -25.14,
+                "score_margin": -24.43,
                 "is_mock": false
             },
             {
@@ -107152,10 +107152,10 @@
             },
             {
                 "date": "2026-06-04",
-                "temperature": -35.6,
+                "temperature": -35.22,
                 "turnover": 7470986752.0,
                 "score_vol": -38.38,
-                "score_margin": 2.79,
+                "score_margin": 3.17,
                 "is_mock": false
             },
             {
@@ -107184,50 +107184,50 @@
             },
             {
                 "date": "2026-06-10",
-                "temperature": -43.02,
+                "temperature": -43.14,
                 "turnover": 9404505088.0,
                 "score_vol": -8.17,
-                "score_margin": -34.85,
+                "score_margin": -34.97,
                 "is_mock": false
             },
             {
                 "date": "2026-06-11",
-                "temperature": -25.73,
+                "temperature": -26.05,
                 "turnover": 9790479360.0,
                 "score_vol": 1.38,
-                "score_margin": -27.11,
+                "score_margin": -27.43,
                 "is_mock": false
             },
             {
                 "date": "2026-06-12",
-                "temperature": 21.62,
+                "temperature": 20.95,
                 "turnover": 14553059328.0,
                 "score_vol": 20.23,
-                "score_margin": 1.4,
+                "score_margin": 0.72,
                 "is_mock": false
             },
             {
                 "date": "2026-06-15",
-                "temperature": 50.03,
+                "temperature": 50.07,
                 "turnover": 11461532672.0,
                 "score_vol": 1.43,
-                "score_margin": 48.59,
+                "score_margin": 48.64,
                 "is_mock": false
             },
             {
                 "date": "2026-06-16",
-                "temperature": 42.44,
+                "temperature": 42.1,
                 "turnover": 10839724032.0,
                 "score_vol": -2.76,
-                "score_margin": 45.2,
+                "score_margin": 44.86,
                 "is_mock": false
             },
             {
                 "date": "2026-06-17",
-                "temperature": 27.44,
+                "temperature": 27.45,
                 "turnover": 10281686016.0,
                 "score_vol": -7.97,
-                "score_margin": 35.4,
+                "score_margin": 35.42,
                 "is_mock": false
             },
             {
@@ -107240,10 +107240,10 @@
             },
             {
                 "date": "2026-06-22",
-                "temperature": 26.72,
+                "temperature": 27.51,
                 "turnover": 11142671360.0,
                 "score_vol": -16.98,
-                "score_margin": 43.69,
+                "score_margin": 44.49,
                 "is_mock": false
             },
             {
@@ -107272,42 +107272,42 @@
             },
             {
                 "date": "2026-06-26",
-                "temperature": -2.44,
+                "temperature": -2.16,
                 "turnover": 18096220160.0,
                 "score_vol": 43.18,
-                "score_margin": -45.62,
+                "score_margin": -45.34,
                 "is_mock": false
             },
             {
                 "date": "2026-06-29",
-                "temperature": -1.1,
+                "temperature": -0.6,
                 "turnover": 13965511680.0,
                 "score_vol": 10.23,
-                "score_margin": -11.32,
+                "score_margin": -10.83,
                 "is_mock": false
             },
             {
                 "date": "2026-06-30",
-                "temperature": -17.68,
+                "temperature": -16.86,
                 "turnover": 14872033280.0,
                 "score_vol": 22.58,
-                "score_margin": -40.25,
+                "score_margin": -39.44,
                 "is_mock": false
             },
             {
                 "date": "2026-07-01",
-                "temperature": -2.66,
+                "temperature": -2.36,
                 "turnover": 14996068352.0,
                 "score_vol": 8.77,
-                "score_margin": -11.43,
+                "score_margin": -11.13,
                 "is_mock": false
             },
             {
                 "date": "2026-07-02",
-                "temperature": -38.08,
+                "temperature": -37.64,
                 "turnover": 12362101760.0,
                 "score_vol": -4.6,
-                "score_margin": -33.47,
+                "score_margin": -33.04,
                 "is_mock": false
             },
             {
@@ -107328,34 +107328,34 @@
             },
             {
                 "date": "2026-07-07",
-                "temperature": -29.86,
+                "temperature": -29.81,
                 "turnover": 9993303040.0,
                 "score_vol": 3.02,
-                "score_margin": -32.88,
+                "score_margin": -32.83,
                 "is_mock": false
             },
             {
                 "date": "2026-07-08",
-                "temperature": -50.53,
+                "temperature": -50.69,
                 "turnover": 8539144192.0,
                 "score_vol": -10.34,
-                "score_margin": -40.19,
+                "score_margin": -40.35,
                 "is_mock": false
             },
             {
                 "date": "2026-07-09",
-                "temperature": -30.44,
+                "temperature": -30.56,
                 "turnover": 9728664576.0,
                 "score_vol": -9.84,
-                "score_margin": -20.6,
+                "score_margin": -20.73,
                 "is_mock": false
             },
             {
                 "date": "2026-07-10",
-                "temperature": 30.51,
+                "temperature": 30.41,
                 "turnover": 18544031744.0,
                 "score_vol": 44.38,
-                "score_margin": -13.87,
+                "score_margin": -13.97,
                 "is_mock": false
             },
             {
@@ -107400,58 +107400,58 @@
             },
             {
                 "date": "2026-07-20",
-                "temperature": -63.36,
+                "temperature": -63.85,
                 "turnover": 8713598976.0,
                 "score_vol": -24.99,
-                "score_margin": -38.37,
+                "score_margin": -38.86,
                 "is_mock": false
             },
             {
                 "date": "2026-07-21",
-                "temperature": -72.87,
+                "temperature": -72.78,
                 "turnover": 9344007168.0,
                 "score_vol": -27.18,
-                "score_margin": -45.69,
+                "score_margin": -45.6,
                 "is_mock": false
             },
             {
                 "date": "2026-07-22",
-                "temperature": -55.4,
+                "temperature": -55.93,
                 "turnover": 7597775872.0,
                 "score_vol": -34.69,
-                "score_margin": -20.71,
+                "score_margin": -21.23,
                 "is_mock": false
             },
             {
                 "date": "2026-07-23",
-                "temperature": -54.74,
+                "temperature": -55.52,
                 "turnover": 6861888000.0,
                 "score_vol": -30.2,
-                "score_margin": -24.54,
+                "score_margin": -25.32,
                 "is_mock": false
             },
             {
                 "date": "2026-07-24",
-                "temperature": 0.89,
+                "temperature": 0.3,
                 "turnover": 5007793152.0,
                 "score_vol": -40.73,
-                "score_margin": 41.62,
+                "score_margin": 41.03,
                 "is_mock": false
             },
             {
                 "date": "2026-07-27",
-                "temperature": -12.44,
+                "temperature": -11.91,
                 "turnover": 4671201792.0,
                 "score_vol": -47.94,
-                "score_margin": 35.5,
+                "score_margin": 36.03,
                 "is_mock": false
             },
             {
                 "date": "2026-07-28",
-                "temperature": -13.97,
+                "temperature": -13.64,
                 "turnover": 4481620992.0,
                 "score_vol": -47.68,
-                "score_margin": 33.71,
+                "score_margin": 34.04,
                 "is_mock": false
             },
             {
@@ -107464,10 +107464,10 @@
             },
             {
                 "date": "2026-07-30",
-                "temperature": -26.39,
+                "temperature": -25.93,
                 "turnover": 4666403840.0,
                 "score_vol": -51.11,
-                "score_margin": 24.72,
+                "score_margin": 25.18,
                 "is_mock": false
             },
             {
@@ -107480,18 +107480,18 @@
             },
             {
                 "date": "2026-08-03",
-                "temperature": -21.07,
+                "temperature": -21.81,
                 "turnover": 5632010752.0,
                 "score_vol": -26.13,
-                "score_margin": 5.06,
+                "score_margin": 4.32,
                 "is_mock": false
             },
             {
                 "date": "2026-08-04",
-                "temperature": -0.85,
+                "temperature": -0.86,
                 "turnover": 5936879104.0,
                 "score_vol": -28.74,
-                "score_margin": 27.89,
+                "score_margin": 27.88,
                 "is_mock": false
             },
             {
@@ -107504,19 +107504,19 @@
             },
             {
                 "date": "2026-08-06",
-                "temperature": 5.39,
+                "temperature": 4.95,
                 "turnover": 7008604160.0,
                 "score_vol": -24.73,
-                "score_margin": 30.12,
+                "score_margin": 29.68,
                 "is_mock": false
             },
             {
                 "date": "2026-08-07",
-                "temperature": 11.88,
+                "temperature": -36.21,
                 "turnover": 7740068864.0,
                 "score_vol": -17.33,
-                "score_margin": 29.21,
-                "is_mock": true
+                "score_margin": -18.88,
+                "is_mock": false
             }
         ],
         "group": "国防军工"
@@ -107524,11 +107524,11 @@
     "航海设备": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -1.84,
+            "temperature": -15.07,
             "turnover": 7770948096.0,
             "score_vol": -12.45,
-            "score_margin": 10.61,
-            "is_mock": true
+            "score_margin": -2.62,
+            "is_mock": false
         },
         "history": [
             {
@@ -108965,11 +108965,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -1.84,
+                "temperature": -15.07,
                 "turnover": 7770948096.0,
                 "score_vol": -12.45,
-                "score_margin": 10.61,
-                "is_mock": true
+                "score_margin": -2.62,
+                "is_mock": false
             }
         ],
         "group": "国防军工"
@@ -108977,11 +108977,11 @@
     "军工电子": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 22.62,
+            "temperature": 20.86,
             "turnover": 26362963968.0,
             "score_vol": -8.69,
-            "score_margin": 31.31,
-            "is_mock": true
+            "score_margin": 29.55,
+            "is_mock": false
         },
         "history": [
             {
@@ -110418,11 +110418,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 22.62,
+                "temperature": 20.86,
                 "turnover": 26362963968.0,
                 "score_vol": -8.69,
-                "score_margin": 31.31,
-                "is_mock": true
+                "score_margin": 29.55,
+                "is_mock": false
             }
         ],
         "group": "国防军工"
@@ -110430,11 +110430,11 @@
     "轨交设备": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -18.34,
+            "temperature": 7.73,
             "turnover": 3302413568.0,
             "score_vol": -20.19,
-            "score_margin": 1.85,
-            "is_mock": true
+            "score_margin": 27.92,
+            "is_mock": false
         },
         "history": [
             {
@@ -111871,11 +111871,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -18.34,
+                "temperature": 7.73,
                 "turnover": 3302413568.0,
                 "score_vol": -20.19,
-                "score_margin": 1.85,
-                "is_mock": true
+                "score_margin": 27.92,
+                "is_mock": false
             }
         ],
         "group": "机械设备"
@@ -111883,11 +111883,11 @@
     "通用设备": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 5.19,
+            "temperature": 4.75,
             "turnover": 71767351296.0,
             "score_vol": 1.51,
-            "score_margin": 3.68,
-            "is_mock": true
+            "score_margin": 3.24,
+            "is_mock": false
         },
         "history": [
             {
@@ -113324,11 +113324,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 5.19,
+                "temperature": 4.75,
                 "turnover": 71767351296.0,
                 "score_vol": 1.51,
-                "score_margin": 3.68,
-                "is_mock": true
+                "score_margin": 3.24,
+                "is_mock": false
             }
         ],
         "group": "机械设备"
@@ -113336,11 +113336,11 @@
     "专用设备": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 10.51,
+            "temperature": 8.96,
             "turnover": 60093579264.0,
             "score_vol": 7.04,
-            "score_margin": 3.47,
-            "is_mock": true
+            "score_margin": 1.91,
+            "is_mock": false
         },
         "history": [
             {
@@ -114777,11 +114777,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 10.51,
+                "temperature": 8.96,
                 "turnover": 60093579264.0,
                 "score_vol": 7.04,
-                "score_margin": 3.47,
-                "is_mock": true
+                "score_margin": 1.91,
+                "is_mock": false
             }
         ],
         "group": "机械设备"
@@ -114789,11 +114789,11 @@
     "工程机械": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -15.87,
+            "temperature": -22.08,
             "turnover": 6732822016.0,
             "score_vol": -20.17,
-            "score_margin": 4.3,
-            "is_mock": true
+            "score_margin": -1.9,
+            "is_mock": false
         },
         "history": [
             {
@@ -116230,11 +116230,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -15.87,
+                "temperature": -22.08,
                 "turnover": 6732822016.0,
                 "score_vol": -20.17,
-                "score_margin": 4.3,
-                "is_mock": true
+                "score_margin": -1.9,
+                "is_mock": false
             }
         ],
         "group": "机械设备"
@@ -116242,11 +116242,11 @@
     "自动化设备": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 13.79,
+            "temperature": 12.0,
             "turnover": 54389043200.0,
             "score_vol": 8.9,
-            "score_margin": 4.89,
-            "is_mock": true
+            "score_margin": 3.1,
+            "is_mock": false
         },
         "history": [
             {
@@ -117683,11 +117683,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 13.79,
+                "temperature": 12.0,
                 "turnover": 54389043200.0,
                 "score_vol": 8.9,
-                "score_margin": 4.89,
-                "is_mock": true
+                "score_margin": 3.1,
+                "is_mock": false
             }
         ],
         "group": "机械设备"
@@ -117695,11 +117695,11 @@
     "半导体": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -14.85,
+            "temperature": -10.79,
             "turnover": 396595724288.0,
             "score_vol": -17.04,
-            "score_margin": 2.2,
-            "is_mock": true
+            "score_margin": 6.25,
+            "is_mock": false
         },
         "history": [
             {
@@ -119136,11 +119136,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -14.85,
+                "temperature": -10.79,
                 "turnover": 396595724288.0,
                 "score_vol": -17.04,
-                "score_margin": 2.2,
-                "is_mock": true
+                "score_margin": 6.25,
+                "is_mock": false
             }
         ],
         "group": "电子"
@@ -119148,11 +119148,11 @@
     "消费电子": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -7.9,
+            "temperature": -1.08,
             "turnover": 85497143296.0,
             "score_vol": -0.97,
-            "score_margin": -6.93,
-            "is_mock": true
+            "score_margin": -0.11,
+            "is_mock": false
         },
         "history": [
             {
@@ -120589,11 +120589,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -7.9,
+                "temperature": -1.08,
                 "turnover": 85497143296.0,
                 "score_vol": -0.97,
-                "score_margin": -6.93,
-                "is_mock": true
+                "score_margin": -0.11,
+                "is_mock": false
             }
         ],
         "group": "电子"
@@ -120601,11 +120601,11 @@
     "光学广电": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -6.64,
+            "temperature": -10.17,
             "turnover": 56881479680.0,
             "score_vol": -4.53,
-            "score_margin": -2.11,
-            "is_mock": true
+            "score_margin": -5.63,
+            "is_mock": false
         },
         "history": [
             {
@@ -122042,11 +122042,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -6.64,
+                "temperature": -10.17,
                 "turnover": 56881479680.0,
                 "score_vol": -4.53,
-                "score_margin": -2.11,
-                "is_mock": true
+                "score_margin": -5.63,
+                "is_mock": false
             }
         ],
         "group": "电子"
@@ -122054,11 +122054,11 @@
     "元器件": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 20.87,
+            "temperature": 22.98,
             "turnover": 168739356672.0,
             "score_vol": 19.24,
-            "score_margin": 1.63,
-            "is_mock": true
+            "score_margin": 3.74,
+            "is_mock": false
         },
         "history": [
             {
@@ -123495,11 +123495,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 20.87,
+                "temperature": 22.98,
                 "turnover": 168739356672.0,
                 "score_vol": 19.24,
-                "score_margin": 1.63,
-                "is_mock": true
+                "score_margin": 3.74,
+                "is_mock": false
             }
         ],
         "group": "电子"
@@ -123511,7 +123511,7 @@
             "turnover": 27329837056.0,
             "score_vol": 3.54,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -124952,7 +124952,7 @@
                 "turnover": 27329837056.0,
                 "score_vol": 3.54,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "电子"
@@ -124960,11 +124960,11 @@
     "通信设备": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 6.68,
+            "temperature": 3.82,
             "turnover": 222501601280.0,
             "score_vol": 7.98,
-            "score_margin": -1.3,
-            "is_mock": true
+            "score_margin": -4.16,
+            "is_mock": false
         },
         "history": [
             {
@@ -126401,11 +126401,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 6.68,
+                "temperature": 3.82,
                 "turnover": 222501601280.0,
                 "score_vol": 7.98,
-                "score_margin": -1.3,
-                "is_mock": true
+                "score_margin": -4.16,
+                "is_mock": false
             }
         ],
         "group": "通信"
@@ -126413,11 +126413,11 @@
     "电信服务": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 1.9,
+            "temperature": -17.46,
             "turnover": 5362436096.0,
             "score_vol": -4.42,
-            "score_margin": 6.32,
-            "is_mock": true
+            "score_margin": -13.04,
+            "is_mock": false
         },
         "history": [
             {
@@ -127854,11 +127854,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 1.9,
+                "temperature": -17.46,
                 "turnover": 5362436096.0,
                 "score_vol": -4.42,
-                "score_margin": 6.32,
-                "is_mock": true
+                "score_margin": -13.04,
+                "is_mock": false
             }
         ],
         "group": "通信"
@@ -127866,11 +127866,11 @@
     "通信工程": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -33.67,
+            "temperature": 2.63,
             "turnover": 3827505408.0,
             "score_vol": 16.33,
-            "score_margin": -50.0,
-            "is_mock": true
+            "score_margin": -13.69,
+            "is_mock": false
         },
         "history": [
             {
@@ -129307,11 +129307,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -33.67,
+                "temperature": 2.63,
                 "turnover": 3827505408.0,
                 "score_vol": 16.33,
-                "score_margin": -50.0,
-                "is_mock": true
+                "score_margin": -13.69,
+                "is_mock": false
             }
         ],
         "group": "通信"
@@ -129319,11 +129319,11 @@
     "IT设备": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -33.23,
+            "temperature": -35.09,
             "turnover": 45256982528.0,
             "score_vol": -23.36,
-            "score_margin": -9.87,
-            "is_mock": true
+            "score_margin": -11.73,
+            "is_mock": false
         },
         "history": [
             {
@@ -130760,11 +130760,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -33.23,
+                "temperature": -35.09,
                 "turnover": 45256982528.0,
                 "score_vol": -23.36,
-                "score_margin": -9.87,
-                "is_mock": true
+                "score_margin": -11.73,
+                "is_mock": false
             }
         ],
         "group": "计算机"
@@ -130772,11 +130772,11 @@
     "软件服务": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 12.42,
+            "temperature": 10.5,
             "turnover": 80770580480.0,
             "score_vol": 13.37,
-            "score_margin": -0.95,
-            "is_mock": true
+            "score_margin": -2.86,
+            "is_mock": false
         },
         "history": [
             {
@@ -132213,11 +132213,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 12.42,
+                "temperature": 10.5,
                 "turnover": 80770580480.0,
                 "score_vol": 13.37,
-                "score_margin": -0.95,
-                "is_mock": true
+                "score_margin": -2.86,
+                "is_mock": false
             }
         ],
         "group": "计算机"
@@ -132225,11 +132225,11 @@
     "云服务": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 1.71,
+            "temperature": 7.67,
             "turnover": 33108060160.0,
             "score_vol": 1.59,
-            "score_margin": 0.12,
-            "is_mock": true
+            "score_margin": 6.07,
+            "is_mock": false
         },
         "history": [
             {
@@ -133666,11 +133666,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 1.71,
+                "temperature": 7.67,
                 "turnover": 33108060160.0,
                 "score_vol": 1.59,
-                "score_margin": 0.12,
-                "is_mock": true
+                "score_margin": 6.07,
+                "is_mock": false
             }
         ],
         "group": "计算机"
@@ -133682,7 +133682,7 @@
             "turnover": 3067227904.0,
             "score_vol": 9.66,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -135123,7 +135123,7 @@
                 "turnover": 3067227904.0,
                 "score_vol": 9.66,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "计算机"
@@ -135131,11 +135131,11 @@
     "游戏": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -19.72,
+            "temperature": -32.92,
             "turnover": 16591552512.0,
             "score_vol": -18.76,
-            "score_margin": -0.96,
-            "is_mock": true
+            "score_margin": -14.16,
+            "is_mock": false
         },
         "history": [
             {
@@ -136572,11 +136572,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -19.72,
+                "temperature": -32.92,
                 "turnover": 16591552512.0,
                 "score_vol": -18.76,
-                "score_margin": -0.96,
-                "is_mock": true
+                "score_margin": -14.16,
+                "is_mock": false
             }
         ],
         "group": "传媒"
@@ -136584,11 +136584,11 @@
     "广告营销": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -4.32,
+            "temperature": -8.32,
             "turnover": 33793603584.0,
             "score_vol": 41.31,
-            "score_margin": -45.62,
-            "is_mock": true
+            "score_margin": -49.62,
+            "is_mock": false
         },
         "history": [
             {
@@ -138025,11 +138025,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -4.32,
+                "temperature": -8.32,
                 "turnover": 33793603584.0,
                 "score_vol": 41.31,
-                "score_margin": -45.62,
-                "is_mock": true
+                "score_margin": -49.62,
+                "is_mock": false
             }
         ],
         "group": "传媒"
@@ -138037,11 +138037,11 @@
     "影视院线": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -33.8,
+            "temperature": -8.06,
             "turnover": 5679069696.0,
             "score_vol": -21.64,
-            "score_margin": -12.15,
-            "is_mock": true
+            "score_margin": 13.58,
+            "is_mock": false
         },
         "history": [
             {
@@ -139478,11 +139478,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -33.8,
+                "temperature": -8.06,
                 "turnover": 5679069696.0,
                 "score_vol": -21.64,
-                "score_margin": -12.15,
-                "is_mock": true
+                "score_margin": 13.58,
+                "is_mock": false
             }
         ],
         "group": "传媒"
@@ -139494,7 +139494,7 @@
             "turnover": 3167692544.0,
             "score_vol": -10.86,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -140935,7 +140935,7 @@
                 "turnover": 3167692544.0,
                 "score_vol": -10.86,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "传媒"
@@ -140947,7 +140947,7 @@
             "turnover": 6113515008.0,
             "score_vol": 34.59,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -142388,7 +142388,7 @@
                 "turnover": 6113515008.0,
                 "score_vol": 34.59,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "传媒"
@@ -143849,11 +143849,11 @@
     "全国性银行": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -33.77,
+            "temperature": -9.82,
             "turnover": 18532493312.0,
             "score_vol": -32.82,
-            "score_margin": -0.95,
-            "is_mock": true
+            "score_margin": 23.01,
+            "is_mock": false
         },
         "history": [
             {
@@ -145290,11 +145290,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -33.77,
+                "temperature": -9.82,
                 "turnover": 18532493312.0,
                 "score_vol": -32.82,
-                "score_margin": -0.95,
-                "is_mock": true
+                "score_margin": 23.01,
+                "is_mock": false
             }
         ],
         "group": "银行"
@@ -145302,11 +145302,11 @@
     "地方性银行": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -2.39,
+            "temperature": 4.54,
             "turnover": 8194847232.0,
             "score_vol": -26.44,
-            "score_margin": 24.05,
-            "is_mock": true
+            "score_margin": 30.98,
+            "is_mock": false
         },
         "history": [
             {
@@ -146743,11 +146743,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -2.39,
+                "temperature": 4.54,
                 "turnover": 8194847232.0,
                 "score_vol": -26.44,
-                "score_margin": 24.05,
-                "is_mock": true
+                "score_margin": 30.98,
+                "is_mock": false
             }
         ],
         "group": "银行"
@@ -146755,11 +146755,11 @@
     "证券": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -23.67,
+            "temperature": -30.83,
             "turnover": 24305786880.0,
             "score_vol": -34.05,
-            "score_margin": 10.38,
-            "is_mock": true
+            "score_margin": 3.22,
+            "is_mock": false
         },
         "history": [
             {
@@ -148196,11 +148196,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -23.67,
+                "temperature": -30.83,
                 "turnover": 24305786880.0,
                 "score_vol": -34.05,
-                "score_margin": 10.38,
-                "is_mock": true
+                "score_margin": 3.22,
+                "is_mock": false
             }
         ],
         "group": "非银金融"
@@ -148208,11 +148208,11 @@
     "保险": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -19.33,
+            "temperature": -39.76,
             "turnover": 6663831040.0,
             "score_vol": -44.42,
-            "score_margin": 25.08,
-            "is_mock": true
+            "score_margin": 4.66,
+            "is_mock": false
         },
         "history": [
             {
@@ -149649,11 +149649,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -19.33,
+                "temperature": -39.76,
                 "turnover": 6663831040.0,
                 "score_vol": -44.42,
-                "score_margin": 25.08,
-                "is_mock": true
+                "score_margin": 4.66,
+                "is_mock": false
             }
         ],
         "group": "非银金融"
@@ -149661,11 +149661,11 @@
     "多元金融": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 0.5,
+            "temperature": -12.67,
             "turnover": 5047373824.0,
             "score_vol": -9.07,
-            "score_margin": 9.57,
-            "is_mock": true
+            "score_margin": -3.6,
+            "is_mock": false
         },
         "history": [
             {
@@ -151102,11 +151102,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 0.5,
+                "temperature": -12.67,
                 "turnover": 5047373824.0,
                 "score_vol": -9.07,
-                "score_margin": 9.57,
-                "is_mock": true
+                "score_margin": -3.6,
+                "is_mock": false
             }
         ],
         "group": "非银金融"
@@ -151118,7 +151118,7 @@
             "turnover": 1768989824.0,
             "score_vol": -36.71,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -152559,7 +152559,7 @@
                 "turnover": 1768989824.0,
                 "score_vol": -36.71,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "建筑"
@@ -152571,7 +152571,7 @@
             "turnover": 5288307200.0,
             "score_vol": -20.42,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -154012,7 +154012,7 @@
                 "turnover": 5288307200.0,
                 "score_vol": -20.42,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "建筑"
@@ -154024,7 +154024,7 @@
             "turnover": 7471946752.0,
             "score_vol": -13.8,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -155465,7 +155465,7 @@
                 "turnover": 7471946752.0,
                 "score_vol": -13.8,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "建筑"
@@ -155473,11 +155473,11 @@
     "工程咨询服务": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -63.18,
+            "temperature": 32.58,
             "turnover": 3331253504.0,
             "score_vol": -17.42,
-            "score_margin": -45.76,
-            "is_mock": true
+            "score_margin": 50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -156914,11 +156914,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -63.18,
+                "temperature": 32.58,
                 "turnover": 3331253504.0,
                 "score_vol": -17.42,
-                "score_margin": -45.76,
-                "is_mock": true
+                "score_margin": 50.0,
+                "is_mock": false
             }
         ],
         "group": "建筑"
@@ -156926,11 +156926,11 @@
     "装修装饰": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 66.51,
+            "temperature": -8.34,
             "turnover": 4326604800.0,
             "score_vol": 16.51,
-            "score_margin": 50.0,
-            "is_mock": true
+            "score_margin": -24.85,
+            "is_mock": false
         },
         "history": [
             {
@@ -158367,11 +158367,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 66.51,
+                "temperature": -8.34,
                 "turnover": 4326604800.0,
                 "score_vol": 16.51,
-                "score_margin": 50.0,
-                "is_mock": true
+                "score_margin": -24.85,
+                "is_mock": false
             }
         ],
         "group": "建筑"
@@ -158379,11 +158379,11 @@
     "房地产开发": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -9.69,
+            "temperature": -14.02,
             "turnover": 13567918080.0,
             "score_vol": -17.24,
-            "score_margin": 7.54,
-            "is_mock": true
+            "score_margin": 3.22,
+            "is_mock": false
         },
         "history": [
             {
@@ -159820,11 +159820,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -9.69,
+                "temperature": -14.02,
                 "turnover": 13567918080.0,
                 "score_vol": -17.24,
-                "score_margin": 7.54,
-                "is_mock": true
+                "score_margin": 3.22,
+                "is_mock": false
             }
         ],
         "group": "房地产"
@@ -159836,7 +159836,7 @@
             "turnover": 764211456.0,
             "score_vol": -9.17,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -161277,7 +161277,7 @@
                 "turnover": 764211456.0,
                 "score_vol": -9.17,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "房地产"
@@ -161289,7 +161289,7 @@
             "turnover": 348619040.0,
             "score_vol": -40.32,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -162730,7 +162730,7 @@
                 "turnover": 348619040.0,
                 "score_vol": -40.32,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "社会服务"
@@ -162742,7 +162742,7 @@
             "turnover": 4102866944.0,
             "score_vol": 37.77,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -164183,7 +164183,7 @@
                 "turnover": 4102866944.0,
                 "score_vol": 37.77,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "社会服务"
@@ -164191,11 +164191,11 @@
     "酒店餐饮": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -72.5,
+            "temperature": -59.15,
             "turnover": 928140160.0,
             "score_vol": -22.5,
-            "score_margin": -50.0,
-            "is_mock": true
+            "score_margin": -36.65,
+            "is_mock": false
         },
         "history": [
             {
@@ -165632,11 +165632,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -72.5,
+                "temperature": -59.15,
                 "turnover": 928140160.0,
                 "score_vol": -22.5,
-                "score_margin": -50.0,
-                "is_mock": true
+                "score_margin": -36.65,
+                "is_mock": false
             }
         ],
         "group": "社会服务"
@@ -165644,11 +165644,11 @@
     "旅游": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 2.93,
+            "temperature": 0.71,
             "turnover": 3920084992.0,
             "score_vol": -22.46,
-            "score_margin": 25.39,
-            "is_mock": true
+            "score_margin": 23.17,
+            "is_mock": false
         },
         "history": [
             {
@@ -167085,11 +167085,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 2.93,
+                "temperature": 0.71,
                 "turnover": 3920084992.0,
                 "score_vol": -22.46,
-                "score_margin": 25.39,
-                "is_mock": true
+                "score_margin": 23.17,
+                "is_mock": false
             }
         ],
         "group": "社会服务"
@@ -167097,11 +167097,11 @@
     "专业服务": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 23.43,
+            "temperature": 1.03,
             "turnover": 5921107968.0,
             "score_vol": 3.61,
-            "score_margin": 19.82,
-            "is_mock": true
+            "score_margin": -2.58,
+            "is_mock": false
         },
         "history": [
             {
@@ -168538,11 +168538,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 23.43,
+                "temperature": 1.03,
                 "turnover": 5921107968.0,
                 "score_vol": 3.61,
-                "score_margin": 19.82,
-                "is_mock": true
+                "score_margin": -2.58,
+                "is_mock": false
             }
         ],
         "group": "社会服务"
@@ -168554,7 +168554,7 @@
             "turnover": 4100456960.0,
             "score_vol": -15.92,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -169995,7 +169995,7 @@
                 "turnover": 4100456960.0,
                 "score_vol": -15.92,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "交通运输"
@@ -170003,11 +170003,11 @@
     "航空机场": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -22.18,
+            "temperature": -23.2,
             "turnover": 2928965376.0,
             "score_vol": -24.04,
-            "score_margin": 1.86,
-            "is_mock": true
+            "score_margin": 0.84,
+            "is_mock": false
         },
         "history": [
             {
@@ -171444,11 +171444,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -22.18,
+                "temperature": -23.2,
                 "turnover": 2928965376.0,
                 "score_vol": -24.04,
-                "score_margin": 1.86,
-                "is_mock": true
+                "score_margin": 0.84,
+                "is_mock": false
             }
         ],
         "group": "交通运输"
@@ -171456,11 +171456,11 @@
     "航运港口": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -29.82,
+            "temperature": -24.89,
             "turnover": 7683698688.0,
             "score_vol": -28.94,
-            "score_margin": -0.88,
-            "is_mock": true
+            "score_margin": 4.04,
+            "is_mock": false
         },
         "history": [
             {
@@ -172897,11 +172897,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -29.82,
+                "temperature": -24.89,
                 "turnover": 7683698688.0,
                 "score_vol": -28.94,
-                "score_margin": -0.88,
-                "is_mock": true
+                "score_margin": 4.04,
+                "is_mock": false
             }
         ],
         "group": "交通运输"
@@ -172909,11 +172909,11 @@
     "物流": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -1.58,
+            "temperature": -13.17,
             "turnover": 5063721472.0,
             "score_vol": -20.31,
-            "score_margin": 18.74,
-            "is_mock": true
+            "score_margin": 7.14,
+            "is_mock": false
         },
         "history": [
             {
@@ -174350,11 +174350,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -1.58,
+                "temperature": -13.17,
                 "turnover": 5063721472.0,
                 "score_vol": -20.31,
-                "score_margin": 18.74,
-                "is_mock": true
+                "score_margin": 7.14,
+                "is_mock": false
             }
         ],
         "group": "交通运输"
@@ -174366,7 +174366,7 @@
             "turnover": 1874870400.0,
             "score_vol": -7.69,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -175807,7 +175807,7 @@
                 "turnover": 1874870400.0,
                 "score_vol": -7.69,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "公共事业"
@@ -175815,11 +175815,11 @@
     "燃气": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -43.51,
+            "temperature": -65.87,
             "turnover": 3980325888.0,
             "score_vol": -26.12,
-            "score_margin": -17.39,
-            "is_mock": true
+            "score_margin": -39.75,
+            "is_mock": false
         },
         "history": [
             {
@@ -177256,11 +177256,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -43.51,
+                "temperature": -65.87,
                 "turnover": 3980325888.0,
                 "score_vol": -26.12,
-                "score_margin": -17.39,
-                "is_mock": true
+                "score_margin": -39.75,
+                "is_mock": false
             }
         ],
         "group": "公共事业"
@@ -177272,7 +177272,7 @@
             "turnover": 1033124224.0,
             "score_vol": -34.6,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -178713,7 +178713,7 @@
                 "turnover": 1033124224.0,
                 "score_vol": -34.6,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "公共事业"
@@ -178721,11 +178721,11 @@
     "环保设备": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": 25.0,
+            "temperature": -8.94,
             "turnover": 4959434752.0,
             "score_vol": -1.25,
-            "score_margin": 26.25,
-            "is_mock": true
+            "score_margin": -7.69,
+            "is_mock": false
         },
         "history": [
             {
@@ -180162,11 +180162,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": 25.0,
+                "temperature": -8.94,
                 "turnover": 4959434752.0,
                 "score_vol": -1.25,
-                "score_margin": 26.25,
-                "is_mock": true
+                "score_margin": -7.69,
+                "is_mock": false
             }
         ],
         "group": "环保"
@@ -180174,11 +180174,11 @@
     "环境治理": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -10.47,
+            "temperature": -15.61,
             "turnover": 11520605184.0,
             "score_vol": -11.56,
-            "score_margin": 1.09,
-            "is_mock": true
+            "score_margin": -4.05,
+            "is_mock": false
         },
         "history": [
             {
@@ -181615,11 +181615,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -10.47,
+                "temperature": -15.61,
                 "turnover": 11520605184.0,
                 "score_vol": -11.56,
-                "score_margin": 1.09,
-                "is_mock": true
+                "score_margin": -4.05,
+                "is_mock": false
             }
         ],
         "group": "环保"
@@ -181631,7 +181631,7 @@
             "turnover": 436842560.0,
             "score_vol": -30.76,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -183072,7 +183072,7 @@
                 "turnover": 436842560.0,
                 "score_vol": -30.76,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "环保"
@@ -183080,11 +183080,11 @@
     "综合类": {
         "latest": {
             "date": "2026-08-07",
-            "temperature": -52.06,
+            "temperature": 6.44,
             "turnover": 3341259264.0,
             "score_vol": -22.48,
-            "score_margin": -29.58,
-            "is_mock": true
+            "score_margin": 28.92,
+            "is_mock": false
         },
         "history": [
             {
@@ -184521,11 +184521,11 @@
             },
             {
                 "date": "2026-08-07",
-                "temperature": -52.06,
+                "temperature": 6.44,
                 "turnover": 3341259264.0,
                 "score_vol": -22.48,
-                "score_margin": -29.58,
-                "is_mock": true
+                "score_margin": 28.92,
+                "is_mock": false
             }
         ],
         "group": "综合"
