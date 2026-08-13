@@ -19,6 +19,7 @@ from pages.market_sentiment_page import render_sentiment_view
 from pages.shared import setup_common_ui, custom_plotly
 from pages.social_security_demo import social_security_page_instance
 from pages.pe_tracker_component import render_pe_tracker_panel
+from pages.special_announcement_page import special_announcement_page_instance  # noqa: F401 兼容旧路由
 
 
 # 获取当前文件所在的目录
@@ -499,6 +500,34 @@ class MoodState:
 def mood_page():
     ui.page_title('市场情绪与资金')
     setup_common_ui(); state = MoodState()
+
+    # 读取 URL ?tab= 参数并在首次渲染后切换
+    # 使用客户端 JS 读取，避免服务端 request.url 不可靠的问题。
+    ui.run_javascript(
+        """(() => {
+            const u = new URL(window.location.href);
+            const t = u.searchParams.get('tab');
+            const valid = ['market','sector','crowd','money','radar','national','announce'];
+            if (t && valid.includes(t)) {
+                // 查找顶部 tab 中的「公告栏」按钮并点击
+                setTimeout(() => {
+                    const btns = document.querySelectorAll('button');
+                    for (const b of btns) {
+                        if (b.textContent && b.textContent.trim() === (t === 'announce' ? '公告栏' : (() => {
+                            const map = {
+                                market:'大盘温度', sector:'板块温度', crowd:'板块拥挤度',
+                                money:'个股医生', radar:'主力雷达', national:'国家队筛选'
+                            };
+                            return map[t];
+                        })())) {
+                            b.click();
+                            return;
+                        }
+                    }
+                }, 100);
+            }
+        })();"""
+    )
 
     # Header 必须是顶层元素，不能嵌套在 Column 中
     with ui.header().classes('bg-white text-gray-800 border-b'):

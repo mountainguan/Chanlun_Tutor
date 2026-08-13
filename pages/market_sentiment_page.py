@@ -6,6 +6,7 @@ from pages.sector_sentiment_component import render_sector_sentiment_panel
 from pages.sector_crowding_component import render_sector_crowding_panel
 from pages.fund_radar_component import render_fund_radar_panel
 from pages.national_team_component import render_national_team_panel
+from pages.special_announcement_page import render_special_announcement_panel
 
 def render_mood_tabs(active_tab, on_nav, is_mobile):
     tabs_config = [
@@ -15,6 +16,7 @@ def render_mood_tabs(active_tab, on_nav, is_mobile):
         ('money', '个股医生'),
         ('radar', '主力雷达'),
         ('national', '国家队筛选'),
+        ('announce', '公告栏'),
     ]
 
     # --- PC 端视图 (仅在非移动设备渲染) ---
@@ -36,7 +38,7 @@ def render_mood_tabs(active_tab, on_nav, is_mobile):
     if is_mobile:
         # 采用全宽网格布局 (Grid)，5等分，Segmented Control 风格
         with ui.element('div').classes('w-full px-1 mb-4'):
-            with ui.grid(columns=6).classes('w-full gap-1 p-1 bg-gray-100/80 rounded-lg border border-gray-200'):
+            with ui.grid(columns=7).classes('w-full gap-1 p-1 bg-gray-100/80 rounded-lg border border-gray-200'):
                 for tab_id, label in tabs_config:
                     is_active = (tab_id == active_tab)
                     
@@ -80,4 +82,30 @@ def render_sentiment_view(active_tab, on_nav, plotly_renderer, is_mobile):
             render_fund_radar_panel(plotly_renderer=plotly_renderer, is_mobile=is_mobile)
         elif active_tab == 'national':
             render_national_team_panel(plotly_renderer=plotly_renderer, is_mobile=is_mobile)
+        elif active_tab == 'announce':
+            # 公告栏：内部含统计、表格等多模块，使用受限宽度居中样式
+            with ui.column().classes('w-full px-2 md:px-6 gap-4'):
+                # 顶部品牌色标题条
+                with ui.row().classes(
+                    'w-full items-center gap-3 px-5 py-4 bg-gradient-to-r '
+                    'from-amber-500 via-orange-500 to-red-500 rounded-xl '
+                    'shadow-sm'
+                ):
+                    ui.icon('campaign', color='white').classes('text-3xl')
+                    with ui.column().classes('gap-0'):
+                        ui.label('每日股市特殊公告栏').classes(
+                            'text-xl font-bold text-white tracking-wide '
+                            'leading-tight'
+                        )
+                        ui.label(
+                            '全市场交易异动、大股东增减持速览'
+                        ).classes(
+                            'text-xs text-white/85 font-light'
+                        )
+                    ui.space()
+                    ui.chip('Tushare Pro', icon='cloud', color='white').props(
+                        'dense square outline'
+                    ).classes('text-white border-white/80')
+                # 正文面板
+                render_special_announcement_panel()
 
