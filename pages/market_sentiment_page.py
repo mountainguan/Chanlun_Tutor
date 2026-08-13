@@ -107,5 +107,5 @@ def render_sentiment_view(active_tab, on_nav, plotly_renderer, is_mobile):
                         'dense square outline'
                     ).classes('text-white border-white/80')
                 # 正文面板
-                render_special_announcement_panel()
+                render_special_announcement_panel(plotly_renderer=plotly_renderer)
 

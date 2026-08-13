@@ -125,6 +125,349 @@ def _render_summary_cards(summary: dict) -> None:
             ).classes("text-xs text-indigo-600 mt-1")
 
 
+def _render_shock_trend_chart(trend: dict, plot_func=None) -> None:
+    """异动/严重异动每日波动图（双柱状图 + 折线）。
+
+    trend 结构：
+    {
+        "dates": [...],
+        "shock": [...],
+        "high_shock": [...],
+        "window_count": int,
+        "max_shock": int, "max_high": int,
+    }
+    """
+    plot_func = plot_func or ui.plotly
+    dates = trend.get("dates") or []
+    shock = trend.get("shock") or []
+    high = trend.get("high_shock") or []
+    window_count = int(trend.get("window_count") or len(dates))
+
+    if not dates:
+        return
+
+    # 计算总量 / 均值
+    total_shock = int(sum(shock))
+    total_high = int(sum(high))
+    avg_shock = total_shock / max(len(shock), 1)
+    avg_high = total_high / max(len(high), 1)
+    peak_idx = (
+        max(range(len(shock)), key=lambda i: shock[i]) if shock else 0
+    )
+    peak_date = dates[peak_idx] if 0 <= peak_idx < len(dates) else "-"
+    peak_val = shock[peak_idx] if 0 <= peak_idx < len(shock) else 0
+
+    # 构建 plotly 图
+    fig = _build_shock_trend_figure(dates, shock, high)
+
+    with ui.card().classes(
+        "w-full p-5 bg-white border border-gray-100 shadow-sm rounded-xl"
+    ):
+        with ui.row().classes("items-center gap-2 mb-2"):
+            ui.icon("show_chart", color="amber").classes("text-xl")
+            ui.label("异动波动走势").classes("text-lg font-bold text-gray-800")
+            ui.space()
+            ui.label(f"{window_count} 个交易日").classes(
+                "text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full"
+            )
+
+        # 顶部小摘要
+        with ui.grid(columns="1fr 1fr 1fr").classes("w-full gap-3 mb-3"):
+            with ui.column().classes(
+                "p-3 bg-amber-50/60 rounded-lg border border-amber-100"
+            ):
+                ui.label("异常波动均值").classes("text-xs text-amber-700")
+                ui.label(f"{avg_shock:,.1f} 条/日").classes(
+                    "text-xl font-bold text-amber-900 font-mono mt-1"
+                )
+            with ui.column().classes(
+                "p-3 bg-rose-50/60 rounded-lg border border-rose-100"
+            ):
+                ui.label("严重异常波动均值").classes("text-xs text-rose-700")
+                ui.label(f"{avg_high:,.1f} 条/日").classes(
+                    "text-xl font-bold text-rose-900 font-mono mt-1"
+                )
+            with ui.column().classes(
+                "p-3 bg-orange-50/60 rounded-lg border border-orange-100"
+            ):
+                ui.label("异动峰值日").classes("text-xs text-orange-700")
+                ui.label(f"{peak_date}").classes(
+                    "text-base font-bold text-orange-900 font-mono mt-1"
+                )
+                ui.label(f"{peak_val} 条").classes(
+                    "text-xs text-orange-700 font-mono"
+                )
+
+        # plotly 图
+        plot_func(fig).classes("w-full").style("height: 320px")
+
+
+def _build_shock_trend_figure(dates, shock, high):
+    """构造异动走势的 Plotly Figure。"""
+    try:
+        import plotly.graph_objects as go
+    except Exception:
+        # plotly 不可用，返回一个简单的占位
+        import plotly.graph_objects as go  # type: ignore
+
+    fig = go.Figure()
+
+    # 异常波动柱状（橙色半透明）
+    fig.add_trace(
+        go.Bar(
+            x=dates,
+            y=shock,
+            name="异常波动",
+            marker=dict(
+                color="rgba(245, 158, 11, 0.55)",  # amber-500
+                line=dict(color="rgba(245, 158, 11, 1)", width=1.5),
+            ),
+            hovertemplate="<b>%{x}</b><br>异常波动：%{y} 条<extra></extra>",
+        )
+    )
+
+    # 严重异常波动柱状（玫红色）
+    fig.add_trace(
+        go.Bar(
+            x=dates,
+            y=high,
+            name="严重异常波动",
+            marker=dict(
+                color="rgba(244, 63, 94, 0.85)",  # rose-500
+                line=dict(color="rgba(190, 18, 60, 1)", width=1.5),
+            ),
+            hovertemplate="<b>%{x}</b><br>严重异动：%{y} 条<extra></extra>",
+        )
+    )
+
+    # 异常波动趋势线（深橙）
+    fig.add_trace(
+        go.Scatter(
+            x=dates,
+            y=shock,
+            name="异常波动趋势",
+            mode="lines+markers",
+            line=dict(color="rgba(217, 119, 6, 1)", width=2.5, shape="spline"),
+            marker=dict(size=7, color="rgba(217, 119, 6, 1)"),
+            hovertemplate="<b>%{x}</b><br>异常：%{y} 条<extra></extra>",
+        )
+    )
+
+    fig.update_layout(
+        barmode="overlay",
+        bargap=0.25,
+        margin=dict(l=10, r=10, t=20, b=10),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        xaxis=dict(
+            showgrid=False,
+            tickfont=dict(size=11, color="#374151"),
+            tickangle=0,
+        ),
+        yaxis=dict(
+            title=dict(text="公告条数", font=dict(size=11, color="#6B7280")),
+            showgrid=True,
+            gridcolor="rgba(0,0,0,0.06)",
+            zeroline=False,
+            tickfont=dict(size=11, color="#374151"),
+            rangemode="tozero",
+        ),
+        legend=dict(
+            orientation="h",
+            x=0.5,
+            xanchor="center",
+            y=1.12,
+            yanchor="bottom",
+            font=dict(size=11, color="#374151"),
+            bgcolor="rgba(0,0,0,0)",
+        ),
+        hovermode="x unified",
+    )
+    return fig
+
+
+def _render_weekly_summary(weekly: dict) -> None:
+    """增减持周汇总卡：企业数 / 总金额 / 净流向 / 每日趋势。"""
+    in_data = weekly.get("in", {}) or {}
+    de_data = weekly.get("de", {}) or {}
+    net_wan = float(weekly.get("net_wan", 0.0) or 0.0)
+    window_count = int(weekly.get("window_count", 0) or 0)
+    has_avg = bool(weekly.get("has_avg_price", False))
+
+    net_yi = net_wan / 1e4  # 万元 -> 亿元
+    in_yi = in_data.get("amount_wan", 0.0) / 1e4
+    de_yi = de_data.get("amount_wan", 0.0) / 1e4
+
+    net_color = (
+        "text-rose-700 bg-rose-50 border-rose-200"
+        if net_wan > 0
+        else "text-emerald-700 bg-emerald-50 border-emerald-200"
+        if net_wan < 0
+        else "text-gray-700 bg-gray-50 border-gray-200"
+    )
+    net_arrow = "↑ 净减持" if net_wan > 0 else "↓ 净增持" if net_wan < 0 else "持平"
+    net_txt = (
+        f"{net_arrow} {abs(net_yi):,.2f} 亿元"
+        if abs(net_yi) >= 0.01
+        else f"{net_arrow} {abs(net_wan):,.0f} 万元"
+    )
+
+    with ui.card().classes(
+        "w-full p-5 bg-white border border-gray-100 shadow-sm rounded-xl"
+    ):
+        with ui.row().classes("items-center gap-2 mb-3"):
+            ui.icon("bar_chart", color="indigo").classes("text-xl")
+            ui.label("增减持周汇总").classes("text-lg font-bold text-gray-800")
+            ui.space()
+            if window_count:
+                ui.label(f"含 {window_count} 个交易日").classes(
+                    "text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full"
+                )
+            if not has_avg:
+                ui.label("未披露均价，按成交参考").classes(
+                    "text-xs text-amber-700 bg-amber-50 border border-amber-200 "
+                    "px-2 py-1 rounded-full ml-1"
+                )
+
+        if (in_data.get("firms", 0) == 0 and de_data.get("firms", 0) == 0):
+            with ui.row().classes(
+                "items-center gap-2 py-8 justify-center w-full text-gray-400"
+            ):
+                ui.icon("inbox", size="32px")
+                ui.label("本周窗口内无增减持披露").classes("text-sm")
+            return
+
+        # 三段：增持 / 减持 / 净流向
+        with ui.grid(columns="1fr 1fr 1fr").classes("w-full gap-4"):
+            # 增持
+            with ui.card().classes(
+                "p-4 bg-gradient-to-br from-emerald-50 to-green-50 "
+                "border border-emerald-100"
+            ):
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon("trending_up", color="green").classes("text-lg")
+                    ui.label("增持").classes("text-sm text-emerald-700 font-medium")
+                ui.label(f"{in_data.get('firms', 0)}").classes(
+                    "text-3xl font-bold text-emerald-900 mt-2 leading-none"
+                )
+                ui.label("家企业披露").classes("text-xs text-emerald-600 mt-1")
+                ui.label(
+                    f"总金额 {in_yi:,.2f} 亿元" if in_yi >= 0.01
+                    else f"总金额 {in_data.get('amount_wan', 0.0):,.0f} 万元"
+                ).classes("text-xs text-emerald-700 font-mono mt-1")
+
+            # 减持
+            with ui.card().classes(
+                "p-4 bg-gradient-to-br from-rose-50 to-pink-50 "
+                "border border-rose-100"
+            ):
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon("sell", color="red").classes("text-lg")
+                    ui.label("减持").classes("text-sm text-rose-700 font-medium")
+                ui.label(f"{de_data.get('firms', 0)}").classes(
+                    "text-3xl font-bold text-rose-900 mt-2 leading-none"
+                )
+                ui.label("家企业披露").classes("text-xs text-rose-600 mt-1")
+                ui.label(
+                    f"总金额 {de_yi:,.2f} 亿元" if de_yi >= 0.01
+                    else f"总金额 {de_data.get('amount_wan', 0.0):,.0f} 万元"
+                ).classes("text-xs text-rose-700 font-mono mt-1")
+
+            # 净流向
+            with ui.element("div").classes(
+                f"p-4 rounded-lg border {net_color} flex flex-col justify-between"
+            ):
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon(
+                        "trending_down" if net_wan > 0 else "trending_up",
+                        color="rose" if net_wan > 0 else "emerald" if net_wan < 0 else "gray",
+                    ).classes("text-lg")
+                    ui.label("净流向").classes("text-sm font-medium")
+                ui.label(net_txt).classes(
+                    "text-2xl font-bold mt-2 leading-none font-mono"
+                )
+                ui.label(
+                    "减持 > 增持 = 市场资金净流出" if net_wan > 0
+                    else "增持 > 减持 = 市场资金净流入" if net_wan < 0
+                    else "本周增减基本平衡"
+                ).classes("text-xs mt-1 opacity-80")
+
+        # 每日趋势表
+        in_by_day = in_data.get("by_day", []) or []
+        de_by_day = de_data.get("by_day", []) or []
+        if in_by_day or de_by_day:
+            with ui.column().classes("w-full mt-4"):
+                ui.label("每日企业数分布").classes(
+                    "text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1"
+                )
+                with ui.row().classes(
+                    "w-full px-3 py-2 bg-gray-50 rounded-t-lg border-b border-gray-200 "
+                    "text-xs font-semibold text-gray-600"
+                ):
+                    for w, txt in [
+                        ("w-32", "交易日"),
+                        ("flex-1", "增持"),
+                        ("flex-1", "减持"),
+                        ("flex-1", "净流向"),
+                    ]:
+                        align = "text-right" if w != "w-32" else ""
+                        with ui.element("div").classes(f"{w} px-2 {align}"):
+                            ui.label(txt).classes(align)
+
+                # 合并每日数据
+                days_map = {}
+                for r in in_by_day:
+                    days_map[r["date"]] = {"in": r, "de": {"firms": 0, "amount_wan": 0.0}}
+                for r in de_by_day:
+                    if r["date"] not in days_map:
+                        days_map[r["date"]] = {"in": {"firms": 0, "amount_wan": 0.0}, "de": r}
+                    else:
+                        days_map[r["date"]]["de"] = r
+
+                for idx, d in enumerate(sorted(days_map.keys(), reverse=True)):
+                    row = days_map[d]
+                    in_firms = row["in"].get("firms", 0)
+                    de_firms = row["de"].get("firms", 0)
+                    in_amt = row["in"].get("amount_wan", 0.0)
+                    de_amt = row["de"].get("amount_wan", 0.0)
+                    net_amt = de_amt - in_amt
+                    in_yi = in_amt / 1e4
+                    de_yi = de_amt / 1e4
+                    net_yi_day = net_amt / 1e4
+
+                    bg = "bg-white hover:bg-gray-50" if idx % 2 == 0 else "bg-gray-50/40 hover:bg-gray-50"
+                    with ui.row().classes(
+                        f"w-full px-3 py-2 border-b border-gray-100 items-center {bg}"
+                    ):
+                        with ui.element("div").classes("w-32 px-2"):
+                            ui.label(d).classes(
+                                "text-xs font-mono text-gray-700 font-medium"
+                            )
+                        with ui.element("div").classes("flex-1 px-2 text-right"):
+                            ui.label(
+                                f"{in_firms} 家 / "
+                                f"{in_yi:,.2f} 亿" if in_yi >= 0.01
+                                else f"{in_firms} 家 / {in_amt:,.0f} 万"
+                            ).classes("text-xs font-mono text-emerald-700")
+                        with ui.element("div").classes("flex-1 px-2 text-right"):
+                            ui.label(
+                                f"{de_firms} 家 / "
+                                f"{de_yi:,.2f} 亿" if de_yi >= 0.01
+                                else f"{de_firms} 家 / {de_amt:,.0f} 万"
+                            ).classes("text-xs font-mono text-rose-700")
+                        with ui.element("div").classes("flex-1 px-2 text-right"):
+                            ui.label(
+                                f"{'↑' if net_yi_day >= 0 else '↓'} "
+                                f"{abs(net_yi_day):,.2f} 亿"
+                                if abs(net_yi_day) >= 0.01
+                                else f"{'↑' if net_amt >= 0 else '↓'} "
+                                     f"{abs(net_amt):,.0f} 万"
+                            ).classes(
+                                "text-xs font-mono font-semibold "
+                                + ("text-rose-700" if net_amt > 0 else "text-emerald-700")
+                            )
+
+
 def _render_shock_table(rows: list[dict], title: str, accent: str, icon: str) -> None:
     """交易异动列表卡片。"""
     with ui.card().classes(
@@ -307,11 +650,13 @@ def _render_holder_table(
 
 # ---------------------------------------------------------------- 面板入口
 
-def render_special_announcement_panel():
+def render_special_announcement_panel(plotly_renderer=None):
     """公告栏面板：可嵌入到 mood 板块或其他位置。
 
-    不含外层 header / 导航栏，由调用方提供上下文。
+    参数：
+        plotly_renderer: 可选，传入 None 或 ui.plotly 以保证面板独立可调。
     """
+    plot_func = plotly_renderer if plotly_renderer else ui.plotly
     state = {"date": None, "busy": False, "refresh_btn": None}
 
     with ui.column().classes("w-full gap-4"):
@@ -445,6 +790,12 @@ def render_special_announcement_panel():
 
             _render_summary_cards(payload.get("summary", {}))
 
+            _render_shock_trend_chart(
+                payload.get("shock_trend", {}), plot_func=plot_func
+            )
+
+            _render_weekly_summary(payload.get("weekly_summary", {}))
+
             _render_shock_table(
                 payload.get("high_shock", []),
                 "严重异常波动公告",
@@ -505,7 +856,8 @@ def render_special_announcement_panel():
                 def _work():
                     board = SpecialAnnouncementBoard()
                     trade_date = board.latest_trade_date()
-                    data = board.fetch_day_simple(trade_date)
+                    # 增减持窗口 = 5 个交易日（本周窗口）
+                    data = board.fetch_day_simple(trade_date, holder_window=5)
                     payload = build_struct_data(data)
                     return save_struct_data(payload)
 

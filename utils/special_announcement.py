@@ -231,23 +231,72 @@ class SpecialAnnouncementBoard:
         data["name_map"] = self.name_map()
         return data
 
-    def fetch_day_simple(self, trade_date: str) -> Dict:
+    def fetch_day_simple(
+        self,
+        trade_date: str,
+        holder_window: int = 1,
+        shock_window: int = 5,
+    ) -> Dict:
         """精简抓取：仅抓取「交易异动」与「股东增减持」公告。
 
-        - 交易异动：stk_shock（异常波动）+ stk_high_shock（严重异常波动）
-        - 股东增减持：stk_holdertrade
+        - 交易异动：stk_shock（异常波动）+ stk_high_shock（严重异常波动）窗口数据
+        - 股东增减持：stk_holdertrade 窗口数据
 
-        接口稳定性好、调用额度低，适合每日公告栏页面快速刷新。
+        参数：
+            trade_date: 主交易日（YMD 字符串）
+            holder_window: 增减持查询窗口天数。
+            shock_window: 异动查询窗口天数（默认 5，覆盖一周边界情况）。
         """
         trade_date = str(trade_date)
+
+        # 获取窗口交易日（按周一动动冲充上下边界）
+        window_dates = _resolve_trade_window(self, trade_date, max(holder_window, shock_window))
+
+        # 交易异动：窗口抓取，并入同一 DataFrame（保留 trade_date 列）
+        shock_frames = []
+        high_frames = []
+        for d in window_dates:
+            try:
+                df_s = self._query("stk_shock", trade_date=d)
+                if df_s is not None and len(df_s):
+                    shock_frames.append(df_s)
+            except Exception:
+                continue
+            try:
+                df_h = self._query("stk_high_shock", trade_date=d)
+                if df_h is not None and len(df_h):
+                    high_frames.append(df_h)
+            except Exception:
+                continue
+        shock = pd.concat(shock_frames, ignore_index=True) if shock_frames else pd.DataFrame()
+        high_shock = pd.concat(high_frames, ignore_index=True) if high_frames else pd.DataFrame()
+
+        # 增减持：窗口抓取
+        holder_frames = []
+        for d in window_dates[-holder_window:] if holder_window > 1 else [trade_date]:
+            try:
+                df = self._query("stk_holdertrade", ann_date=d)
+                if df is not None and len(df):
+                    holder_frames.append(df)
+            except Exception:
+                continue
+        if holder_frames:
+            holder = pd.concat(holder_frames, ignore_index=True)
+        else:
+            holder = pd.DataFrame()
+
         data = {
             "trade_date": trade_date,
             "sections": {
-                "stk_shock": self._query("stk_shock", trade_date=trade_date),
-                "stk_high_shock": self._query("stk_high_shock", trade_date=trade_date),
-                "stk_holdertrade": self._query("stk_holdertrade", ann_date=trade_date),
+                "stk_shock": shock,
+                "stk_high_shock": high_shock,
+                "stk_holdertrade": holder,
             },
             "name_map": self.name_map(),
+            "holder_window_dates": (
+                window_dates[-holder_window:] if holder_window > 1 else [trade_date]
+            ),
+            "shock_window_dates": window_dates,
         }
         return data
 
@@ -363,11 +412,19 @@ def build_struct_data(data: Dict) -> Dict:
         ht["est_amount_wan"] = amt / 1e4
         # 是否大额（变动比例 ≥5% 或 估算金额 ≥1亿）
         ht["significant"] = (ht["change_ratio"].fillna(0) >= 5) | (amt >= 1e8)
-        summary["significant"] = int(ht["significant"].sum())
+
+        # top 卡片：仅统计当天（ann_date == trade_date）的数据
+        if "ann_date" in ht.columns:
+            ht_today = ht[ht["ann_date"].astype(str) == str(trade_date)].copy()
+        else:
+            ht_today = ht
+        summary["significant"] = int(ht_today["significant"].sum())
 
         # 增持
-        sub_in = ht[ht["in_de"] == "IN"].copy().sort_values("change_ratio", ascending=False)
-        summary["holder_in"] = int(len(sub_in))
+        sub_in_all = ht[ht["in_de"] == "IN"].copy().sort_values("change_ratio", ascending=False)
+        sub_in = sub_in_all
+        sub_in_today = ht_today[ht_today["in_de"] == "IN"].copy()
+        summary["holder_in"] = int(len(sub_in_today))
         for _, r in sub_in.iterrows():
             code = str(r.get("ts_code", ""))
             # stk_holdertrade 不含 name 字段，从 name_map 补全
@@ -390,7 +447,8 @@ def build_struct_data(data: Dict) -> Dict:
 
         # 减持
         sub_de = ht[ht["in_de"] == "DE"].copy().sort_values("change_ratio", ascending=False)
-        summary["holder_de"] = int(len(sub_de))
+        sub_de_today = ht_today[ht_today["in_de"] == "DE"].copy()
+        summary["holder_de"] = int(len(sub_de_today))
         for _, r in sub_de.iterrows():
             code = str(r.get("ts_code", ""))
             raw_name = r.get("name")
@@ -414,15 +472,182 @@ def build_struct_data(data: Dict) -> Dict:
         dt.timezone(dt.timedelta(hours=8))
     ).strftime("%Y-%m-%d %H:%M")
 
+    # ---------- 异动/严重异动按天趋势 ----------
+    shock_trend = _build_shock_trend(
+        shock_df, high_df, data.get("shock_window_dates")
+    )
+
+    # ---------- 增减持周汇总 ----------
+    weekly_summary = _build_weekly_summary(ht_df, data.get("holder_window_dates"))
+
     return {
         "trade_date": trade_date,
         "generated_at": generated_at,
         "summary": summary,
+        "weekly_summary": weekly_summary,
+        "shock_trend": shock_trend,
         "shock": shock_rows,
         "high_shock": high_rows,
         "holder_in": holder_in_rows,
         "holder_de": holder_de_rows,
     }
+
+
+def _resolve_trade_window(board, trade_date: str, n: int) -> list[str]:
+    """从 trade_date 往前回溯 n 个交易日。包含当天。"""
+    if n <= 1:
+        return [str(trade_date)]
+    try:
+        end = str(trade_date)
+        start = (
+            dt.datetime.strptime(end, "%Y%m%d").date()
+            - dt.timedelta(days=n * 2 + 10)
+        ).strftime("%Y%m%d")
+        cal = board._query("trade_cal", exchange="SSE", start_date=start, end_date=end)
+        trading_days = cal.loc[cal["is_open"] == 1, "cal_date"].sort_values().tolist()
+        return trading_days[-n:]
+    except Exception:
+        return [str(trade_date)]
+
+
+def _build_shock_trend(shock_df, high_df, window_dates: list[str]) -> dict:
+    """按天聚合异动 / 严重异动趋势。
+
+    返回：
+    {
+        "dates": ["2026-08-07", ...],
+        "shock": [22, 18, ...],          # 异常波动每日条数
+        "high_shock": [1, 2, ...],       # 严重异动每日条数
+        "window_count": 5,
+        "max_shock": 35, "max_high": 5,
+    }
+    """
+    dates = list(window_dates or [])
+    shock_by_day = {}
+    high_by_day = {}
+
+    def _pretty(d):
+        s = str(d)
+        return f"{s[:4]}-{s[4:6]}-{s[6:]}" if len(s) == 8 and s.isdigit() else s
+
+    if shock_df is not None and len(shock_df) and "trade_date" in shock_df.columns:
+        shock_by_day = (
+            shock_df.groupby("trade_date").size().to_dict()
+        )
+    if high_df is not None and len(high_df) and "trade_date" in high_df.columns:
+        high_by_day = (
+            high_df.groupby("trade_date").size().to_dict()
+        )
+
+    pretty_dates = [_pretty(d) for d in dates]
+    shock_series = [int(shock_by_day.get(d, 0)) for d in dates]
+    high_series = [int(high_by_day.get(d, 0)) for d in dates]
+
+    return {
+        "dates": pretty_dates,
+        "shock": shock_series,
+        "high_shock": high_series,
+        "window_count": len(dates),
+        "max_shock": max(shock_series) if shock_series else 0,
+        "max_high": max(high_series) if high_series else 0,
+    }
+
+
+def _build_weekly_summary(ht_df, window_dates):
+    """从原始 stk_holdertrade DataFrame 汇总本周（窗口内）增减持数据。
+
+    返回：
+    {
+        "window_dates": ["20260811", "20260812", "20260813", ...],
+        "window_count": 3,
+        "in": {"firms": 8, "amount_wan": 12345.0, "by_day": [...]},
+        "de": {"firms": 27, "amount_wan": 87654.0, "by_day": [...]},
+        "net_wan": -75309.0,   # 净减持金额（de - in）
+        "has_avg_price": True/False,
+    }
+    """
+    empty = {
+        "window_dates": list(window_dates or []),
+        "window_count": len(window_dates or []),
+        "in": {"firms": 0, "amount_wan": 0.0, "by_day": []},
+        "de": {"firms": 0, "amount_wan": 0.0, "by_day": []},
+        "net_wan": 0.0,
+        "has_avg_price": False,
+    }
+    if ht_df is None or len(ht_df) == 0:
+        return empty
+
+    df = ht_df.copy()
+    # 去重
+    dedup_cols = [c for c in [
+        "ts_code", "holder_name", "change_vol", "change_ratio", "avg_price", "ann_date"
+    ] if c in df.columns]
+    df = df.drop_duplicates(subset=dedup_cols)
+
+    # 估算变动金额（万元）
+    if "avg_price" in df.columns and "change_vol" in df.columns:
+        amt = df["avg_price"].fillna(0) * df["change_vol"].fillna(0)
+        df["est_amount"] = amt
+        has_avg = bool((df["avg_price"].fillna(0) > 0).any())
+    else:
+        df["est_amount"] = 0
+        has_avg = False
+
+    result = {
+        "window_dates": list(window_dates or []),
+        "window_count": len(window_dates or []),
+        "in": {"firms": 0, "amount_wan": 0.0, "by_day": []},
+        "de": {"firms": 0, "amount_wan": 0.0, "by_day": []},
+        "net_wan": 0.0,
+        "has_avg_price": has_avg,
+    }
+
+    # 按 in_de + ann_date 分组
+    for key, side in (("IN", "in"), ("DE", "de")):
+        sub = df[df["in_de"] == key] if "in_de" in df.columns else df.iloc[0:0]
+        if len(sub) == 0:
+            continue
+        firms = int(sub["ts_code"].astype(str).nunique())
+        amount_wan = float(sub["est_amount"].sum()) / 1e4
+        result[side] = {
+            "firms": firms,
+            "amount_wan": amount_wan,
+            "by_day": _aggregate_by_day(sub, window_dates or []),
+        }
+
+    result["net_wan"] = result["de"]["amount_wan"] - result["in"]["amount_wan"]
+    return result
+
+
+def _aggregate_by_day(df, window_dates):
+    """按 ann_date 聚合每日企业数与金额。"""
+    if df is None or len(df) == 0:
+        return []
+    if "ann_date" not in df.columns:
+        return []
+    grouped = (
+        df.groupby("ann_date")
+        .agg(
+            firms=("ts_code", lambda s: s.astype(str).nunique()),
+            amount_wan=("est_amount", lambda s: float(s.sum()) / 1e4),
+        )
+        .reset_index()
+    )
+    by_day = {}
+    for _, r in grouped.iterrows():
+        d = str(r["ann_date"])
+        pretty = f"{d[:4]}-{d[4:6]}-{d[6:]}" if len(d) == 8 and d.isdigit() else d
+        by_day[d] = {"date": pretty, "firms": int(r["firms"]), "amount_wan": float(r["amount_wan"])}
+
+    # 补全窗口内没有数据的日期
+    out = []
+    for d in window_dates:
+        if d in by_day:
+            out.append(by_day[d])
+        else:
+            pretty = f"{d[:4]}-{d[4:6]}-{d[6:]}" if len(d) == 8 and d.isdigit() else d
+            out.append({"date": pretty, "firms": 0, "amount_wan": 0.0})
+    return out
 
 
 # ---------------------------------------------------------------- 版式生成
