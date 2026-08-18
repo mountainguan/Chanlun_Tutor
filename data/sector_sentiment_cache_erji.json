@@ -2,11 +2,11 @@
     "煤炭开采": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -27.56,
+            "temperature": -30.12,
             "turnover": 7858864128.0,
             "score_vol": -29.89,
-            "score_margin": 2.32,
-            "is_mock": true
+            "score_margin": -0.24,
+            "is_mock": false
         },
         "history": [
             {
@@ -1443,11 +1443,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -27.56,
+                "temperature": -30.12,
                 "turnover": 7858864128.0,
                 "score_vol": -29.89,
-                "score_margin": 2.32,
-                "is_mock": true
+                "score_margin": -0.24,
+                "is_mock": false
             }
         ],
         "group": "煤炭"
@@ -1459,7 +1459,7 @@
             "turnover": 542317888.0,
             "score_vol": -33.81,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -2900,7 +2900,7 @@
                 "turnover": 542317888.0,
                 "score_vol": -33.81,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "煤炭"
@@ -2908,11 +2908,11 @@
     "油气开采": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -32.58,
+            "temperature": -16.78,
             "turnover": 2898790400.0,
             "score_vol": -44.09,
-            "score_margin": 11.51,
-            "is_mock": true
+            "score_margin": 27.31,
+            "is_mock": false
         },
         "history": [
             {
@@ -4349,11 +4349,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -32.58,
+                "temperature": -16.78,
                 "turnover": 2898790400.0,
                 "score_vol": -44.09,
-                "score_margin": 11.51,
-                "is_mock": true
+                "score_margin": 27.31,
+                "is_mock": false
             }
         ],
         "group": "石油"
@@ -4361,11 +4361,11 @@
     "油服工程": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -69.9,
+            "temperature": -62.74,
             "turnover": 3844610048.0,
             "score_vol": -33.81,
-            "score_margin": -36.09,
-            "is_mock": true
+            "score_margin": -28.93,
+            "is_mock": false
         },
         "history": [
             {
@@ -5802,11 +5802,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -69.9,
+                "temperature": -62.74,
                 "turnover": 3844610048.0,
                 "score_vol": -33.81,
-                "score_margin": -36.09,
-                "is_mock": true
+                "score_margin": -28.93,
+                "is_mock": false
             }
         ],
         "group": "石油"
@@ -5814,11 +5814,11 @@
     "石油化工": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 12.73,
+            "temperature": -8.1,
             "turnover": 2806825472.0,
             "score_vol": -28.99,
-            "score_margin": 41.72,
-            "is_mock": true
+            "score_margin": 20.88,
+            "is_mock": false
         },
         "history": [
             {
@@ -7255,11 +7255,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 12.73,
+                "temperature": -8.1,
                 "turnover": 2806825472.0,
                 "score_vol": -28.99,
-                "score_margin": 41.72,
-                "is_mock": true
+                "score_margin": 20.88,
+                "is_mock": false
             }
         ],
         "group": "石油"
@@ -7271,7 +7271,7 @@
             "turnover": 2468250368.0,
             "score_vol": -15.85,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -8712,7 +8712,7 @@
                 "turnover": 2468250368.0,
                 "score_vol": -15.85,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "化工"
@@ -8720,11 +8720,11 @@
     "化纤": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -7.21,
+            "temperature": -11.07,
             "turnover": 7126091264.0,
             "score_vol": -1.18,
-            "score_margin": -6.03,
-            "is_mock": true
+            "score_margin": -9.89,
+            "is_mock": false
         },
         "history": [
             {
@@ -10161,11 +10161,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -7.21,
+                "temperature": -11.07,
                 "turnover": 7126091264.0,
                 "score_vol": -1.18,
-                "score_margin": -6.03,
-                "is_mock": true
+                "score_margin": -9.89,
+                "is_mock": false
             }
         ],
         "group": "化工"
@@ -10173,11 +10173,11 @@
     "化学原料": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 4.28,
+            "temperature": -6.49,
             "turnover": 19410180096.0,
             "score_vol": -5.49,
-            "score_margin": 9.77,
-            "is_mock": true
+            "score_margin": -1.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -11614,11 +11614,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 4.28,
+                "temperature": -6.49,
                 "turnover": 19410180096.0,
                 "score_vol": -5.49,
-                "score_margin": 9.77,
-                "is_mock": true
+                "score_margin": -1.0,
+                "is_mock": false
             }
         ],
         "group": "化工"
@@ -11626,11 +11626,11 @@
     "化学制品": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 1.71,
+            "temperature": -1.93,
             "turnover": 38996131840.0,
             "score_vol": 1.21,
-            "score_margin": 0.5,
-            "is_mock": true
+            "score_margin": -3.13,
+            "is_mock": false
         },
         "history": [
             {
@@ -13067,11 +13067,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 1.71,
+                "temperature": -1.93,
                 "turnover": 38996131840.0,
                 "score_vol": 1.21,
-                "score_margin": 0.5,
-                "is_mock": true
+                "score_margin": -3.13,
+                "is_mock": false
             }
         ],
         "group": "化工"
@@ -13079,11 +13079,11 @@
     "塑料": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 7.58,
+            "temperature": 12.39,
             "turnover": 24870062080.0,
             "score_vol": 7.2,
-            "score_margin": 0.38,
-            "is_mock": true
+            "score_margin": 5.19,
+            "is_mock": false
         },
         "history": [
             {
@@ -14520,11 +14520,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 7.58,
+                "temperature": 12.39,
                 "turnover": 24870062080.0,
                 "score_vol": 7.2,
-                "score_margin": 0.38,
-                "is_mock": true
+                "score_margin": 5.19,
+                "is_mock": false
             }
         ],
         "group": "化工"
@@ -14532,11 +14532,11 @@
     "橡胶": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 29.65,
+            "temperature": 39.18,
             "turnover": 3699219712.0,
             "score_vol": 20.32,
-            "score_margin": 9.33,
-            "is_mock": true
+            "score_margin": 18.86,
+            "is_mock": false
         },
         "history": [
             {
@@ -15973,11 +15973,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 29.65,
+                "temperature": 39.18,
                 "turnover": 3699219712.0,
                 "score_vol": 20.32,
-                "score_margin": 9.33,
-                "is_mock": true
+                "score_margin": 18.86,
+                "is_mock": false
             }
         ],
         "group": "化工"
@@ -15985,11 +15985,11 @@
     "农用化工": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -6.73,
+            "temperature": -10.62,
             "turnover": 13500570624.0,
             "score_vol": -5.74,
-            "score_margin": -0.99,
-            "is_mock": true
+            "score_margin": -4.87,
+            "is_mock": false
         },
         "history": [
             {
@@ -17426,11 +17426,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -6.73,
+                "temperature": -10.62,
                 "turnover": 13500570624.0,
                 "score_vol": -5.74,
-                "score_margin": -0.99,
-                "is_mock": true
+                "score_margin": -4.87,
+                "is_mock": false
             }
         ],
         "group": "化工"
@@ -17438,11 +17438,11 @@
     "冶钢原料": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 55.06,
+            "temperature": -38.01,
             "turnover": 1688317440.0,
             "score_vol": 5.06,
-            "score_margin": 50.0,
-            "is_mock": true
+            "score_margin": -43.07,
+            "is_mock": false
         },
         "history": [
             {
@@ -18879,11 +18879,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 55.06,
+                "temperature": -38.01,
                 "turnover": 1688317440.0,
                 "score_vol": 5.06,
-                "score_margin": 50.0,
-                "is_mock": true
+                "score_margin": -43.07,
+                "is_mock": false
             }
         ],
         "group": "钢铁"
@@ -18891,11 +18891,11 @@
     "普钢": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -50.1,
+            "temperature": -44.29,
             "turnover": 3380912896.0,
             "score_vol": -26.84,
-            "score_margin": -23.26,
-            "is_mock": true
+            "score_margin": -17.45,
+            "is_mock": false
         },
         "history": [
             {
@@ -20332,11 +20332,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -50.1,
+                "temperature": -44.29,
                 "turnover": 3380912896.0,
                 "score_vol": -26.84,
-                "score_margin": -23.26,
-                "is_mock": true
+                "score_margin": -17.45,
+                "is_mock": false
             }
         ],
         "group": "钢铁"
@@ -20344,11 +20344,11 @@
     "特钢": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 55.48,
+            "temperature": -44.52,
             "turnover": 1565044736.0,
             "score_vol": 5.48,
-            "score_margin": 50.0,
-            "is_mock": true
+            "score_margin": -50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -21785,11 +21785,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 55.48,
+                "temperature": -44.52,
                 "turnover": 1565044736.0,
                 "score_vol": 5.48,
-                "score_margin": 50.0,
-                "is_mock": true
+                "score_margin": -50.0,
+                "is_mock": false
             }
         ],
         "group": "钢铁"
@@ -21797,11 +21797,11 @@
     "工业金属": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 21.37,
+            "temperature": -5.99,
             "turnover": 53055651840.0,
             "score_vol": -5.19,
-            "score_margin": 26.56,
-            "is_mock": true
+            "score_margin": -0.8,
+            "is_mock": false
         },
         "history": [
             {
@@ -23238,11 +23238,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 21.37,
+                "temperature": -5.99,
                 "turnover": 53055651840.0,
                 "score_vol": -5.19,
-                "score_margin": 26.56,
-                "is_mock": true
+                "score_margin": -0.8,
+                "is_mock": false
             }
         ],
         "group": "有色"
@@ -23250,11 +23250,11 @@
     "贵金属": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -31.12,
+            "temperature": -31.96,
             "turnover": 16411102208.0,
             "score_vol": -20.73,
-            "score_margin": -10.39,
-            "is_mock": true
+            "score_margin": -11.23,
+            "is_mock": false
         },
         "history": [
             {
@@ -24691,11 +24691,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -31.12,
+                "temperature": -31.96,
                 "turnover": 16411102208.0,
                 "score_vol": -20.73,
-                "score_margin": -10.39,
-                "is_mock": true
+                "score_margin": -11.23,
+                "is_mock": false
             }
         ],
         "group": "有色"
@@ -24703,11 +24703,11 @@
     "能源金属": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -21.12,
+            "temperature": -17.88,
             "turnover": 18609082368.0,
             "score_vol": -16.28,
-            "score_margin": -4.83,
-            "is_mock": true
+            "score_margin": -1.59,
+            "is_mock": false
         },
         "history": [
             {
@@ -26144,11 +26144,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -21.12,
+                "temperature": -17.88,
                 "turnover": 18609082368.0,
                 "score_vol": -16.28,
-                "score_margin": -4.83,
-                "is_mock": true
+                "score_margin": -1.59,
+                "is_mock": false
             }
         ],
         "group": "有色"
@@ -26156,11 +26156,11 @@
     "稀有金属": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -12.05,
+            "temperature": -0.56,
             "turnover": 54593024000.0,
             "score_vol": 16.48,
-            "score_margin": -28.53,
-            "is_mock": true
+            "score_margin": -17.04,
+            "is_mock": false
         },
         "history": [
             {
@@ -27597,11 +27597,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -12.05,
+                "temperature": -0.56,
                 "turnover": 54593024000.0,
                 "score_vol": 16.48,
-                "score_margin": -28.53,
-                "is_mock": true
+                "score_margin": -17.04,
+                "is_mock": false
             }
         ],
         "group": "有色"
@@ -27613,7 +27613,7 @@
             "turnover": 7742358016.0,
             "score_vol": -7.86,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -29054,7 +29054,7 @@
                 "turnover": 7742358016.0,
                 "score_vol": -7.86,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "有色"
@@ -29062,11 +29062,11 @@
     "水泥": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -20.86,
+            "temperature": -19.17,
             "turnover": 2013960576.0,
             "score_vol": -29.67,
-            "score_margin": 8.81,
-            "is_mock": true
+            "score_margin": 10.49,
+            "is_mock": false
         },
         "history": [
             {
@@ -30503,11 +30503,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -20.86,
+                "temperature": -19.17,
                 "turnover": 2013960576.0,
                 "score_vol": -29.67,
-                "score_margin": 8.81,
-                "is_mock": true
+                "score_margin": 10.49,
+                "is_mock": false
             }
         ],
         "group": "建材"
@@ -30515,11 +30515,11 @@
     "玻璃纤维": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 33.85,
+            "temperature": 16.9,
             "turnover": 32330874880.0,
             "score_vol": 5.28,
-            "score_margin": 28.57,
-            "is_mock": true
+            "score_margin": 11.62,
+            "is_mock": false
         },
         "history": [
             {
@@ -31956,11 +31956,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 33.85,
+                "temperature": 16.9,
                 "turnover": 32330874880.0,
                 "score_vol": 5.28,
-                "score_margin": 28.57,
-                "is_mock": true
+                "score_margin": 11.62,
+                "is_mock": false
             }
         ],
         "group": "建材"
@@ -31972,7 +31972,7 @@
             "turnover": 3807644416.0,
             "score_vol": -10.62,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -33413,7 +33413,7 @@
                 "turnover": 3807644416.0,
                 "score_vol": -10.62,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "建材"
@@ -33421,11 +33421,11 @@
     "非金属材料": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 66.87,
+            "temperature": 60.76,
             "turnover": 7450421248.0,
             "score_vol": 45.83,
-            "score_margin": 21.04,
-            "is_mock": true
+            "score_margin": 14.93,
+            "is_mock": false
         },
         "history": [
             {
@@ -34862,11 +34862,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 66.87,
+                "temperature": 60.76,
                 "turnover": 7450421248.0,
                 "score_vol": 45.83,
-                "score_margin": 21.04,
-                "is_mock": true
+                "score_margin": 14.93,
+                "is_mock": false
             }
         ],
         "group": "建材"
@@ -34874,11 +34874,11 @@
     "种植业": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 62.05,
+            "temperature": 46.81,
             "turnover": 5659664896.0,
             "score_vol": 96.81,
-            "score_margin": -34.76,
-            "is_mock": true
+            "score_margin": -50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -36315,11 +36315,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 62.05,
+                "temperature": 46.81,
                 "turnover": 5659664896.0,
                 "score_vol": 96.81,
-                "score_margin": -34.76,
-                "is_mock": true
+                "score_margin": -50.0,
+                "is_mock": false
             }
         ],
         "group": "农林牧渔"
@@ -36327,11 +36327,11 @@
     "养殖业": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 12.43,
+            "temperature": 46.72,
             "turnover": 5431259648.0,
             "score_vol": -3.28,
-            "score_margin": 15.71,
-            "is_mock": true
+            "score_margin": 50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -37768,11 +37768,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 12.43,
+                "temperature": 46.72,
                 "turnover": 5431259648.0,
                 "score_vol": -3.28,
-                "score_margin": 15.71,
-                "is_mock": true
+                "score_margin": 50.0,
+                "is_mock": false
             }
         ],
         "group": "农林牧渔"
@@ -37784,7 +37784,7 @@
             "turnover": 518153952.0,
             "score_vol": -45.07,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -39225,7 +39225,7 @@
                 "turnover": 518153952.0,
                 "score_vol": -45.07,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "农林牧渔"
@@ -39237,7 +39237,7 @@
             "turnover": 798276736.0,
             "score_vol": 57.88,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -40678,7 +40678,7 @@
                 "turnover": 798276736.0,
                 "score_vol": 57.88,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "农林牧渔"
@@ -40686,11 +40686,11 @@
     "饲料": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -3.3,
+            "temperature": 31.15,
             "turnover": 2298821120.0,
             "score_vol": -18.85,
-            "score_margin": 15.55,
-            "is_mock": true
+            "score_margin": 50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -42127,11 +42127,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -3.3,
+                "temperature": 31.15,
                 "turnover": 2298821120.0,
                 "score_vol": -18.85,
-                "score_margin": 15.55,
-                "is_mock": true
+                "score_margin": 50.0,
+                "is_mock": false
             }
         ],
         "group": "农林牧渔"
@@ -42139,11 +42139,11 @@
     "农产品加工": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -26.43,
+            "temperature": -10.73,
             "turnover": 1927877248.0,
             "score_vol": 23.57,
-            "score_margin": -50.0,
-            "is_mock": true
+            "score_margin": -34.3,
+            "is_mock": false
         },
         "history": [
             {
@@ -43580,11 +43580,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -26.43,
+                "temperature": -10.73,
                 "turnover": 1927877248.0,
                 "score_vol": 23.57,
-                "score_margin": -50.0,
-                "is_mock": true
+                "score_margin": -34.3,
+                "is_mock": false
             }
         ],
         "group": "农林牧渔"
@@ -43596,7 +43596,7 @@
             "turnover": 1011062528.0,
             "score_vol": 31.19,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -45037,7 +45037,7 @@
                 "turnover": 1011062528.0,
                 "score_vol": 31.19,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "农林牧渔"
@@ -45045,11 +45045,11 @@
     "酿酒": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 25.94,
+            "temperature": 26.92,
             "turnover": 21715746816.0,
             "score_vol": 17.55,
-            "score_margin": 8.4,
-            "is_mock": true
+            "score_margin": 9.37,
+            "is_mock": false
         },
         "history": [
             {
@@ -46486,11 +46486,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 25.94,
+                "temperature": 26.92,
                 "turnover": 21715746816.0,
                 "score_vol": 17.55,
-                "score_margin": 8.4,
-                "is_mock": true
+                "score_margin": 9.37,
+                "is_mock": false
             }
         ],
         "group": "食品饮料"
@@ -46498,11 +46498,11 @@
     "饮料乳品": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -51.44,
+            "temperature": 48.56,
             "turnover": 7536021504.0,
             "score_vol": -1.44,
-            "score_margin": -50.0,
-            "is_mock": true
+            "score_margin": 50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -47939,11 +47939,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -51.44,
+                "temperature": 48.56,
                 "turnover": 7536021504.0,
                 "score_vol": -1.44,
-                "score_margin": -50.0,
-                "is_mock": true
+                "score_margin": 50.0,
+                "is_mock": false
             }
         ],
         "group": "食品饮料"
@@ -47951,11 +47951,11 @@
     "调味品": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 105.59,
+            "temperature": 90.88,
             "turnover": 9808079872.0,
             "score_vol": 77.45,
-            "score_margin": 28.14,
-            "is_mock": true
+            "score_margin": 13.43,
+            "is_mock": false
         },
         "history": [
             {
@@ -49392,11 +49392,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 105.59,
+                "temperature": 90.88,
                 "turnover": 9808079872.0,
                 "score_vol": 77.45,
-                "score_margin": 28.14,
-                "is_mock": true
+                "score_margin": 13.43,
+                "is_mock": false
             }
         ],
         "group": "食品饮料"
@@ -49404,11 +49404,11 @@
     "休闲食品": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -56.19,
+            "temperature": 38.4,
             "turnover": 2139728512.0,
             "score_vol": -11.6,
-            "score_margin": -44.6,
-            "is_mock": true
+            "score_margin": 50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -50845,11 +50845,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -56.19,
+                "temperature": 38.4,
                 "turnover": 2139728512.0,
                 "score_vol": -11.6,
-                "score_margin": -44.6,
-                "is_mock": true
+                "score_margin": 50.0,
+                "is_mock": false
             }
         ],
         "group": "食品饮料"
@@ -50857,11 +50857,11 @@
     "食品加工": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -3.9,
+            "temperature": 65.54,
             "turnover": 7595873280.0,
             "score_vol": 37.25,
-            "score_margin": -41.14,
-            "is_mock": true
+            "score_margin": 28.29,
+            "is_mock": false
         },
         "history": [
             {
@@ -52298,11 +52298,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -3.9,
+                "temperature": 65.54,
                 "turnover": 7595873280.0,
                 "score_vol": 37.25,
-                "score_margin": -41.14,
-                "is_mock": true
+                "score_margin": 28.29,
+                "is_mock": false
             }
         ],
         "group": "食品饮料"
@@ -52310,11 +52310,11 @@
     "纺织制造": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -17.64,
+            "temperature": -0.55,
             "turnover": 3458871296.0,
             "score_vol": 4.32,
-            "score_margin": -21.96,
-            "is_mock": true
+            "score_margin": -4.87,
+            "is_mock": false
         },
         "history": [
             {
@@ -53751,11 +53751,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -17.64,
+                "temperature": -0.55,
                 "turnover": 3458871296.0,
                 "score_vol": 4.32,
-                "score_margin": -21.96,
-                "is_mock": true
+                "score_margin": -4.87,
+                "is_mock": false
             }
         ],
         "group": "纺织服饰"
@@ -53763,11 +53763,11 @@
     "服装家纺": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -7.13,
+            "temperature": -2.83,
             "turnover": 6403104768.0,
             "score_vol": -3.0,
-            "score_margin": -4.12,
-            "is_mock": true
+            "score_margin": 0.17,
+            "is_mock": false
         },
         "history": [
             {
@@ -55204,11 +55204,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -7.13,
+                "temperature": -2.83,
                 "turnover": 6403104768.0,
                 "score_vol": -3.0,
-                "score_margin": -4.12,
-                "is_mock": true
+                "score_margin": 0.17,
+                "is_mock": false
             }
         ],
         "group": "纺织服饰"
@@ -55216,11 +55216,11 @@
     "饰品": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -20.31,
+            "temperature": -25.99,
             "turnover": 1685836288.0,
             "score_vol": -18.06,
-            "score_margin": -2.25,
-            "is_mock": true
+            "score_margin": -7.93,
+            "is_mock": false
         },
         "history": [
             {
@@ -56657,11 +56657,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -20.31,
+                "temperature": -25.99,
                 "turnover": 1685836288.0,
                 "score_vol": -18.06,
-                "score_margin": -2.25,
-                "is_mock": true
+                "score_margin": -7.93,
+                "is_mock": false
             }
         ],
         "group": "纺织服饰"
@@ -56669,11 +56669,11 @@
     "造纸": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 2.77,
+            "temperature": -15.24,
             "turnover": 3222220544.0,
             "score_vol": -0.08,
-            "score_margin": 2.85,
-            "is_mock": true
+            "score_margin": -15.15,
+            "is_mock": false
         },
         "history": [
             {
@@ -58110,11 +58110,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 2.77,
+                "temperature": -15.24,
                 "turnover": 3222220544.0,
                 "score_vol": -0.08,
-                "score_margin": 2.85,
-                "is_mock": true
+                "score_margin": -15.15,
+                "is_mock": false
             }
         ],
         "group": "轻工制造"
@@ -58122,11 +58122,11 @@
     "包装印刷": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 4.1,
+            "temperature": -1.69,
             "turnover": 6452258816.0,
             "score_vol": 4.65,
-            "score_margin": -0.55,
-            "is_mock": true
+            "score_margin": -6.34,
+            "is_mock": false
         },
         "history": [
             {
@@ -59563,11 +59563,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 4.1,
+                "temperature": -1.69,
                 "turnover": 6452258816.0,
                 "score_vol": 4.65,
-                "score_margin": -0.55,
-                "is_mock": true
+                "score_margin": -6.34,
+                "is_mock": false
             }
         ],
         "group": "轻工制造"
@@ -59579,7 +59579,7 @@
             "turnover": 5801290240.0,
             "score_vol": 9.02,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -61020,7 +61020,7 @@
                 "turnover": 5801290240.0,
                 "score_vol": 9.02,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "轻工制造"
@@ -61032,7 +61032,7 @@
             "turnover": 1497706880.0,
             "score_vol": -2.26,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -62473,7 +62473,7 @@
                 "turnover": 1497706880.0,
                 "score_vol": -2.26,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "轻工制造"
@@ -62481,11 +62481,11 @@
     "白色家电": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -66.18,
+            "temperature": -41.93,
             "turnover": 4877820928.0,
             "score_vol": -24.03,
-            "score_margin": -42.15,
-            "is_mock": true
+            "score_margin": -17.9,
+            "is_mock": false
         },
         "history": [
             {
@@ -63922,11 +63922,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -66.18,
+                "temperature": -41.93,
                 "turnover": 4877820928.0,
                 "score_vol": -24.03,
-                "score_margin": -42.15,
-                "is_mock": true
+                "score_margin": -17.9,
+                "is_mock": false
             }
         ],
         "group": "家电"
@@ -63934,11 +63934,11 @@
     "黑色家电": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -45.0,
+            "temperature": -6.32,
             "turnover": 2487845376.0,
             "score_vol": 5.0,
-            "score_margin": -50.0,
-            "is_mock": true
+            "score_margin": -11.32,
+            "is_mock": false
         },
         "history": [
             {
@@ -65375,11 +65375,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -45.0,
+                "temperature": -6.32,
                 "turnover": 2487845376.0,
                 "score_vol": 5.0,
-                "score_margin": -50.0,
-                "is_mock": true
+                "score_margin": -11.32,
+                "is_mock": false
             }
         ],
         "group": "家电"
@@ -65391,7 +65391,7 @@
             "turnover": 2804815360.0,
             "score_vol": 10.12,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -66832,7 +66832,7 @@
                 "turnover": 2804815360.0,
                 "score_vol": 10.12,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "家电"
@@ -66844,7 +66844,7 @@
             "turnover": 795166272.0,
             "score_vol": -6.81,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -68285,7 +68285,7 @@
                 "turnover": 795166272.0,
                 "score_vol": -6.81,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "家电"
@@ -68293,11 +68293,11 @@
     "家电零部件": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 27.65,
+            "temperature": 20.98,
             "turnover": 6472830976.0,
             "score_vol": -0.69,
-            "score_margin": 28.34,
-            "is_mock": true
+            "score_margin": 21.68,
+            "is_mock": false
         },
         "history": [
             {
@@ -69734,11 +69734,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 27.65,
+                "temperature": 20.98,
                 "turnover": 6472830976.0,
                 "score_vol": -0.69,
-                "score_margin": 28.34,
-                "is_mock": true
+                "score_margin": 21.68,
+                "is_mock": false
             }
         ],
         "group": "家电"
@@ -69746,11 +69746,11 @@
     "一般零售": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -10.61,
+            "temperature": 18.94,
             "turnover": 5203791360.0,
             "score_vol": -4.9,
-            "score_margin": -5.71,
-            "is_mock": true
+            "score_margin": 23.83,
+            "is_mock": false
         },
         "history": [
             {
@@ -71187,11 +71187,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -10.61,
+                "temperature": 18.94,
                 "turnover": 5203791360.0,
                 "score_vol": -4.9,
-                "score_margin": -5.71,
-                "is_mock": true
+                "score_margin": 23.83,
+                "is_mock": false
             }
         ],
         "group": "商贸"
@@ -71199,11 +71199,11 @@
     "商业物业经营": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -39.25,
+            "temperature": -47.17,
             "turnover": 2910940416.0,
             "score_vol": 2.83,
-            "score_margin": -42.08,
-            "is_mock": true
+            "score_margin": -50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -72640,11 +72640,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -39.25,
+                "temperature": -47.17,
                 "turnover": 2910940416.0,
                 "score_vol": 2.83,
-                "score_margin": -42.08,
-                "is_mock": true
+                "score_margin": -50.0,
+                "is_mock": false
             }
         ],
         "group": "商贸"
@@ -72652,11 +72652,11 @@
     "专业连锁": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 19.43,
+            "temperature": 21.76,
             "turnover": 707658880.0,
             "score_vol": -28.24,
-            "score_margin": 47.67,
-            "is_mock": true
+            "score_margin": 50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -74093,11 +74093,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 19.43,
+                "temperature": 21.76,
                 "turnover": 707658880.0,
                 "score_vol": -28.24,
-                "score_margin": 47.67,
-                "is_mock": true
+                "score_margin": 50.0,
+                "is_mock": false
             }
         ],
         "group": "商贸"
@@ -74109,7 +74109,7 @@
             "turnover": 1187728896.0,
             "score_vol": -12.99,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -75550,7 +75550,7 @@
                 "turnover": 1187728896.0,
                 "score_vol": -12.99,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "商贸"
@@ -75562,7 +75562,7 @@
             "turnover": 8382132736.0,
             "score_vol": -6.61,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -77003,7 +77003,7 @@
                 "turnover": 8382132736.0,
                 "score_vol": -6.61,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "商贸"
@@ -77011,11 +77011,11 @@
     "乘用车": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -33.45,
+            "temperature": -16.25,
             "turnover": 4301285888.0,
             "score_vol": -45.13,
-            "score_margin": 11.68,
-            "is_mock": true
+            "score_margin": 28.88,
+            "is_mock": false
         },
         "history": [
             {
@@ -78452,11 +78452,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -33.45,
+                "temperature": -16.25,
                 "turnover": 4301285888.0,
                 "score_vol": -45.13,
-                "score_margin": 11.68,
-                "is_mock": true
+                "score_margin": 28.88,
+                "is_mock": false
             }
         ],
         "group": "汽车"
@@ -78468,7 +78468,7 @@
             "turnover": 3691410432.0,
             "score_vol": -18.36,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -79909,7 +79909,7 @@
                 "turnover": 3691410432.0,
                 "score_vol": -18.36,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "汽车"
@@ -79917,11 +79917,11 @@
     "汽车零部件": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 3.67,
+            "temperature": -3.36,
             "turnover": 43945979904.0,
             "score_vol": 0.84,
-            "score_margin": 2.82,
-            "is_mock": true
+            "score_margin": -4.2,
+            "is_mock": false
         },
         "history": [
             {
@@ -81358,11 +81358,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 3.67,
+                "temperature": -3.36,
                 "turnover": 43945979904.0,
                 "score_vol": 0.84,
-                "score_margin": 2.82,
-                "is_mock": true
+                "score_margin": -4.2,
+                "is_mock": false
             }
         ],
         "group": "汽车"
@@ -81374,7 +81374,7 @@
             "turnover": 513527552.0,
             "score_vol": -31.4,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -82815,7 +82815,7 @@
                 "turnover": 513527552.0,
                 "score_vol": -31.4,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "汽车"
@@ -82827,7 +82827,7 @@
             "turnover": 2509178112.0,
             "score_vol": -17.86,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -84268,7 +84268,7 @@
                 "turnover": 2509178112.0,
                 "score_vol": -17.86,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "汽车"
@@ -84276,11 +84276,11 @@
     "化学制药": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 13.53,
+            "temperature": 9.48,
             "turnover": 41116315648.0,
             "score_vol": 4.04,
-            "score_margin": 9.49,
-            "is_mock": true
+            "score_margin": 5.44,
+            "is_mock": false
         },
         "history": [
             {
@@ -85717,11 +85717,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 13.53,
+                "temperature": 9.48,
                 "turnover": 41116315648.0,
                 "score_vol": 4.04,
-                "score_margin": 9.49,
-                "is_mock": true
+                "score_margin": 5.44,
+                "is_mock": false
             }
         ],
         "group": "医药医疗"
@@ -85729,11 +85729,11 @@
     "生物制品": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 14.74,
+            "temperature": 14.25,
             "turnover": 27852390400.0,
             "score_vol": 4.3,
-            "score_margin": 10.44,
-            "is_mock": true
+            "score_margin": 9.95,
+            "is_mock": false
         },
         "history": [
             {
@@ -87170,11 +87170,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 14.74,
+                "temperature": 14.25,
                 "turnover": 27852390400.0,
                 "score_vol": 4.3,
-                "score_margin": 10.44,
-                "is_mock": true
+                "score_margin": 9.95,
+                "is_mock": false
             }
         ],
         "group": "医药医疗"
@@ -87182,11 +87182,11 @@
     "医疗器械": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 1.17,
+            "temperature": 0.25,
             "turnover": 17608699904.0,
             "score_vol": -7.43,
-            "score_margin": 8.6,
-            "is_mock": true
+            "score_margin": 7.67,
+            "is_mock": false
         },
         "history": [
             {
@@ -88623,11 +88623,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 1.17,
+                "temperature": 0.25,
                 "turnover": 17608699904.0,
                 "score_vol": -7.43,
-                "score_margin": 8.6,
-                "is_mock": true
+                "score_margin": 7.67,
+                "is_mock": false
             }
         ],
         "group": "医药医疗"
@@ -88635,11 +88635,11 @@
     "医疗服务": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 17.52,
+            "temperature": 13.36,
             "turnover": 45791440896.0,
             "score_vol": 18.58,
-            "score_margin": -1.07,
-            "is_mock": true
+            "score_margin": -5.22,
+            "is_mock": false
         },
         "history": [
             {
@@ -90076,11 +90076,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 17.52,
+                "temperature": 13.36,
                 "turnover": 45791440896.0,
                 "score_vol": 18.58,
-                "score_margin": -1.07,
-                "is_mock": true
+                "score_margin": -5.22,
+                "is_mock": false
             }
         ],
         "group": "医药医疗"
@@ -90088,11 +90088,11 @@
     "医药商业": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 65.22,
+            "temperature": 55.11,
             "turnover": 9396078592.0,
             "score_vol": 47.79,
-            "score_margin": 17.43,
-            "is_mock": true
+            "score_margin": 7.32,
+            "is_mock": false
         },
         "history": [
             {
@@ -91529,11 +91529,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 65.22,
+                "temperature": 55.11,
                 "turnover": 9396078592.0,
                 "score_vol": 47.79,
-                "score_margin": 17.43,
-                "is_mock": true
+                "score_margin": 7.32,
+                "is_mock": false
             }
         ],
         "group": "医药医疗"
@@ -91541,11 +91541,11 @@
     "中药": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 10.8,
+            "temperature": 3.64,
             "turnover": 16255661056.0,
             "score_vol": 9.68,
-            "score_margin": 1.12,
-            "is_mock": true
+            "score_margin": -6.05,
+            "is_mock": false
         },
         "history": [
             {
@@ -92982,11 +92982,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 10.8,
+                "temperature": 3.64,
                 "turnover": 16255661056.0,
                 "score_vol": 9.68,
-                "score_margin": 1.12,
-                "is_mock": true
+                "score_margin": -6.05,
+                "is_mock": false
             }
         ],
         "group": "医药医疗"
@@ -92994,11 +92994,11 @@
     "医疗美容": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -41.54,
+            "temperature": -47.41,
             "turnover": 655897664.0,
             "score_vol": -41.62,
-            "score_margin": 0.08,
-            "is_mock": true
+            "score_margin": -5.79,
+            "is_mock": false
         },
         "history": [
             {
@@ -94435,11 +94435,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -41.54,
+                "temperature": -47.41,
                 "turnover": 655897664.0,
                 "score_vol": -41.62,
-                "score_margin": 0.08,
-                "is_mock": true
+                "score_margin": -5.79,
+                "is_mock": false
             }
         ],
         "group": "医药医疗"
@@ -94447,11 +94447,11 @@
     "电机制造": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -18.77,
+            "temperature": -15.79,
             "turnover": 4400178176.0,
             "score_vol": -14.11,
-            "score_margin": -4.66,
-            "is_mock": true
+            "score_margin": -1.68,
+            "is_mock": false
         },
         "history": [
             {
@@ -95888,11 +95888,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -18.77,
+                "temperature": -15.79,
                 "turnover": 4400178176.0,
                 "score_vol": -14.11,
-                "score_margin": -4.66,
-                "is_mock": true
+                "score_margin": -1.68,
+                "is_mock": false
             }
         ],
         "group": "电力设备"
@@ -95900,11 +95900,11 @@
     "电池": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 2.64,
+            "temperature": -10.17,
             "turnover": 50945847296.0,
             "score_vol": -9.49,
-            "score_margin": 12.13,
-            "is_mock": true
+            "score_margin": -0.68,
+            "is_mock": false
         },
         "history": [
             {
@@ -97341,11 +97341,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 2.64,
+                "temperature": -10.17,
                 "turnover": 50945847296.0,
                 "score_vol": -9.49,
-                "score_margin": 12.13,
-                "is_mock": true
+                "score_margin": -0.68,
+                "is_mock": false
             }
         ],
         "group": "电力设备"
@@ -97353,11 +97353,11 @@
     "电网设备": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -0.41,
+            "temperature": -0.97,
             "turnover": 44980342784.0,
             "score_vol": -4.63,
-            "score_margin": 4.22,
-            "is_mock": true
+            "score_margin": 3.66,
+            "is_mock": false
         },
         "history": [
             {
@@ -98794,11 +98794,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -0.41,
+                "temperature": -0.97,
                 "turnover": 44980342784.0,
                 "score_vol": -4.63,
-                "score_margin": 4.22,
-                "is_mock": true
+                "score_margin": 3.66,
+                "is_mock": false
             }
         ],
         "group": "电力设备"
@@ -98806,11 +98806,11 @@
     "光伏设备": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -6.37,
+            "temperature": -6.16,
             "turnover": 32397719552.0,
             "score_vol": 0.17,
-            "score_margin": -6.54,
-            "is_mock": true
+            "score_margin": -6.32,
+            "is_mock": false
         },
         "history": [
             {
@@ -100247,11 +100247,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -6.37,
+                "temperature": -6.16,
                 "turnover": 32397719552.0,
                 "score_vol": 0.17,
-                "score_margin": -6.54,
-                "is_mock": true
+                "score_margin": -6.32,
+                "is_mock": false
             }
         ],
         "group": "电力设备"
@@ -100259,11 +100259,11 @@
     "风电设备": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -10.64,
+            "temperature": -14.34,
             "turnover": 7984574976.0,
             "score_vol": -16.51,
-            "score_margin": 5.87,
-            "is_mock": true
+            "score_margin": 2.17,
+            "is_mock": false
         },
         "history": [
             {
@@ -101700,11 +101700,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -10.64,
+                "temperature": -14.34,
                 "turnover": 7984574976.0,
                 "score_vol": -16.51,
-                "score_margin": 5.87,
-                "is_mock": true
+                "score_margin": 2.17,
+                "is_mock": false
             }
         ],
         "group": "电力设备"
@@ -101712,11 +101712,11 @@
     "其他发电设备": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 5.06,
+            "temperature": 6.9,
             "turnover": 16106305536.0,
             "score_vol": 15.01,
-            "score_margin": -9.95,
-            "is_mock": true
+            "score_margin": -8.11,
+            "is_mock": false
         },
         "history": [
             {
@@ -103153,11 +103153,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 5.06,
+                "temperature": 6.9,
                 "turnover": 16106305536.0,
                 "score_vol": 15.01,
-                "score_margin": -9.95,
-                "is_mock": true
+                "score_margin": -8.11,
+                "is_mock": false
             }
         ],
         "group": "电力设备"
@@ -103169,7 +103169,7 @@
             "turnover": 4679280128.0,
             "score_vol": -12.4,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -104246,10 +104246,10 @@
             },
             {
                 "date": "2026-06-12",
-                "temperature": -14.98,
+                "temperature": -13.27,
                 "turnover": 5484460544.0,
                 "score_vol": 13.49,
-                "score_margin": -28.47,
+                "score_margin": -26.76,
                 "is_mock": false
             },
             {
@@ -104326,10 +104326,10 @@
             },
             {
                 "date": "2026-06-29",
-                "temperature": 35.62,
+                "temperature": 39.91,
                 "turnover": 5247675392.0,
                 "score_vol": -10.09,
-                "score_margin": 45.72,
+                "score_margin": 50.0,
                 "is_mock": false
             },
             {
@@ -104342,10 +104342,10 @@
             },
             {
                 "date": "2026-07-01",
-                "temperature": -43.6,
+                "temperature": -35.52,
                 "turnover": 6239337984.0,
                 "score_vol": 2.37,
-                "score_margin": -45.96,
+                "score_margin": -37.88,
                 "is_mock": false
             },
             {
@@ -104610,7 +104610,7 @@
                 "turnover": 4679280128.0,
                 "score_vol": -12.4,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "国防军工"
@@ -104618,11 +104618,11 @@
     "航空装备": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -22.41,
+            "temperature": -14.04,
             "turnover": 10411621376.0,
             "score_vol": -2.16,
-            "score_margin": -20.25,
-            "is_mock": true
+            "score_margin": -11.89,
+            "is_mock": false
         },
         "history": [
             {
@@ -106059,11 +106059,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -22.41,
+                "temperature": -14.04,
                 "turnover": 10411621376.0,
                 "score_vol": -2.16,
-                "score_margin": -20.25,
-                "is_mock": true
+                "score_margin": -11.89,
+                "is_mock": false
             }
         ],
         "group": "国防军工"
@@ -106075,7 +106075,7 @@
             "turnover": 4823193088.0,
             "score_vol": -21.17,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -107516,7 +107516,7 @@
                 "turnover": 4823193088.0,
                 "score_vol": -21.17,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "国防军工"
@@ -107524,11 +107524,11 @@
     "航海设备": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -7.35,
+            "temperature": -19.56,
             "turnover": 6341725696.0,
             "score_vol": -10.18,
-            "score_margin": 2.83,
-            "is_mock": true
+            "score_margin": -9.38,
+            "is_mock": false
         },
         "history": [
             {
@@ -108965,11 +108965,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -7.35,
+                "temperature": -19.56,
                 "turnover": 6341725696.0,
                 "score_vol": -10.18,
-                "score_margin": 2.83,
-                "is_mock": true
+                "score_margin": -9.38,
+                "is_mock": false
             }
         ],
         "group": "国防军工"
@@ -108981,7 +108981,7 @@
             "turnover": 20308189184.0,
             "score_vol": -12.76,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -109866,18 +109866,18 @@
             },
             {
                 "date": "2026-05-11",
-                "temperature": 36.72,
+                "temperature": 37.48,
                 "turnover": 56402120704.0,
                 "score_vol": 12.19,
-                "score_margin": 24.52,
+                "score_margin": 25.29,
                 "is_mock": false
             },
             {
                 "date": "2026-05-12",
-                "temperature": 41.23,
+                "temperature": 42.62,
                 "turnover": 46111838208.0,
                 "score_vol": -0.18,
-                "score_margin": 41.41,
+                "score_margin": 42.8,
                 "is_mock": false
             },
             {
@@ -109914,10 +109914,10 @@
             },
             {
                 "date": "2026-05-19",
-                "temperature": 30.4,
+                "temperature": 32.28,
                 "turnover": 34251261952.0,
                 "score_vol": -11.96,
-                "score_margin": 42.35,
+                "score_margin": 44.24,
                 "is_mock": false
             },
             {
@@ -109930,10 +109930,10 @@
             },
             {
                 "date": "2026-05-21",
-                "temperature": 30.11,
+                "temperature": 32.21,
                 "turnover": 40692756480.0,
                 "score_vol": -9.71,
-                "score_margin": 39.82,
+                "score_margin": 41.92,
                 "is_mock": false
             },
             {
@@ -109954,66 +109954,66 @@
             },
             {
                 "date": "2026-05-26",
-                "temperature": 0.75,
+                "temperature": 1.97,
                 "turnover": 38249201664.0,
                 "score_vol": -5.14,
-                "score_margin": 5.89,
+                "score_margin": 7.11,
                 "is_mock": false
             },
             {
                 "date": "2026-05-27",
-                "temperature": 20.55,
+                "temperature": 21.61,
                 "turnover": 37340708864.0,
                 "score_vol": -6.44,
-                "score_margin": 26.99,
+                "score_margin": 28.05,
                 "is_mock": false
             },
             {
                 "date": "2026-05-28",
-                "temperature": 13.5,
+                "temperature": 14.58,
                 "turnover": 36669759488.0,
                 "score_vol": 0.56,
-                "score_margin": 12.94,
+                "score_margin": 14.02,
                 "is_mock": false
             },
             {
                 "date": "2026-05-29",
-                "temperature": -36.77,
+                "temperature": -35.71,
                 "turnover": 43448446976.0,
                 "score_vol": 6.51,
-                "score_margin": -43.27,
+                "score_margin": -42.22,
                 "is_mock": false
             },
             {
                 "date": "2026-06-01",
-                "temperature": 11.76,
+                "temperature": 12.61,
                 "turnover": 29356574720.0,
                 "score_vol": -16.93,
-                "score_margin": 28.69,
+                "score_margin": 29.54,
                 "is_mock": false
             },
             {
                 "date": "2026-06-02",
-                "temperature": -17.02,
+                "temperature": -16.54,
                 "turnover": 33482612736.0,
                 "score_vol": -1.92,
-                "score_margin": -15.11,
+                "score_margin": -14.62,
                 "is_mock": false
             },
             {
                 "date": "2026-06-03",
-                "temperature": -26.33,
+                "temperature": -25.75,
                 "turnover": 42135199744.0,
                 "score_vol": 9.88,
-                "score_margin": -36.22,
+                "score_margin": -35.64,
                 "is_mock": false
             },
             {
                 "date": "2026-06-04",
-                "temperature": -35.65,
+                "temperature": -35.49,
                 "turnover": 37513256960.0,
                 "score_vol": 10.03,
-                "score_margin": -45.68,
+                "score_margin": -45.51,
                 "is_mock": false
             },
             {
@@ -110034,34 +110034,34 @@
             },
             {
                 "date": "2026-06-09",
-                "temperature": -22.19,
+                "temperature": -21.72,
                 "turnover": 34253176832.0,
                 "score_vol": 6.47,
-                "score_margin": -28.67,
+                "score_margin": -28.2,
                 "is_mock": false
             },
             {
                 "date": "2026-06-10",
-                "temperature": -20.84,
+                "temperature": -20.48,
                 "turnover": 33863739392.0,
                 "score_vol": 5.98,
-                "score_margin": -26.82,
+                "score_margin": -26.46,
                 "is_mock": false
             },
             {
                 "date": "2026-06-11",
-                "temperature": -14.29,
+                "temperature": -14.2,
                 "turnover": 33009403904.0,
                 "score_vol": 5.39,
-                "score_margin": -19.68,
+                "score_margin": -19.59,
                 "is_mock": false
             },
             {
                 "date": "2026-06-12",
-                "temperature": 13.45,
+                "temperature": 13.82,
                 "turnover": 38012596224.0,
                 "score_vol": -4.58,
-                "score_margin": 18.03,
+                "score_margin": 18.4,
                 "is_mock": false
             },
             {
@@ -110082,10 +110082,10 @@
             },
             {
                 "date": "2026-06-17",
-                "temperature": 44.05,
+                "temperature": 44.55,
                 "turnover": 43172769792.0,
                 "score_vol": 10.82,
-                "score_margin": 33.22,
+                "score_margin": 33.73,
                 "is_mock": false
             },
             {
@@ -110130,10 +110130,10 @@
             },
             {
                 "date": "2026-06-26",
-                "temperature": -29.04,
+                "temperature": -28.75,
                 "turnover": 44808597504.0,
                 "score_vol": 3.17,
-                "score_margin": -32.21,
+                "score_margin": -31.92,
                 "is_mock": false
             },
             {
@@ -110154,10 +110154,10 @@
             },
             {
                 "date": "2026-07-01",
-                "temperature": 7.76,
+                "temperature": 8.98,
                 "turnover": 44691275776.0,
                 "score_vol": -1.32,
-                "score_margin": 9.07,
+                "score_margin": 10.29,
                 "is_mock": false
             },
             {
@@ -110346,50 +110346,50 @@
             },
             {
                 "date": "2026-08-04",
-                "temperature": 12.55,
+                "temperature": 12.3,
                 "turnover": 20135307264.0,
                 "score_vol": -22.62,
-                "score_margin": 35.17,
+                "score_margin": 34.92,
                 "is_mock": false
             },
             {
                 "date": "2026-08-05",
-                "temperature": 6.17,
+                "temperature": 6.08,
                 "turnover": 25543710720.0,
                 "score_vol": -16.7,
-                "score_margin": 22.87,
+                "score_margin": 22.78,
                 "is_mock": false
             },
             {
                 "date": "2026-08-06",
-                "temperature": 14.38,
+                "temperature": 14.3,
                 "turnover": 24229664768.0,
                 "score_vol": -15.62,
-                "score_margin": 30.0,
+                "score_margin": 29.92,
                 "is_mock": false
             },
             {
                 "date": "2026-08-07",
-                "temperature": 20.86,
+                "temperature": 20.37,
                 "turnover": 26362963968.0,
                 "score_vol": -8.69,
-                "score_margin": 29.55,
+                "score_margin": 29.06,
                 "is_mock": false
             },
             {
                 "date": "2026-08-10",
-                "temperature": 29.49,
+                "temperature": 29.0,
                 "turnover": 24194004992.0,
                 "score_vol": -8.05,
-                "score_margin": 37.54,
+                "score_margin": 37.04,
                 "is_mock": false
             },
             {
                 "date": "2026-08-11",
-                "temperature": 10.55,
+                "temperature": 9.93,
                 "turnover": 24011278336.0,
                 "score_vol": 1.31,
-                "score_margin": 9.24,
+                "score_margin": 8.62,
                 "is_mock": false
             },
             {
@@ -110422,7 +110422,7 @@
                 "turnover": 20308189184.0,
                 "score_vol": -12.76,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "国防军工"
@@ -110430,11 +110430,11 @@
     "轨交设备": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -27.14,
+            "temperature": -20.46,
             "turnover": 3588520192.0,
             "score_vol": 1.92,
-            "score_margin": -29.06,
-            "is_mock": true
+            "score_margin": -22.38,
+            "is_mock": false
         },
         "history": [
             {
@@ -111871,11 +111871,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -27.14,
+                "temperature": -20.46,
                 "turnover": 3588520192.0,
                 "score_vol": 1.92,
-                "score_margin": -29.06,
-                "is_mock": true
+                "score_margin": -22.38,
+                "is_mock": false
             }
         ],
         "group": "机械设备"
@@ -111883,11 +111883,11 @@
     "通用设备": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 19.1,
+            "temperature": 11.52,
             "turnover": 66840641536.0,
             "score_vol": 7.21,
-            "score_margin": 11.89,
-            "is_mock": true
+            "score_margin": 4.32,
+            "is_mock": false
         },
         "history": [
             {
@@ -113324,11 +113324,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 19.1,
+                "temperature": 11.52,
                 "turnover": 66840641536.0,
                 "score_vol": 7.21,
-                "score_margin": 11.89,
-                "is_mock": true
+                "score_margin": 4.32,
+                "is_mock": false
             }
         ],
         "group": "机械设备"
@@ -113336,11 +113336,11 @@
     "专用设备": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 14.67,
+            "temperature": 4.65,
             "turnover": 55243771904.0,
             "score_vol": 9.75,
-            "score_margin": 4.92,
-            "is_mock": true
+            "score_margin": -5.1,
+            "is_mock": false
         },
         "history": [
             {
@@ -114777,11 +114777,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 14.67,
+                "temperature": 4.65,
                 "turnover": 55243771904.0,
                 "score_vol": 9.75,
-                "score_margin": 4.92,
-                "is_mock": true
+                "score_margin": -5.1,
+                "is_mock": false
             }
         ],
         "group": "机械设备"
@@ -114789,11 +114789,11 @@
     "工程机械": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -19.21,
+            "temperature": -17.6,
             "turnover": 5812392960.0,
             "score_vol": -21.18,
-            "score_margin": 1.96,
-            "is_mock": true
+            "score_margin": 3.57,
+            "is_mock": false
         },
         "history": [
             {
@@ -116230,11 +116230,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -19.21,
+                "temperature": -17.6,
                 "turnover": 5812392960.0,
                 "score_vol": -21.18,
-                "score_margin": 1.96,
-                "is_mock": true
+                "score_margin": 3.57,
+                "is_mock": false
             }
         ],
         "group": "机械设备"
@@ -116242,11 +116242,11 @@
     "自动化设备": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 23.08,
+            "temperature": 6.02,
             "turnover": 46034112512.0,
             "score_vol": 6.41,
-            "score_margin": 16.68,
-            "is_mock": true
+            "score_margin": -0.39,
+            "is_mock": false
         },
         "history": [
             {
@@ -117683,11 +117683,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 23.08,
+                "temperature": 6.02,
                 "turnover": 46034112512.0,
                 "score_vol": 6.41,
-                "score_margin": 16.68,
-                "is_mock": true
+                "score_margin": -0.39,
+                "is_mock": false
             }
         ],
         "group": "机械设备"
@@ -117695,11 +117695,11 @@
     "半导体": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 0.66,
+            "temperature": 9.3,
             "turnover": 390783926272.0,
             "score_vol": -1.01,
-            "score_margin": 1.67,
-            "is_mock": true
+            "score_margin": 10.31,
+            "is_mock": false
         },
         "history": [
             {
@@ -119136,11 +119136,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 0.66,
+                "temperature": 9.3,
                 "turnover": 390783926272.0,
                 "score_vol": -1.01,
-                "score_margin": 1.67,
-                "is_mock": true
+                "score_margin": 10.31,
+                "is_mock": false
             }
         ],
         "group": "电子"
@@ -119148,11 +119148,11 @@
     "消费电子": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 12.55,
+            "temperature": 6.17,
             "turnover": 84469202944.0,
             "score_vol": 11.22,
-            "score_margin": 1.33,
-            "is_mock": true
+            "score_margin": -5.04,
+            "is_mock": false
         },
         "history": [
             {
@@ -120589,11 +120589,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 12.55,
+                "temperature": 6.17,
                 "turnover": 84469202944.0,
                 "score_vol": 11.22,
-                "score_margin": 1.33,
-                "is_mock": true
+                "score_margin": -5.04,
+                "is_mock": false
             }
         ],
         "group": "电子"
@@ -120601,11 +120601,11 @@
     "光学广电": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 3.41,
+            "temperature": 2.26,
             "turnover": 54935388160.0,
             "score_vol": 11.84,
-            "score_margin": -8.43,
-            "is_mock": true
+            "score_margin": -9.58,
+            "is_mock": false
         },
         "history": [
             {
@@ -122042,11 +122042,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 3.41,
+                "temperature": 2.26,
                 "turnover": 54935388160.0,
                 "score_vol": 11.84,
-                "score_margin": -8.43,
-                "is_mock": true
+                "score_margin": -9.58,
+                "is_mock": false
             }
         ],
         "group": "电子"
@@ -122054,11 +122054,11 @@
     "元器件": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 5.47,
+            "temperature": 5.35,
             "turnover": 134618996736.0,
             "score_vol": 3.54,
-            "score_margin": 1.93,
-            "is_mock": true
+            "score_margin": 1.8,
+            "is_mock": false
         },
         "history": [
             {
@@ -123495,11 +123495,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 5.47,
+                "temperature": 5.35,
                 "turnover": 134618996736.0,
                 "score_vol": 3.54,
-                "score_margin": 1.93,
-                "is_mock": true
+                "score_margin": 1.8,
+                "is_mock": false
             }
         ],
         "group": "电子"
@@ -123511,7 +123511,7 @@
             "turnover": 25453858816.0,
             "score_vol": 14.4,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -124952,7 +124952,7 @@
                 "turnover": 25453858816.0,
                 "score_vol": 14.4,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "电子"
@@ -124960,11 +124960,11 @@
     "通信设备": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 19.33,
+            "temperature": 23.44,
             "turnover": 218096861184.0,
             "score_vol": 17.96,
-            "score_margin": 1.37,
-            "is_mock": true
+            "score_margin": 5.48,
+            "is_mock": false
         },
         "history": [
             {
@@ -126401,11 +126401,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 19.33,
+                "temperature": 23.44,
                 "turnover": 218096861184.0,
                 "score_vol": 17.96,
-                "score_margin": 1.37,
-                "is_mock": true
+                "score_margin": 5.48,
+                "is_mock": false
             }
         ],
         "group": "通信"
@@ -126417,7 +126417,7 @@
             "turnover": 4579630592.0,
             "score_vol": -8.96,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -127858,7 +127858,7 @@
                 "turnover": 4579630592.0,
                 "score_vol": -8.96,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "通信"
@@ -127866,11 +127866,11 @@
     "通信工程": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 84.51,
+            "temperature": 54.88,
             "turnover": 4227176704.0,
             "score_vol": 34.51,
-            "score_margin": 50.0,
-            "is_mock": true
+            "score_margin": 20.37,
+            "is_mock": false
         },
         "history": [
             {
@@ -129307,11 +129307,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 84.51,
+                "temperature": 54.88,
                 "turnover": 4227176704.0,
                 "score_vol": 34.51,
-                "score_margin": 50.0,
-                "is_mock": true
+                "score_margin": 20.37,
+                "is_mock": false
             }
         ],
         "group": "通信"
@@ -129319,11 +129319,11 @@
     "IT设备": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -30.16,
+            "temperature": -23.35,
             "turnover": 39863570432.0,
             "score_vol": -16.59,
-            "score_margin": -13.57,
-            "is_mock": true
+            "score_margin": -6.76,
+            "is_mock": false
         },
         "history": [
             {
@@ -130760,11 +130760,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -30.16,
+                "temperature": -23.35,
                 "turnover": 39863570432.0,
                 "score_vol": -16.59,
-                "score_margin": -13.57,
-                "is_mock": true
+                "score_margin": -6.76,
+                "is_mock": false
             }
         ],
         "group": "计算机"
@@ -130772,11 +130772,11 @@
     "软件服务": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -17.25,
+            "temperature": -20.12,
             "turnover": 56238542848.0,
             "score_vol": -15.67,
-            "score_margin": -1.58,
-            "is_mock": true
+            "score_margin": -4.45,
+            "is_mock": false
         },
         "history": [
             {
@@ -132213,11 +132213,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -17.25,
+                "temperature": -20.12,
                 "turnover": 56238542848.0,
                 "score_vol": -15.67,
-                "score_margin": -1.58,
-                "is_mock": true
+                "score_margin": -4.45,
+                "is_mock": false
             }
         ],
         "group": "计算机"
@@ -132225,11 +132225,11 @@
     "云服务": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -17.43,
+            "temperature": -17.06,
             "turnover": 37913612288.0,
             "score_vol": 20.38,
-            "score_margin": -37.81,
-            "is_mock": true
+            "score_margin": -37.44,
+            "is_mock": false
         },
         "history": [
             {
@@ -133666,11 +133666,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -17.43,
+                "temperature": -17.06,
                 "turnover": 37913612288.0,
                 "score_vol": 20.38,
-                "score_margin": -37.81,
-                "is_mock": true
+                "score_margin": -37.44,
+                "is_mock": false
             }
         ],
         "group": "计算机"
@@ -133682,7 +133682,7 @@
             "turnover": 1450028288.0,
             "score_vol": -42.05,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -135123,7 +135123,7 @@
                 "turnover": 1450028288.0,
                 "score_vol": -42.05,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "计算机"
@@ -135131,11 +135131,11 @@
     "游戏": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -2.91,
+            "temperature": 1.36,
             "turnover": 16494541824.0,
             "score_vol": -3.14,
-            "score_margin": 0.23,
-            "is_mock": true
+            "score_margin": 4.5,
+            "is_mock": false
         },
         "history": [
             {
@@ -136572,11 +136572,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -2.91,
+                "temperature": 1.36,
                 "turnover": 16494541824.0,
                 "score_vol": -3.14,
-                "score_margin": 0.23,
-                "is_mock": true
+                "score_margin": 4.5,
+                "is_mock": false
             }
         ],
         "group": "传媒"
@@ -136584,11 +136584,11 @@
     "广告营销": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -55.98,
+            "temperature": -28.6,
             "turnover": 23237867520.0,
             "score_vol": -10.07,
-            "score_margin": -45.91,
-            "is_mock": true
+            "score_margin": -18.53,
+            "is_mock": false
         },
         "history": [
             {
@@ -138025,11 +138025,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -55.98,
+                "temperature": -28.6,
                 "turnover": 23237867520.0,
                 "score_vol": -10.07,
-                "score_margin": -45.91,
-                "is_mock": true
+                "score_margin": -18.53,
+                "is_mock": false
             }
         ],
         "group": "传媒"
@@ -138037,11 +138037,11 @@
     "影视院线": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -49.7,
+            "temperature": -9.7,
             "turnover": 5620247040.0,
             "score_vol": -18.77,
-            "score_margin": -30.92,
-            "is_mock": true
+            "score_margin": 9.07,
+            "is_mock": false
         },
         "history": [
             {
@@ -139478,11 +139478,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -49.7,
+                "temperature": -9.7,
                 "turnover": 5620247040.0,
                 "score_vol": -18.77,
-                "score_margin": -30.92,
-                "is_mock": true
+                "score_margin": 9.07,
+                "is_mock": false
             }
         ],
         "group": "传媒"
@@ -139490,11 +139490,11 @@
     "数字媒体": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -63.67,
+            "temperature": 36.33,
             "turnover": 2865920000.0,
             "score_vol": -13.67,
-            "score_margin": -50.0,
-            "is_mock": true
+            "score_margin": 50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -139763,10 +139763,10 @@
             },
             {
                 "date": "2026-01-08",
-                "temperature": 68.69,
+                "temperature": 56.87,
                 "turnover": 4932597760.0,
                 "score_vol": 23.49,
-                "score_margin": 45.2,
+                "score_margin": 33.38,
                 "is_mock": false
             },
             {
@@ -140347,10 +140347,10 @@
             },
             {
                 "date": "2026-04-30",
-                "temperature": 32.01,
+                "temperature": 28.02,
                 "turnover": 4708258816.0,
                 "score_vol": 35.21,
-                "score_margin": -3.19,
+                "score_margin": -7.19,
                 "is_mock": false
             },
             {
@@ -140403,10 +140403,10 @@
             },
             {
                 "date": "2026-05-14",
-                "temperature": 68.1,
+                "temperature": 58.13,
                 "turnover": 5711386624.0,
                 "score_vol": 18.99,
-                "score_margin": 49.1,
+                "score_margin": 39.13,
                 "is_mock": false
             },
             {
@@ -140467,10 +140467,10 @@
             },
             {
                 "date": "2026-05-26",
-                "temperature": 14.75,
+                "temperature": 8.98,
                 "turnover": 3774914816.0,
                 "score_vol": -25.51,
-                "score_margin": 40.26,
+                "score_margin": 34.49,
                 "is_mock": false
             },
             {
@@ -140835,10 +140835,10 @@
             },
             {
                 "date": "2026-07-30",
-                "temperature": 43.98,
+                "temperature": 44.83,
                 "turnover": 2553507840.0,
                 "score_vol": -5.17,
-                "score_margin": 49.16,
+                "score_margin": 50.0,
                 "is_mock": false
             },
             {
@@ -140931,11 +140931,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -63.67,
+                "temperature": 36.33,
                 "turnover": 2865920000.0,
                 "score_vol": -13.67,
-                "score_margin": -50.0,
-                "is_mock": true
+                "score_margin": 50.0,
+                "is_mock": false
             }
         ],
         "group": "传媒"
@@ -140947,7 +140947,7 @@
             "turnover": 3336536064.0,
             "score_vol": -26.19,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -142388,7 +142388,7 @@
                 "turnover": 3336536064.0,
                 "score_vol": -26.19,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "传媒"
@@ -143849,11 +143849,11 @@
     "全国性银行": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -21.49,
+            "temperature": -25.6,
             "turnover": 14150777856.0,
             "score_vol": -37.52,
-            "score_margin": 16.03,
-            "is_mock": true
+            "score_margin": 11.92,
+            "is_mock": false
         },
         "history": [
             {
@@ -145290,11 +145290,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -21.49,
+                "temperature": -25.6,
                 "turnover": 14150777856.0,
                 "score_vol": -37.52,
-                "score_margin": 16.03,
-                "is_mock": true
+                "score_margin": 11.92,
+                "is_mock": false
             }
         ],
         "group": "银行"
@@ -145302,11 +145302,11 @@
     "地方性银行": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -30.06,
+            "temperature": -38.14,
             "turnover": 6851372544.0,
             "score_vol": -24.24,
-            "score_margin": -5.82,
-            "is_mock": true
+            "score_margin": -13.9,
+            "is_mock": false
         },
         "history": [
             {
@@ -146743,11 +146743,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -30.06,
+                "temperature": -38.14,
                 "turnover": 6851372544.0,
                 "score_vol": -24.24,
-                "score_margin": -5.82,
-                "is_mock": true
+                "score_margin": -13.9,
+                "is_mock": false
             }
         ],
         "group": "银行"
@@ -146755,11 +146755,11 @@
     "证券": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -16.83,
+            "temperature": -22.97,
             "turnover": 21523965952.0,
             "score_vol": -24.94,
-            "score_margin": 8.11,
-            "is_mock": true
+            "score_margin": 1.97,
+            "is_mock": false
         },
         "history": [
             {
@@ -148196,11 +148196,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -16.83,
+                "temperature": -22.97,
                 "turnover": 21523965952.0,
                 "score_vol": -24.94,
-                "score_margin": 8.11,
-                "is_mock": true
+                "score_margin": 1.97,
+                "is_mock": false
             }
         ],
         "group": "非银金融"
@@ -148208,11 +148208,11 @@
     "保险": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -8.73,
+            "temperature": -43.36,
             "turnover": 5444847104.0,
             "score_vol": -40.5,
-            "score_margin": 31.77,
-            "is_mock": true
+            "score_margin": -2.86,
+            "is_mock": false
         },
         "history": [
             {
@@ -149649,11 +149649,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -8.73,
+                "temperature": -43.36,
                 "turnover": 5444847104.0,
                 "score_vol": -40.5,
-                "score_margin": 31.77,
-                "is_mock": true
+                "score_margin": -2.86,
+                "is_mock": false
             }
         ],
         "group": "非银金融"
@@ -149661,11 +149661,11 @@
     "多元金融": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -28.1,
+            "temperature": -38.12,
             "turnover": 3457393664.0,
             "score_vol": -28.4,
-            "score_margin": 0.3,
-            "is_mock": true
+            "score_margin": -9.72,
+            "is_mock": false
         },
         "history": [
             {
@@ -151102,11 +151102,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -28.1,
+                "temperature": -38.12,
                 "turnover": 3457393664.0,
                 "score_vol": -28.4,
-                "score_margin": 0.3,
-                "is_mock": true
+                "score_margin": -9.72,
+                "is_mock": false
             }
         ],
         "group": "非银金融"
@@ -151114,11 +151114,11 @@
     "房屋建设": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -53.18,
+            "temperature": -49.39,
             "turnover": 2300791040.0,
             "score_vol": -3.18,
-            "score_margin": -50.0,
-            "is_mock": true
+            "score_margin": -46.21,
+            "is_mock": false
         },
         "history": [
             {
@@ -152555,11 +152555,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -53.18,
+                "temperature": -49.39,
                 "turnover": 2300791040.0,
                 "score_vol": -3.18,
-                "score_margin": -50.0,
-                "is_mock": true
+                "score_margin": -46.21,
+                "is_mock": false
             }
         ],
         "group": "建筑"
@@ -152571,7 +152571,7 @@
             "turnover": 4209240064.0,
             "score_vol": -26.07,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -154012,7 +154012,7 @@
                 "turnover": 4209240064.0,
                 "score_vol": -26.07,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "建筑"
@@ -154024,7 +154024,7 @@
             "turnover": 5890046464.0,
             "score_vol": -19.79,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -155465,7 +155465,7 @@
                 "turnover": 5890046464.0,
                 "score_vol": -19.79,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "建筑"
@@ -155477,7 +155477,7 @@
             "turnover": 3964028160.0,
             "score_vol": 4.85,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -156918,7 +156918,7 @@
                 "turnover": 3964028160.0,
                 "score_vol": 4.85,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "建筑"
@@ -156930,7 +156930,7 @@
             "turnover": 7056092160.0,
             "score_vol": 84.24,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -158371,7 +158371,7 @@
                 "turnover": 7056092160.0,
                 "score_vol": 84.24,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "建筑"
@@ -158379,11 +158379,11 @@
     "房地产开发": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -0.82,
+            "temperature": -3.21,
             "turnover": 14367128576.0,
             "score_vol": -2.03,
-            "score_margin": 1.21,
-            "is_mock": true
+            "score_margin": -1.18,
+            "is_mock": false
         },
         "history": [
             {
@@ -159820,11 +159820,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -0.82,
+                "temperature": -3.21,
                 "turnover": 14367128576.0,
                 "score_vol": -2.03,
-                "score_margin": 1.21,
-                "is_mock": true
+                "score_margin": -1.18,
+                "is_mock": false
             }
         ],
         "group": "房地产"
@@ -159832,11 +159832,11 @@
     "房产服务": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -84.25,
+            "temperature": 15.75,
             "turnover": 545498880.0,
             "score_vol": -34.25,
-            "score_margin": -50.0,
-            "is_mock": true
+            "score_margin": 50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -161273,11 +161273,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -84.25,
+                "temperature": 15.75,
                 "turnover": 545498880.0,
                 "score_vol": -34.25,
-                "score_margin": -50.0,
-                "is_mock": true
+                "score_margin": 50.0,
+                "is_mock": false
             }
         ],
         "group": "房地产"
@@ -161289,7 +161289,7 @@
             "turnover": 235462432.0,
             "score_vol": -54.2,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -162730,7 +162730,7 @@
                 "turnover": 235462432.0,
                 "score_vol": -54.2,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "社会服务"
@@ -162742,7 +162742,7 @@
             "turnover": 2789525504.0,
             "score_vol": -13.95,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -164183,7 +164183,7 @@
                 "turnover": 2789525504.0,
                 "score_vol": -13.95,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "社会服务"
@@ -164195,7 +164195,7 @@
             "turnover": 808384960.0,
             "score_vol": -31.02,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -165636,7 +165636,7 @@
                 "turnover": 808384960.0,
                 "score_vol": -31.02,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "社会服务"
@@ -165644,11 +165644,11 @@
     "旅游": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -15.79,
+            "temperature": -20.22,
             "turnover": 2733017088.0,
             "score_vol": -35.9,
-            "score_margin": 20.1,
-            "is_mock": true
+            "score_margin": 15.68,
+            "is_mock": false
         },
         "history": [
             {
@@ -167085,11 +167085,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -15.79,
+                "temperature": -20.22,
                 "turnover": 2733017088.0,
                 "score_vol": -35.9,
-                "score_margin": 20.1,
-                "is_mock": true
+                "score_margin": 15.68,
+                "is_mock": false
             }
         ],
         "group": "社会服务"
@@ -167097,11 +167097,11 @@
     "专业服务": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 20.51,
+            "temperature": -8.56,
             "turnover": 6192894976.0,
             "score_vol": 20.91,
-            "score_margin": -0.39,
-            "is_mock": true
+            "score_margin": -29.47,
+            "is_mock": false
         },
         "history": [
             {
@@ -168538,11 +168538,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 20.51,
+                "temperature": -8.56,
                 "turnover": 6192894976.0,
                 "score_vol": 20.91,
-                "score_margin": -0.39,
-                "is_mock": true
+                "score_margin": -29.47,
+                "is_mock": false
             }
         ],
         "group": "社会服务"
@@ -168554,7 +168554,7 @@
             "turnover": 3422704896.0,
             "score_vol": -21.77,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -169995,7 +169995,7 @@
                 "turnover": 3422704896.0,
                 "score_vol": -21.77,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "交通运输"
@@ -170003,11 +170003,11 @@
     "航空机场": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -42.6,
+            "temperature": -30.15,
             "turnover": 2089055360.0,
             "score_vol": -35.44,
-            "score_margin": -7.16,
-            "is_mock": true
+            "score_margin": 5.29,
+            "is_mock": false
         },
         "history": [
             {
@@ -171444,11 +171444,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -42.6,
+                "temperature": -30.15,
                 "turnover": 2089055360.0,
                 "score_vol": -35.44,
-                "score_margin": -7.16,
-                "is_mock": true
+                "score_margin": 5.29,
+                "is_mock": false
             }
         ],
         "group": "交通运输"
@@ -171456,11 +171456,11 @@
     "航运港口": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -13.75,
+            "temperature": -21.84,
             "turnover": 8915267584.0,
             "score_vol": -5.04,
-            "score_margin": -8.71,
-            "is_mock": true
+            "score_margin": -16.8,
+            "is_mock": false
         },
         "history": [
             {
@@ -172897,11 +172897,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -13.75,
+                "temperature": -21.84,
                 "turnover": 8915267584.0,
                 "score_vol": -5.04,
-                "score_margin": -8.71,
-                "is_mock": true
+                "score_margin": -16.8,
+                "is_mock": false
             }
         ],
         "group": "交通运输"
@@ -172909,11 +172909,11 @@
     "物流": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": -11.26,
+            "temperature": -16.46,
             "turnover": 4564852736.0,
             "score_vol": -11.62,
-            "score_margin": 0.36,
-            "is_mock": true
+            "score_margin": -4.84,
+            "is_mock": false
         },
         "history": [
             {
@@ -174350,11 +174350,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": -11.26,
+                "temperature": -16.46,
                 "turnover": 4564852736.0,
                 "score_vol": -11.62,
-                "score_margin": 0.36,
-                "is_mock": true
+                "score_margin": -4.84,
+                "is_mock": false
             }
         ],
         "group": "交通运输"
@@ -174362,11 +174362,11 @@
     "电力": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 25.09,
+            "temperature": -74.91,
             "turnover": 1204781184.0,
             "score_vol": -24.91,
-            "score_margin": 50.0,
-            "is_mock": true
+            "score_margin": -50.0,
+            "is_mock": false
         },
         "history": [
             {
@@ -175803,11 +175803,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 25.09,
+                "temperature": -74.91,
                 "turnover": 1204781184.0,
                 "score_vol": -24.91,
-                "score_margin": 50.0,
-                "is_mock": true
+                "score_margin": -50.0,
+                "is_mock": false
             }
         ],
         "group": "公共事业"
@@ -175819,7 +175819,7 @@
             "turnover": 3861260544.0,
             "score_vol": -6.77,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -177260,7 +177260,7 @@
                 "turnover": 3861260544.0,
                 "score_vol": -6.77,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "公共事业"
@@ -177272,7 +177272,7 @@
             "turnover": 1124287232.0,
             "score_vol": -13.05,
             "score_margin": 50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -178713,7 +178713,7 @@
                 "turnover": 1124287232.0,
                 "score_vol": -13.05,
                 "score_margin": 50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "公共事业"
@@ -178721,11 +178721,11 @@
     "环保设备": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 24.38,
+            "temperature": 49.29,
             "turnover": 4898278400.0,
             "score_vol": 7.8,
-            "score_margin": 16.58,
-            "is_mock": true
+            "score_margin": 41.49,
+            "is_mock": false
         },
         "history": [
             {
@@ -180162,11 +180162,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 24.38,
+                "temperature": 49.29,
                 "turnover": 4898278400.0,
                 "score_vol": 7.8,
-                "score_margin": 16.58,
-                "is_mock": true
+                "score_margin": 41.49,
+                "is_mock": false
             }
         ],
         "group": "环保"
@@ -180174,11 +180174,11 @@
     "环境治理": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 13.3,
+            "temperature": 12.78,
             "turnover": 13393182720.0,
             "score_vol": 14.46,
-            "score_margin": -1.16,
-            "is_mock": true
+            "score_margin": -1.67,
+            "is_mock": false
         },
         "history": [
             {
@@ -181615,11 +181615,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 13.3,
+                "temperature": 12.78,
                 "turnover": 13393182720.0,
                 "score_vol": 14.46,
-                "score_margin": -1.16,
-                "is_mock": true
+                "score_margin": -1.67,
+                "is_mock": false
             }
         ],
         "group": "环保"
@@ -181631,7 +181631,7 @@
             "turnover": 657737664.0,
             "score_vol": 22.51,
             "score_margin": -50.0,
-            "is_mock": true
+            "is_mock": false
         },
         "history": [
             {
@@ -183072,7 +183072,7 @@
                 "turnover": 657737664.0,
                 "score_vol": 22.51,
                 "score_margin": -50.0,
-                "is_mock": true
+                "is_mock": false
             }
         ],
         "group": "环保"
@@ -183080,11 +183080,11 @@
     "综合类": {
         "latest": {
             "date": "2026-08-17",
-            "temperature": 5.95,
+            "temperature": 6.95,
             "turnover": 5131922944.0,
             "score_vol": 31.13,
-            "score_margin": -25.18,
-            "is_mock": true
+            "score_margin": -24.18,
+            "is_mock": false
         },
         "history": [
             {
@@ -184521,11 +184521,11 @@
             },
             {
                 "date": "2026-08-17",
-                "temperature": 5.95,
+                "temperature": 6.95,
                 "turnover": 5131922944.0,
                 "score_vol": 31.13,
-                "score_margin": -25.18,
-                "is_mock": true
+                "score_margin": -24.18,
+                "is_mock": false
             }
         ],
         "group": "综合"
