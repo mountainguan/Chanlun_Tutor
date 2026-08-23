@@ -93,6 +93,37 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_static_files('/static', os.path.join(BASE_DIR, 'static'))
 
 
+# --- 天天基金数据代理（同源，避免浏览器 CORS） ---
+# 浏览器 fetch('http://fund.eastmoney.com/...') 会被 CORS 拦截，
+# 通过本接口做同源代理，浏览器拿到数据后可缓存到 localStorage。
+@app.get('/api/fund_eastmoney/{code}')
+def fund_eastmoney_proxy(code: str):
+    """代理天天基金 pingzhongdata，返回 Data_netWorthTrend 解析后的 JSON。"""
+    import re as _re
+    import requests as _requests
+    # 校验 code 必须是 6 位数字
+    if not code or len(code) != 6 or not code.isdigit():
+        return {'__error': 'invalid code'}
+    url = f'http://fund.eastmoney.com/pingzhongdata/{code}.js'
+    try:
+        resp = _requests.get(url, timeout=6,
+                             headers={'User-Agent': 'Mozilla/5.0',
+                                      'Referer': 'http://fund.eastmoney.com/'})
+        text = resp.text
+    except Exception as e:
+        return {'__error': f'fetch failed: {e}'}
+    m = _re.search(r'Data_netWorthTrend\s*=\s*(\[.*?\]);', text, _re.DOTALL)
+    if not m:
+        return {'__error': 'netWorthTrend not found'}
+    try:
+        import json as _json
+        arr = _json.loads(m.group(1))
+    except Exception as e:
+        return {'__error': f'parse failed: {e}'}
+    # 直接返回原数组（毫秒时间戳 + 单位净值），浏览器自行解析为 {date, close, pct_chg}
+    return {'code': code, 'ts': arr}
+
+
 # --- 通用数据加载 ---
 def load_chapter_content(chapter_id):
     try:
@@ -507,7 +538,7 @@ def mood_page():
         """(() => {
             const u = new URL(window.location.href);
             const t = u.searchParams.get('tab');
-            const valid = ['market','sector','crowd','money','radar','national','announce'];
+            const valid = ['market','sector','crowd','money','radar','national','fund','announce'];
             if (t && valid.includes(t)) {
                 // 查找顶部 tab 中的「公告栏」按钮并点击
                 setTimeout(() => {
@@ -516,7 +547,8 @@ def mood_page():
                         if (b.textContent && b.textContent.trim() === (t === 'announce' ? '公告栏' : (() => {
                             const map = {
                                 market:'大盘温度', sector:'板块温度', crowd:'板块拥挤度',
-                                money:'个股医生', radar:'主力雷达', national:'国家队筛选'
+                                money:'个股医生', radar:'主力雷达', national:'国家队筛选',
+                                fund:'基金订阅'
                             };
                             return map[t];
                         })())) {

@@ -7,6 +7,7 @@ from pages.sector_crowding_component import render_sector_crowding_panel
 from pages.fund_radar_component import render_fund_radar_panel
 from pages.national_team_component import render_national_team_panel
 from pages.special_announcement_page import render_special_announcement_panel
+from pages.fund_tracker_component import render_fund_tracker_panel
 
 def render_mood_tabs(active_tab, on_nav, is_mobile):
     tabs_config = [
@@ -16,6 +17,7 @@ def render_mood_tabs(active_tab, on_nav, is_mobile):
         ('money', '个股医生'),
         ('radar', '主力雷达'),
         ('national', '国家队筛选'),
+        ('fund', '基金订阅'),
         ('announce', '公告栏'),
     ]
 
@@ -36,17 +38,17 @@ def render_mood_tabs(active_tab, on_nav, is_mobile):
 
     # --- 移动端视图 (仅在移动设备渲染) ---
     if is_mobile:
-        # 采用全宽网格布局 (Grid)，5等分，Segmented Control 风格
+        # 采用全宽网格布局 (Grid)，8 等分，Segmented Control 风格
         with ui.element('div').classes('w-full px-1 mb-4'):
-            with ui.grid(columns=7).classes('w-full gap-1 p-1 bg-gray-100/80 rounded-lg border border-gray-200'):
+            with ui.grid(columns=8).classes('w-full gap-1 p-1 bg-gray-100/80 rounded-lg border border-gray-200'):
                 for tab_id, label in tabs_config:
                     is_active = (tab_id == active_tab)
-                    
+
                     # 字体大小 text-[11px] 约为 0.6875rem，防止小屏折行
                     btn = ui.button(label, on_click=lambda t=tab_id: on_nav(t)) \
                         .props('flat no-caps dense') \
-                        .classes('w-full text-[10px] h-8 px-0 rounded-md font-bold transition-all duration-200') 
-                    
+                        .classes('w-full text-[10px] h-8 px-0 rounded-md font-bold transition-all duration-200')
+
                     if is_active:
                         # 选中状态：白色背景，轻微阴影，凸起感
                         btn.classes('bg-white text-indigo-700 shadow-sm border border-gray-100')
@@ -82,6 +84,8 @@ def render_sentiment_view(active_tab, on_nav, plotly_renderer, is_mobile):
             render_fund_radar_panel(plotly_renderer=plotly_renderer, is_mobile=is_mobile)
         elif active_tab == 'national':
             render_national_team_panel(plotly_renderer=plotly_renderer, is_mobile=is_mobile)
+        elif active_tab == 'fund':
+            render_fund_tracker_panel(plotly_renderer=plotly_renderer, is_mobile=is_mobile)
         elif active_tab == 'announce':
             # 公告栏：内部含统计、表格等多模块，使用受限宽度居中样式
             with ui.column().classes('w-full px-2 md:px-6 gap-4'):
