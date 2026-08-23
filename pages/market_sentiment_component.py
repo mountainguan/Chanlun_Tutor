@@ -3,7 +3,6 @@ from utils.market_sentiment import MarketSentiment
 from utils.index_data import IndexDataManager
 from utils.macro_data import get_savings_mv_ratio_data
 from pages.shibor_component import render_shibor_panel
-from pages.pizza_index_component import render_pizza_index_panel
 import plotly.graph_objects as go
 import pandas as pd
 import asyncio
@@ -124,9 +123,6 @@ def render_market_sentiment_panel(plotly_renderer, is_mobile=False):
 
     # Savings Ratio Table Container
     savings_container = ui.column().classes('w-full')
-
-    # Pentagon Pizza Index Panel
-    render_pizza_index_panel(is_mobile=is_mobile)
 
     async def fetch_and_update_savings_ratio(force=False):
         if savings_container.is_deleted:
