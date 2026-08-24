@@ -500,6 +500,42 @@ class TradingCrowding:
                       encoding='utf-8-sig')
         self.invalidate_history_cache()
 
+    def _dedup_history_csv(self, file_path, key_cols):
+        """对单个 CSV 按给定主键列去重，保留最后一行。
+
+        当 build_history 把“已存在的最近 N 天”也纳入拉取时，
+        旧实现只追加不替换，会产生重复行，导致后续 groupby / groupby 计数重复，
+        板块占比、指数集中度出现虚高。
+        不存在的 CSV 或所有 key_cols 都不存在的 CSV 会被静默跳过。
+        """
+        if not file_path or not os.path.exists(file_path) \
+                or os.path.getsize(file_path) == 0:
+            return 0
+        try:
+            raw = pd.read_csv(file_path, dtype={'trade_date': str})
+        except Exception as e:
+            print(f'[TradingCrowding] {file_path} 去重读取失败（跳过）: {e}')
+            return 0
+        if raw.empty or 'trade_date' not in raw.columns \
+                or not all(c in raw.columns for c in key_cols):
+            return 0
+        before = len(raw)
+        raw = raw.drop_duplicates(subset=key_cols, keep='last')
+        after = len(raw)
+        removed = before - after
+        if removed > 0:
+            print(f'[TradingCrowding] 去重 {os.path.basename(file_path)}: '
+                  f'{before} -> {after} 行（丢弃 {removed} 重复）')
+            try:
+                tmp_file = file_path + '.tmp'
+                raw.to_csv(tmp_file, index=False, encoding='utf-8-sig')
+                os.replace(tmp_file, file_path)
+            except Exception as e:
+                print(f'[TradingCrowding] 去重 {file_path} 写回失败: {e}')
+                return 0
+            self.invalidate_history_cache()
+        return removed
+
     def _save_meta(self, start_date, end_date, latest_date, total_days):
         meta = {
             '_meta': {
@@ -521,9 +557,22 @@ class TradingCrowding:
 
     def build_history(self, start_date=None, end_date=None, max_days=None,
                       resume=True, call_delay=0.35, flush_every=20,
-                      progress_cb=None, max_retries=3, retry_delay=2.0):
+                      progress_cb=None, max_retries=3, retry_delay=2.0,
+                      refetch_recent_days=2):
         """按交易日逐日拉取并构建三年成交集中度历史。
-        返回：本次实际新增的交易日数量。"""
+
+        参数：
+            start_date         : 'YYYYMMDD'
+            end_date           : 'YYYYMMDD'
+            max_days           : 本次最多拉取多少天（调试用）
+            resume             : 从历史缓存最后一个日期之后继续
+            refetch_recent_days: 除新增外，额外覆盖已存在最近 N 个交易日（默认 2）。
+                Tushare 日行情 / 个股日线可能修订/回填，
+                仅 "严格大于" 已有最新日期漏拉修正。
+                这里取"包含已有最新日期在内的最近 N 个交易日"额外重拉，
+                末尾按各自主键去重（最新拉取 = 最新一份），
+                实现"可覆盖"语义（详见 _dedup_history_csv）。
+        返回：本次实际新增/覆盖的交易日数量。"""
         pro = self._get_pro()
         today = datetime.date.today().strftime('%Y%m%d')
         if end_date is None:
@@ -554,14 +603,26 @@ class TradingCrowding:
         all_dates = sorted(cal['cal_date'].astype(str).tolist())
         dates = list(all_dates)
 
+        refetch_pool = []
         if resume and os.path.exists(self.history_file) \
                 and os.path.getsize(self.history_file) > 0:
             existing = self.load_history()
             if not existing.empty:
                 last = existing['trade_date'].max().strftime('%Y%m%d')
-                dates = [d for d in dates if d > last]
+                try:
+                    import bisect as _bisect
+                    pos = _bisect.bisect_right(dates, last)
+                except Exception:
+                    pos = len(dates)
+                start_idx = max(0, pos - refetch_recent_days * 2)
+                refetch_pool = dates[start_idx:pos]
+                if len(refetch_pool) > refetch_recent_days:
+                    refetch_pool = refetch_pool[-refetch_recent_days:]
+                new_dates = [d for d in dates if d > last]
+                dates = sorted(set(new_dates) | set(refetch_pool))
 
         # 自愈：涨跌幅榜历史落后于行业历史时，补齐行业已覆盖的缺失日期
+        # （不覆盖 refetch_pool，仅在 strict-new 范围内补水，避免与 refetch 重叠）
         if resume and os.path.exists(self.extreme_file) \
                 and os.path.getsize(self.extreme_file) > 0:
             existing = self.load_history()
@@ -582,7 +643,8 @@ class TradingCrowding:
             return 0
 
         print(f'[TradingCrowding] 开始构建历史：{dates[0]} ~ {dates[-1]}，'
-              f'共 {len(dates)} 个交易日')
+              f'共 {len(dates)} 个交易日'
+              f'（含回填修正 {len(refetch_pool)} 天）')
         ind_rows, idx_rows, ext_rows = [], [], []
         done = 0
         latest = None
@@ -626,6 +688,15 @@ class TradingCrowding:
         if ext_rows:
             self._append_rows(ext_rows, self.extreme_file,
                               self.EXTREME_CSV_COLUMNS)
+
+        # 末尾按各自主键去重：
+        #   行业 CSV → (trade_date, industry)
+        #   指数 CSV → (trade_date, index_code)
+        #   极值 CSV → trade_date（每日一行）
+        self._dedup_history_csv(self.history_file, ['trade_date', 'industry'])
+        self._dedup_history_csv(self.index_history_file,
+                                ['trade_date', 'index_code'])
+        self._dedup_history_csv(self.extreme_file, ['trade_date'])
 
         meta_latest = self.load_history(force=True)['trade_date'].max()
         self._save_meta(

@@ -492,6 +492,41 @@ class SectorCrowding:
                       encoding='utf-8-sig')
         self.invalidate_history_cache()
 
+    def _dedup_history_csv(self):
+        """对历史 CSV 按 (trade_date, industry) 去重，保留最后一行。
+
+        当 build_history 把"最近 N 天既存在又要重拉"也纳入拉取范围时，
+        旧实现只追加不替换，会产生 (trade_date, industry) 重复行，
+        进而导致后续 groupby / shift / percentile_rank 计算重复计数。
+        在所有 flush 完成后调用一次，把 CSV 落盘为最新一份（最新一次拉取胜出）。
+        """
+        if not os.path.exists(self.history_file) \
+                or os.path.getsize(self.history_file) == 0:
+            return
+        try:
+            raw = pd.read_csv(self.history_file, dtype={'trade_date': str})
+        except Exception as e:
+            print(f'[SectorCrowding] 历史去重读取失败（跳过）: {e}')
+            return
+        if raw.empty or 'trade_date' not in raw.columns \
+                or 'industry' not in raw.columns:
+            return
+        before = len(raw)
+        raw = raw.drop_duplicates(subset=['trade_date', 'industry'],
+                                  keep='last')
+        after = len(raw)
+        if after < before:
+            print(f'[SectorCrowding] 去重历史: {before} -> {after} 行 '
+                  f'（{(before - after)} 行重复，已丢弃旧值）')
+            try:
+                tmp_file = self.history_file + '.tmp'
+                raw.to_csv(tmp_file, index=False, encoding='utf-8-sig')
+                os.replace(tmp_file, self.history_file)
+            except Exception as e:
+                print(f'[SectorCrowding] 去重历史写回失败: {e}')
+                return
+            self.invalidate_history_cache()
+
     def _save_meta(self, start_date, end_date, latest_date, total_days):
         meta = {
             '_meta': {
@@ -513,17 +548,24 @@ class SectorCrowding:
 
     def build_history(self, start_date=None, end_date=None, max_days=None,
                       resume=True, call_delay=0.35, flush_every=20,
-                      progress_cb=None, max_retries=3, retry_delay=2.0):
+                      progress_cb=None, max_retries=3, retry_delay=2.0,
+                      refetch_recent_days=2):
         """按交易日逐日拉取并构建三年板块拥挤度历史。
 
         参数：
-            start_date : 'YYYYMMDD'，默认当前日期往前 HISTORY_YEARS 年
-            end_date   : 'YYYYMMDD'，默认今天
-            max_days   : 本次最多拉取多少天（调试用）
-            resume     : 从历史缓存最后一个日期之后继续（默认 True）
-            call_delay : 每次接口调用间隔秒数，防止触发限频
-            flush_every: 攒多少天写一次缓存
-            progress_cb: 进度回调 f(done, total, current_date)
+            start_date         : 'YYYYMMDD'，默认当前日期往前 HISTORY_YEARS 年
+            end_date           : 'YYYYMMDD'，默认今天
+            max_days           : 本次最多拉取多少天（调试用）
+            resume             : 从历史缓存最后一个日期之后继续（默认 True）
+            call_delay         : 每次接口调用间隔秒数，防止触发限频
+            flush_every        : 攒多少天写一次缓存
+            progress_cb        : 进度回调 f(done, total, current_date)
+            refetch_recent_days: 除新增外，额外覆盖已有最新 N 个交易日（默认 2）。
+                Tushare 两融明细在 T+1 仍可能修订/回填（如昨日收盘后公布融资融券新口径），
+                仅按"严格大于"已有最新日期拉取会漏掉修正。
+                在 resume=True 且已有历史时，把 already-existing 的最近 N 天也重新拉取，
+                并在末尾按 (trade_date, industry) 去重（最后一行 = 最新一次拉取），
+                实现"可覆盖"语义（详见 _dedup_history_csv）。
         返回：本次实际新增的交易日数量。
         """
         pro = self._get_pro()
@@ -555,11 +597,29 @@ class SectorCrowding:
             return 0
         dates = sorted(cal['cal_date'].astype(str).tolist())
 
+        # resume：除新增外，还要把已存在的最近 N 天拉一遍以覆盖可能的修正。
+        # bisect_right 找到"已有最新日期 last"在交易日历里的"之后"插入点 pos，
+        # [start_idx, pos) 即包含 last 在内的最后 2N 个交易日；
+        # 再裁剪到 "包含 last 的最后 N 个交易日"，与严格新增日期合并拉取。
+        # max_days 仍作为最后一道闸门，避免日期过多触发 Tushare 限频。
+        refetch_pool = []
         if resume and os.path.exists(self.history_file) and os.path.getsize(self.history_file) > 0:
             existing = self.load_history()
             if not existing.empty:
                 last = existing['trade_date'].max().strftime('%Y%m%d')
-                dates = [d for d in dates if d > last]
+                try:
+                    import bisect as _bisect
+                    pos = _bisect.bisect_right(dates, last)
+                except Exception:
+                    pos = len(dates)
+                # 先取包含 last 在内的 2N 个交易日作为候选缓冲
+                start_idx = max(0, pos - refetch_recent_days * 2)
+                refetch_pool = dates[start_idx:pos]
+                # 收紧到包含 last 在内的最近 N 个交易日
+                if len(refetch_pool) > refetch_recent_days:
+                    refetch_pool = refetch_pool[-refetch_recent_days:]
+                new_dates = [d for d in dates if d > last]
+                dates = sorted(set(new_dates) | set(refetch_pool))
 
         if max_days is not None:
             dates = dates[:max_days]
@@ -567,7 +627,9 @@ class SectorCrowding:
             print('[SectorCrowding] 没有需要更新的交易日（数据已最新）')
             return 0
 
-        print(f'[SectorCrowding] 开始构建历史：{dates[0]} ~ {dates[-1]}，共 {len(dates)} 个交易日')
+        print(f'[SectorCrowding] 开始构建历史：{dates[0]} ~ {dates[-1]}，'
+              f'共 {len(dates)} 个交易日'
+              f'（含回填修正 {len(refetch_pool)} 天）')
         rows = []
         done = 0
         latest = None
@@ -589,6 +651,10 @@ class SectorCrowding:
 
         if rows:
             self._append_rows(rows)
+
+        # 末尾按 (trade_date, industry) 去重：若最近 N 天被回填修正，
+        # 旧行已经在 CSV 里了，新追加的行需要把它替换掉。
+        self._dedup_history_csv()
 
         meta_latest = self.load_history(force=True)['trade_date'].max()
         self._save_meta(
