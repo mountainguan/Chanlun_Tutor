@@ -17,6 +17,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from nicegui import ui
 
 from pages.shared import setup_common_ui
+from pages.engulfing_pattern_component import render_engulfing_pattern_panel
 from utils.special_announcement import (
     OUTPUT_DIR,
     SpecialAnnouncementBoard,
@@ -653,182 +654,253 @@ def _render_holder_table(
 def render_special_announcement_panel(plotly_renderer=None):
     """公告栏面板：可嵌入到 mood 板块或其他位置。
 
+    子面板：
+      - 「异动 / 增减持」：原交易异动与股东增减持公告
+      - 「吞没形态」：6 大指数 Engulfing Pattern 识别器
+
     参数：
         plotly_renderer: 可选，传入 None 或 ui.plotly 以保证面板独立可调。
     """
     plot_func = plotly_renderer if plotly_renderer else ui.plotly
-    state = {"date": None, "busy": False, "refresh_btn": None}
+    state = {"date": None, "busy": False, "refresh_btn": None, "subtab": "shock"}
 
     with ui.column().classes("w-full gap-4"):
-        with ui.expansion(
-            "数据口径说明", icon="info", value=False
-        ).classes(
-            "w-full bg-white border border-gray-100 rounded-lg shadow-sm"
+        # ========== 顶部：子 Tab 切换 ==========
+        with ui.row().classes(
+            "w-full bg-white p-1 rounded-xl shadow-sm border border-gray-200 gap-1"
         ):
-            with ui.column().classes(
-                "p-4 text-gray-600 text-sm gap-1"
-            ):
-                ui.markdown(
-                    "- **交易异动**：交易所异常波动公告（`stk_shock`）与严重异常波动（`stk_high_shock`，"
-                    "通常为 10/30 个交易日累计涨跌幅 ≥ 100%）。\n"
-                    "- **股东增减持**：当日披露的大股东增持/减持公告（`stk_holdertrade`，"
-                    "`IN` 为增持，`DE` 为减持；⭐ 表示变动比例 ≥ 5% 或按均价估算金额 ≥ 1 亿元）。\n"
-                    "- **数据来源**：Tushare Pro，每日北京时间晚间生成当日快照，"
-                    "数据以交易所/上市公司公告披露为准，仅供参考，不构成投资建议。"
+            shock_tab = ui.button(
+                "异动 / 增减持",
+                icon="campaign",
+                on_click=lambda: _switch_subtab("shock"),
+            ).props("no-caps flat dense").classes(
+                "flex-1 rounded-lg font-bold text-sm transition-all"
+            )
+            engulf_tab = ui.button(
+                "吞没形态",
+                icon="candlestick_chart",
+                on_click=lambda: _switch_subtab("engulf"),
+            ).props("no-caps flat dense").classes(
+                "flex-1 rounded-lg font-bold text-sm transition-all"
+            )
+            state["shock_tab_btn"] = shock_tab
+            state["engulf_tab_btn"] = engulf_tab
+
+        # ========== 子面板：异动 / 增减持 ==========
+        @ui.refreshable
+        def render_shock_subtab():
+            with ui.column().classes("w-full gap-4"):
+                with ui.expansion(
+                    "数据口径说明", icon="info", value=False
+                ).classes(
+                    "w-full bg-white border border-gray-100 rounded-lg shadow-sm"
+                ):
+                    with ui.column().classes(
+                        "p-4 text-gray-600 text-sm gap-1"
+                    ):
+                        ui.markdown(
+                            "- **交易异动**：交易所异常波动公告（`stk_shock`）与严重异常波动（`stk_high_shock`，"
+                            "通常为 10/30 个交易日累计涨跌幅 ≥ 100%）。\n"
+                            "- **股东增减持**：当日披露的大股东增持/减持公告（`stk_holdertrade`，"
+                            "`IN` 为增持，`DE` 为减持；⭐ 表示变动比例 ≥ 5% 或按均价估算金额 ≥ 1 亿元）。\n"
+                            "- **数据来源**：Tushare Pro，每日北京时间晚间生成当日快照，"
+                            "数据以交易所/上市公司公告披露为准，仅供参考，不构成投资建议。"
+                        )
+
+                dates = _available_dates()
+                if not dates:
+                    with ui.card().classes(
+                        "w-full p-10 items-center gap-3 bg-white"
+                    ):
+                        ui.icon("inbox", size="48px").classes("text-gray-300")
+                        ui.label(
+                            "还没有生成过公告栏，请点击右上角「生成/刷新当日」"
+                        ).classes("text-lg text-gray-600")
+                    return
+
+                if state["date"] not in dates:
+                    state["date"] = dates[-1]
+                current = state["date"]
+                payload = load_struct_data(current)
+                if payload is None:
+                    with ui.card().classes(
+                        "w-full p-8 items-center gap-2 bg-white"
+                    ):
+                        ui.icon("cloud_off", size="32px").classes("text-gray-300")
+                        ui.label(f"{current} 暂无公告数据").classes("text-gray-500")
+                    return
+
+                # 交易日概览条（大字日期 + 元信息 + 日期切换 + 刷新）
+                with ui.card().classes(
+                    "w-full p-5 bg-gradient-to-br from-white via-amber-50/40 "
+                    "to-orange-50/40 border border-amber-100 shadow-sm rounded-xl"
+                ):
+                    with ui.row().classes("w-full items-center gap-4 flex-wrap"):
+                        with ui.row().classes("items-center gap-3 min-w-[260px]"):
+                            ui.element("div").classes(
+                                "w-12 h-12 rounded-xl bg-gradient-to-br "
+                                "from-amber-500 to-orange-500 flex "
+                                "items-center justify-center shadow-md"
+                            ).style("display:flex")
+                            ui.icon("event", color="white").classes(
+                                "text-2xl"
+                            ).style("margin-left:-48px")
+                            with ui.column().classes("gap-0 ml-3"):
+                                ui.label(_pretty_date(payload["trade_date"])).classes(
+                                    "text-2xl font-bold text-gray-900 "
+                                    "leading-none tracking-wide font-mono"
+                                )
+                                weekday = _weekday_cn(payload["trade_date"])
+                                meta_text = weekday or "交易日"
+                                ui.label(meta_text).classes(
+                                    "text-xs text-amber-700 mt-1 font-medium"
+                                )
+
+                        ui.separator().props("vertical").classes("h-12 bg-amber-200")
+
+                        with ui.column().classes("gap-0"):
+                            ui.label("数据状态").classes("text-xs text-gray-500")
+                            if state["busy"]:
+                                with ui.row().classes("items-center gap-1 mt-1"):
+                                    ui.spinner(size="xs", color="amber")
+                                    ui.label("正在抓取 Tushare 数据…").classes(
+                                        "text-sm text-orange-600 font-medium"
+                                    )
+                            else:
+                                with ui.column().classes("gap-0 mt-1"):
+                                    ui.label("✓ 已就绪").classes(
+                                        "text-sm text-emerald-700 font-medium"
+                                    )
+                                    ui.label(
+                                        f"快照：{payload.get('generated_at', '-')}"
+                                    ).classes("text-xs text-gray-500 mt-0.5")
+
+                        ui.space()
+
+                        with ui.row().classes(
+                            "items-center gap-1 bg-white px-1 py-1 "
+                            "rounded-lg border border-amber-200 shadow-sm"
+                        ):
+                            ui.button(
+                                icon="chevron_left",
+                                on_click=lambda: _nav(-1),
+                            ).props("flat dense round color=amber-7").tooltip(
+                                "上一交易日"
+                            )
+                            ui.select(
+                                dates,
+                                value=current,
+                                on_change=lambda e: _select_date(e.value),
+                            ).props(
+                                "outlined dense options-dense color=amber-7"
+                            ).classes("min-w-[140px] border-none")
+                            ui.button(
+                                icon="chevron_right",
+                                on_click=lambda: _nav(1),
+                            ).props("flat dense round color=amber-7").tooltip(
+                                "下一交易日"
+                            )
+                            ui.separator().props("vertical").classes(
+                                "h-6 mx-1 bg-amber-200"
+                            )
+                            refresh_btn = ui.button(
+                                "生成/刷新",
+                                icon="refresh",
+                                on_click=regenerate,
+                            ).props("outline color=amber-7 dense no-caps").classes(
+                                "font-medium"
+                            )
+                            state["refresh_btn"] = refresh_btn
+
+                _render_summary_cards(payload.get("summary", {}))
+
+                _render_shock_trend_chart(
+                    payload.get("shock_trend", {}), plot_func=plot_func
                 )
 
+                _render_weekly_summary(payload.get("weekly_summary", {}))
+
+                _render_shock_table(
+                    payload.get("high_shock", []),
+                    "严重异常波动公告",
+                    "red",
+                    "whatshot",
+                )
+                _render_shock_table(
+                    payload.get("shock", []),
+                    "异常波动公告",
+                    "amber",
+                    "bolt",
+                )
+                _render_holder_table(
+                    payload.get("holder_in", []),
+                    "股东增持公告",
+                    "green",
+                    "trending_up",
+                )
+                _render_holder_table(
+                    payload.get("holder_de", []),
+                    "股东减持公告",
+                    "indigo",
+                    "sell",
+                )
+
+                with ui.row().classes(
+                    "w-full justify-center items-center py-3 mt-2 text-xs text-gray-400"
+                ):
+                    ui.label(
+                        f"源文件：{os.path.join(OUTPUT_DIR, current + '.json')}"
+                    )
+                    ui.label("·").classes("mx-2")
+                    ui.label("仅供研究参考，不构成投资建议")
+
+        # ========== 子面板：吞没形态 ==========
+        @ui.refreshable
+        def render_engulf_subtab():
+            render_engulfing_pattern_panel(plotly_renderer=plot_func)
+
+        # 容器：根据 subtab 显示
         @ui.refreshable
         def render_content():
-            dates = _available_dates()
-            if not dates:
-                with ui.card().classes(
-                    "w-full p-10 items-center gap-3 bg-white"
-                ):
-                    ui.icon("inbox", size="48px").classes("text-gray-300")
-                    ui.label(
-                        "还没有生成过公告栏，请点击右上角「生成/刷新当日」"
-                    ).classes("text-lg text-gray-600")
-                return
+            _apply_subtab_style(state["subtab"])
+            if state["subtab"] == "shock":
+                render_shock_subtab()
+            else:
+                render_engulf_subtab()
 
-            if state["date"] not in dates:
-                state["date"] = dates[-1]
-            current = state["date"]
+        def _apply_subtab_style(active: str) -> None:
+            """子 Tab 按钮高亮切换。"""
+            try:
+                shock_btn = state.get("shock_tab_btn")
+                engulf_btn = state.get("engulf_tab_btn")
+                if shock_btn is None or engulf_btn is None:
+                    return
+                if active == "shock":
+                    shock_btn.classes(
+                        "flex-1 rounded-lg font-bold text-sm transition-all "
+                        "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md"
+                    )
+                    shock_btn.props(remove="flat")
+                    shock_btn.props("unelevated")
+                    engulf_btn.classes("flex-1 rounded-lg font-bold text-sm transition-all text-gray-500 hover:bg-gray-50")
+                    engulf_btn.props("flat")
+                    engulf_btn.props(remove="unelevated")
+                else:
+                    engulf_btn.classes(
+                        "flex-1 rounded-lg font-bold text-sm transition-all "
+                        "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md"
+                    )
+                    engulf_btn.props(remove="flat")
+                    engulf_btn.props("unelevated")
+                    shock_btn.classes("flex-1 rounded-lg font-bold text-sm transition-all text-gray-500 hover:bg-gray-50")
+                    shock_btn.props("flat")
+                    shock_btn.props(remove="unelevated")
+            except Exception:  # noqa: BLE001
+                pass
 
-            payload = load_struct_data(current)
-            if payload is None:
-                with ui.card().classes(
-                    "w-full p-8 items-center gap-2 bg-white"
-                ):
-                    ui.icon("cloud_off", size="32px").classes("text-gray-300")
-                    ui.label(f"{current} 暂无公告数据").classes("text-gray-500")
-                return
-
-            # 交易日概览条（大字日期 + 元信息 + 日期切换 + 刷新）
-            with ui.card().classes(
-                "w-full p-5 bg-gradient-to-br from-white via-amber-50/40 "
-                "to-orange-50/40 border border-amber-100 shadow-sm rounded-xl"
-            ):
-                with ui.row().classes("w-full items-center gap-4 flex-wrap"):
-                    # 左侧：大字日期 + 星期
-                    with ui.row().classes("items-center gap-3 min-w-[260px]"):
-                        ui.element("div").classes(
-                            "w-12 h-12 rounded-xl bg-gradient-to-br "
-                            "from-amber-500 to-orange-500 flex "
-                            "items-center justify-center shadow-md"
-                        ).style("display:flex")
-                        ui.icon("event", color="white").classes(
-                            "text-2xl"
-                        ).style("margin-left:-48px")
-                        with ui.column().classes("gap-0 ml-3"):
-                            ui.label(_pretty_date(payload["trade_date"])).classes(
-                                "text-2xl font-bold text-gray-900 "
-                                "leading-none tracking-wide font-mono"
-                            )
-                            weekday = _weekday_cn(payload["trade_date"])
-                            meta_text = weekday or "交易日"
-                            ui.label(meta_text).classes(
-                                "text-xs text-amber-700 mt-1 font-medium"
-                            )
-
-                    ui.separator().props("vertical").classes("h-12 bg-amber-200")
-
-                    # 中部：数据状态
-                    with ui.column().classes("gap-0"):
-                        ui.label("数据状态").classes("text-xs text-gray-500")
-                        if state["busy"]:
-                            with ui.row().classes("items-center gap-1 mt-1"):
-                                ui.spinner(size="xs", color="amber")
-                                ui.label("正在抓取 Tushare 数据…").classes(
-                                    "text-sm text-orange-600 font-medium"
-                                )
-                        else:
-                            with ui.column().classes("gap-0 mt-1"):
-                                ui.label("✓ 已就绪").classes(
-                                    "text-sm text-emerald-700 font-medium"
-                                )
-                                ui.label(
-                                    f"快照：{payload.get('generated_at', '-')}"
-                                ).classes("text-xs text-gray-500 mt-0.5")
-
-                    ui.space()
-
-                    # 右侧：日期切换 + 刷新
-                    with ui.row().classes(
-                        "items-center gap-1 bg-white px-1 py-1 "
-                        "rounded-lg border border-amber-200 shadow-sm"
-                    ):
-                        ui.button(
-                            icon="chevron_left",
-                            on_click=lambda: _nav(-1),
-                        ).props("flat dense round color=amber-7").tooltip(
-                            "上一交易日"
-                        )
-                        ui.select(
-                            dates,
-                            value=current,
-                            on_change=lambda e: _select_date(e.value),
-                        ).props(
-                            "outlined dense options-dense color=amber-7"
-                        ).classes("min-w-[140px] border-none")
-                        ui.button(
-                            icon="chevron_right",
-                            on_click=lambda: _nav(1),
-                        ).props("flat dense round color=amber-7").tooltip(
-                            "下一交易日"
-                        )
-                        ui.separator().props("vertical").classes(
-                            "h-6 mx-1 bg-amber-200"
-                        )
-                        refresh_btn = ui.button(
-                            "生成/刷新",
-                            icon="refresh",
-                            on_click=regenerate,
-                        ).props("outline color=amber-7 dense no-caps").classes(
-                            "font-medium"
-                        )
-                        state["refresh_btn"] = refresh_btn
-
-            _render_summary_cards(payload.get("summary", {}))
-
-            _render_shock_trend_chart(
-                payload.get("shock_trend", {}), plot_func=plot_func
-            )
-
-            _render_weekly_summary(payload.get("weekly_summary", {}))
-
-            _render_shock_table(
-                payload.get("high_shock", []),
-                "严重异常波动公告",
-                "red",
-                "whatshot",
-            )
-            _render_shock_table(
-                payload.get("shock", []),
-                "异常波动公告",
-                "amber",
-                "bolt",
-            )
-            _render_holder_table(
-                payload.get("holder_in", []),
-                "股东增持公告",
-                "green",
-                "trending_up",
-            )
-            _render_holder_table(
-                payload.get("holder_de", []),
-                "股东减持公告",
-                "indigo",
-                "sell",
-            )
-
-            with ui.row().classes(
-                "w-full justify-center items-center py-3 mt-2 text-xs text-gray-400"
-            ):
-                ui.label(
-                    f"源文件：{os.path.join(OUTPUT_DIR, current + '.json')}"
-                )
-                ui.label("·").classes("mx-2")
-                ui.label("仅供研究参考，不构成投资建议")
+        def _switch_subtab(tab: str) -> None:
+            state["subtab"] = tab
+            render_content.refresh()
 
         def _nav(step):
             dates = _available_dates()
