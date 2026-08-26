@@ -1,6 +1,6 @@
 {
   "trade_date": "2026-08-25",
-  "generated_at": "2026-08-25 22:59",
+  "generated_at": "2026-08-26 15:38",
   "lookback_years": 3,
   "index_defs": [
     {
@@ -4571,29 +4571,6 @@
           "prev_is_streak": true,
           "streak_len": 4,
           "note": "中度吞没 · 前续 4 日同向"
-        },
-        {
-          "ts_code": "000001.SH",
-          "name": "上证指数",
-          "trade_date": "2023-07-28",
-          "pattern": "bullish",
-          "prev_open": 3225.4763,
-          "prev_close": 3216.6709,
-          "prev_high": 3245.6028,
-          "prev_low": 3210.4699,
-          "prev_body": 8.805399999999736,
-          "prev_pct_chg": -0.1972,
-          "curr_open": 3206.741,
-          "curr_close": 3275.9257,
-          "curr_high": 3280.2777,
-          "curr_low": 3200.9939,
-          "curr_body": 69.1846999999998,
-          "curr_pct_chg": 1.8421,
-          "body_ratio": 7.857076339519144,
-          "cover_ratio": 2.0,
-          "prev_is_streak": false,
-          "streak_len": 1,
-          "note": "强吞没 · 前一日无连续趋势，注意反转力度"
         }
       ],
       "signals_total": {
@@ -9287,29 +9264,6 @@
           "prev_is_streak": true,
           "streak_len": 2,
           "note": "强吞没 · 前续 2 日同向"
-        },
-        {
-          "ts_code": "399001.SZ",
-          "name": "深证成指",
-          "trade_date": "2023-07-28",
-          "pattern": "bullish",
-          "prev_open": 10985.5848,
-          "prev_close": 10923.7746,
-          "prev_high": 11024.0127,
-          "prev_low": 10904.7435,
-          "prev_body": 61.810199999999895,
-          "prev_pct_chg": -0.4121,
-          "curr_open": 10895.4825,
-          "curr_close": 11100.3951,
-          "curr_high": 11120.5888,
-          "curr_low": 10877.4048,
-          "curr_body": 204.91259999999966,
-          "curr_pct_chg": 1.6168,
-          "body_ratio": 3.3151906966811304,
-          "cover_ratio": 2.0,
-          "prev_is_streak": false,
-          "streak_len": 1,
-          "note": "强吞没 · 前一日无连续趋势，注意反转力度"
         }
       ],
       "signals_total": {
@@ -14143,29 +14097,6 @@
           "prev_is_streak": true,
           "streak_len": 2,
           "note": "强吞没 · 前续 2 日同向"
-        },
-        {
-          "ts_code": "399006.SZ",
-          "name": "创业板指",
-          "trade_date": "2023-07-28",
-          "pattern": "bullish",
-          "prev_open": 2199.4812,
-          "prev_close": 2184.0965,
-          "prev_high": 2205.7163,
-          "prev_low": 2180.6927,
-          "prev_body": 15.384700000000066,
-          "prev_pct_chg": -0.3228,
-          "curr_open": 2176.4863,
-          "curr_close": 2219.5376,
-          "curr_high": 2224.027,
-          "curr_low": 2172.3724,
-          "curr_body": 43.05130000000008,
-          "curr_pct_chg": 1.6227,
-          "body_ratio": 2.7983191092448925,
-          "cover_ratio": 2.0,
-          "prev_is_streak": false,
-          "streak_len": 1,
-          "note": "强吞没 · 前一日无连续趋势，注意反转力度"
         }
       ],
       "signals_total": {
@@ -18625,29 +18556,6 @@
           "prev_is_streak": true,
           "streak_len": 3,
           "note": "强吞没 · 前续 3 日同向"
-        },
-        {
-          "ts_code": "000300.SH",
-          "name": "沪深300",
-          "trade_date": "2023-07-28",
-          "pattern": "bullish",
-          "prev_open": 3914.2298,
-          "prev_close": 3902.3458,
-          "prev_high": 3935.3578,
-          "prev_low": 3894.6923,
-          "prev_body": 11.884000000000015,
-          "prev_pct_chg": -0.1195,
-          "curr_open": 3889.7929,
-          "curr_close": 3992.7376,
-          "curr_high": 4000.919,
-          "curr_low": 3886.5535,
-          "curr_body": 102.94470000000001,
-          "curr_pct_chg": 2.3163,
-          "body_ratio": 8.66246213396162,
-          "cover_ratio": 2.0,
-          "prev_is_streak": false,
-          "streak_len": 1,
-          "note": "强吞没 · 前一日无连续趋势，注意反转力度"
         }
       ],
       "signals_total": {
@@ -22988,29 +22896,6 @@
           "prev_is_streak": false,
           "streak_len": 1,
           "note": "强吞没 · 前一日无连续趋势，注意反转力度"
-        },
-        {
-          "ts_code": "000688.SH",
-          "name": "科创50",
-          "trade_date": "2023-07-28",
-          "pattern": "bullish",
-          "prev_open": 962.6089,
-          "prev_close": 952.2956,
-          "prev_high": 964.6229,
-          "prev_low": 950.8089,
-          "prev_body": 10.313299999999913,
-          "prev_pct_chg": -0.9672,
-          "curr_open": 950.5145,
-          "curr_close": 962.6446,
-          "curr_high": 963.005,
-          "curr_low": 948.2011,
-          "curr_body": 12.13009999999997,
-          "curr_pct_chg": 1.0867,
-          "body_ratio": 1.1761608796408591,
-          "cover_ratio": 1.1761608796408591,
-          "prev_is_streak": false,
-          "streak_len": 1,
-          "note": "标准吞没 · 前一日无连续趋势，注意反转力度"
         }
       ],
       "signals_total": {
@@ -27638,29 +27523,6 @@
           "prev_is_streak": true,
           "streak_len": 3,
           "note": "强吞没 · 前续 3 日同向"
-        },
-        {
-          "ts_code": "930050.CSI",
-          "name": "中证A50",
-          "trade_date": "2023-07-28",
-          "pattern": "bullish",
-          "prev_open": 1560.9686,
-          "prev_close": 1556.3058,
-          "prev_high": 1567.6914,
-          "prev_low": 1554.784,
-          "prev_body": 4.662799999999834,
-          "prev_pct_chg": -0.0336,
-          "curr_open": 1550.6239,
-          "curr_close": 1593.1568,
-          "curr_high": 1596.067,
-          "curr_low": 1550.6239,
-          "curr_body": 42.53289999999993,
-          "curr_pct_chg": 2.3679,
-          "body_ratio": 9.1217508793003,
-          "cover_ratio": 2.0,
-          "prev_is_streak": false,
-          "streak_len": 1,
-          "note": "强吞没 · 前一日无连续趋势，注意反转力度"
         }
       ],
       "signals_total": {

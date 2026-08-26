@@ -1,0 +1,1330 @@
+{
+  "trade_date": "20260826",
+  "generated_at": "2026-08-26 15:37",
+  "summary": {
+    "shock": 51,
+    "high_shock": 3,
+    "holder_total": 67,
+    "holder_in": 1,
+    "holder_de": 9,
+    "significant": 0
+  },
+  "weekly_summary": {
+    "window_dates": [
+      "20260820",
+      "20260821",
+      "20260824",
+      "20260825",
+      "20260826"
+    ],
+    "window_count": 5,
+    "in": {
+      "firms": 12,
+      "amount_wan": 1929.5427,
+      "by_day": [
+        {
+          "date": "2026-08-20",
+          "firms": 2,
+          "amount_wan": 0.0
+        },
+        {
+          "date": "2026-08-21",
+          "firms": 2,
+          "amount_wan": 0.0
+        },
+        {
+          "date": "2026-08-24",
+          "firms": 1,
+          "amount_wan": 999.6827
+        },
+        {
+          "date": "2026-08-25",
+          "firms": 6,
+          "amount_wan": 929.86
+        },
+        {
+          "date": "2026-08-26",
+          "firms": 1,
+          "amount_wan": 0.0
+        }
+      ]
+    },
+    "de": {
+      "firms": 34,
+      "amount_wan": 61313.35469357001,
+      "by_day": [
+        {
+          "date": "2026-08-20",
+          "firms": 6,
+          "amount_wan": 4802.448546569999
+        },
+        {
+          "date": "2026-08-21",
+          "firms": 7,
+          "amount_wan": 7843.31517
+        },
+        {
+          "date": "2026-08-24",
+          "firms": 1,
+          "amount_wan": 0.0
+        },
+        {
+          "date": "2026-08-25",
+          "firms": 14,
+          "amount_wan": 45730.829815
+        },
+        {
+          "date": "2026-08-26",
+          "firms": 6,
+          "amount_wan": 2936.7611620000002
+        }
+      ]
+    },
+    "net_wan": 59383.81199357001,
+    "has_avg_price": true
+  },
+  "shock_trend": {
+    "dates": [
+      "2026-08-20",
+      "2026-08-21",
+      "2026-08-24",
+      "2026-08-25",
+      "2026-08-26"
+    ],
+    "shock": [
+      14,
+      13,
+      15,
+      9,
+      0
+    ],
+    "high_shock": [
+      1,
+      1,
+      0,
+      1,
+      0
+    ],
+    "window_count": 5,
+    "max_shock": 15,
+    "max_high": 1
+  },
+  "shock": [
+    {
+      "ts_code": "603330.SH",
+      "name": "天洋新材",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-18 ~ 2026-08-20"
+    },
+    {
+      "ts_code": "601011.SH",
+      "name": "宝泰隆",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-18 ~ 2026-08-20"
+    },
+    {
+      "ts_code": "603758.SH",
+      "name": "秦安股份",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-18 ~ 2026-08-20"
+    },
+    {
+      "ts_code": "002667.SZ",
+      "name": "*ST威领",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-19 ~ 2026-08-20"
+    },
+    {
+      "ts_code": "002581.SZ",
+      "name": "*ST未名",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-19 ~ 2026-08-20"
+    },
+    {
+      "ts_code": "002412.SZ",
+      "name": "汉森制药",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-19 ~ 2026-08-20"
+    },
+    {
+      "ts_code": "603801.SH",
+      "name": "志邦家居",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-19 ~ 2026-08-20"
+    },
+    {
+      "ts_code": "001277.SZ",
+      "name": "速达股份",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-19 ~ 2026-08-20"
+    },
+    {
+      "ts_code": "688617.SH",
+      "name": "惠泰医疗",
+      "market": "上交所",
+      "reason": "连续3个交易日内涨跌幅偏离累计30%",
+      "period": "2026-08-18 ~ 2026-08-20"
+    },
+    {
+      "ts_code": "603828.SH",
+      "name": "*ST利达",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-18 ~ 2026-08-20"
+    },
+    {
+      "ts_code": "603113.SH",
+      "name": "金能科技",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-19 ~ 2026-08-20"
+    },
+    {
+      "ts_code": "002726.SZ",
+      "name": "ST龙大",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-18 ~ 2026-08-20"
+    },
+    {
+      "ts_code": "000523.SZ",
+      "name": "红棉股份",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-19 ~ 2026-08-20"
+    },
+    {
+      "ts_code": "000703.SZ",
+      "name": "恒逸石化",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-18 ~ 2026-08-20"
+    },
+    {
+      "ts_code": "688137.SH",
+      "name": "近岸蛋白",
+      "market": "上交所",
+      "reason": "连续3个交易日内涨跌幅偏离累计30%",
+      "period": "2026-08-20 ~ 2026-08-21"
+    },
+    {
+      "ts_code": "688114.SH",
+      "name": "华大智造",
+      "market": "上交所",
+      "reason": "连续3个交易日内涨跌幅偏离累计30%",
+      "period": "2026-08-20 ~ 2026-08-21"
+    },
+    {
+      "ts_code": "603958.SH",
+      "name": "哈森股份",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-20 ~ 2026-08-21"
+    },
+    {
+      "ts_code": "002731.SZ",
+      "name": "*ST萃华",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-20 ~ 2026-08-21"
+    },
+    {
+      "ts_code": "603626.SH",
+      "name": "科森科技",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-20 ~ 2026-08-21"
+    },
+    {
+      "ts_code": "000931.SZ",
+      "name": "中关村",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-19 ~ 2026-08-21"
+    },
+    {
+      "ts_code": "003032.SZ",
+      "name": "传智教育",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-20 ~ 2026-08-21"
+    },
+    {
+      "ts_code": "600547.SH",
+      "name": "山东黄金",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-19 ~ 2026-08-21"
+    },
+    {
+      "ts_code": "688185.SH",
+      "name": "康希诺",
+      "market": "上交所",
+      "reason": "连续3个交易日内涨跌幅偏离累计30%",
+      "period": "2026-08-20 ~ 2026-08-21"
+    },
+    {
+      "ts_code": "002038.SZ",
+      "name": "双鹭药业",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-19 ~ 2026-08-21"
+    },
+    {
+      "ts_code": "688356.SH",
+      "name": "键凯科技",
+      "market": "上交所",
+      "reason": "连续3个交易日内涨跌幅偏离累计30%",
+      "period": "2026-08-20 ~ 2026-08-21"
+    },
+    {
+      "ts_code": "603838.SH",
+      "name": "*ST四通",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-19 ~ 2026-08-21"
+    },
+    {
+      "ts_code": "000017.SZ",
+      "name": "深中华A",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-19 ~ 2026-08-21"
+    },
+    {
+      "ts_code": "603382.SH",
+      "name": "海阳科技",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-20 ~ 2026-08-24"
+    },
+    {
+      "ts_code": "002716.SZ",
+      "name": "湖南白银",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-21 ~ 2026-08-24"
+    },
+    {
+      "ts_code": "600613.SH",
+      "name": "神奇制药",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-20 ~ 2026-08-24"
+    },
+    {
+      "ts_code": "300839.SZ",
+      "name": "博汇股份",
+      "market": "深交所",
+      "reason": "连续3个交易日内涨跌幅偏离累计30%",
+      "period": "2026-08-21 ~ 2026-08-24"
+    },
+    {
+      "ts_code": "000628.SZ",
+      "name": "高新发展",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-20 ~ 2026-08-24"
+    },
+    {
+      "ts_code": "002412.SZ",
+      "name": "汉森制药",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-21 ~ 2026-08-24"
+    },
+    {
+      "ts_code": "603330.SH",
+      "name": "天洋新材",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-21 ~ 2026-08-24"
+    },
+    {
+      "ts_code": "003040.SZ",
+      "name": "楚天龙",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-21 ~ 2026-08-24"
+    },
+    {
+      "ts_code": "600785.SH",
+      "name": "新华百货",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-21 ~ 2026-08-24"
+    },
+    {
+      "ts_code": "002017.SZ",
+      "name": "东信和平",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-21 ~ 2026-08-24"
+    },
+    {
+      "ts_code": "601212.SH",
+      "name": "白银有色",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-21 ~ 2026-08-24"
+    },
+    {
+      "ts_code": "300864.SZ",
+      "name": "南大环境",
+      "market": "深交所",
+      "reason": "连续3个交易日内涨跌幅偏离累计30%",
+      "period": "2026-08-20 ~ 2026-08-24"
+    },
+    {
+      "ts_code": "002104.SZ",
+      "name": "恒宝股份",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-20 ~ 2026-08-24"
+    },
+    {
+      "ts_code": "000506.SZ",
+      "name": "招金黄金",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-20 ~ 2026-08-24"
+    },
+    {
+      "ts_code": "000603.SZ",
+      "name": "盛达资源",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-21 ~ 2026-08-24"
+    },
+    {
+      "ts_code": "002536.SZ",
+      "name": "飞龙股份",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-21 ~ 2026-08-25"
+    },
+    {
+      "ts_code": "603823.SH",
+      "name": "百合花",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-21 ~ 2026-08-25"
+    },
+    {
+      "ts_code": "603378.SH",
+      "name": "*ST亚士",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-21 ~ 2026-08-25"
+    },
+    {
+      "ts_code": "002445.SZ",
+      "name": "中南文化",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-24 ~ 2026-08-25"
+    },
+    {
+      "ts_code": "000017.SZ",
+      "name": "深中华A",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-24 ~ 2026-08-25"
+    },
+    {
+      "ts_code": "300313.SZ",
+      "name": "天山生物",
+      "market": "深交所",
+      "reason": "连续3个交易日内涨跌幅偏离累计30%",
+      "period": "2026-08-24 ~ 2026-08-25"
+    },
+    {
+      "ts_code": "002084.SZ",
+      "name": "海鸥住工",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-24 ~ 2026-08-25"
+    },
+    {
+      "ts_code": "600508.SH",
+      "name": "上海能源",
+      "market": "上交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-24 ~ 2026-08-25"
+    },
+    {
+      "ts_code": "002041.SZ",
+      "name": "登海种业",
+      "market": "深交所",
+      "reason": "3日内涨跌幅偏离累计20%",
+      "period": "2026-08-24 ~ 2026-08-25"
+    }
+  ],
+  "high_shock": [
+    {
+      "ts_code": "600664.SH",
+      "name": "哈药股份",
+      "market": "上交所",
+      "reason": "30日内收盘价格涨幅偏离值累计达200%",
+      "period": "2026-08-20 ~ 2026-09-03"
+    },
+    {
+      "ts_code": "688137.SH",
+      "name": "近岸蛋白",
+      "market": "上交所",
+      "reason": "10日内3次出现同正向异常波动",
+      "period": "2026-08-21 ~ 2026-09-04"
+    },
+    {
+      "ts_code": "300313.SZ",
+      "name": "天山生物",
+      "market": "深交所",
+      "reason": "10日内收盘价格涨幅偏离值累计达100%",
+      "period": "2026-08-25 ~ 2026-09-08"
+    }
+  ],
+  "holder_in": [
+    {
+      "ts_code": "300929.SZ",
+      "name": "华骐环保",
+      "holder_name": "王凤仙",
+      "holder_type": "个人",
+      "change_vol_wan": "189",
+      "change_ratio": "1.50",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "872",
+      "after_ratio": "6.96",
+      "significant": false
+    },
+    {
+      "ts_code": "601718.SH",
+      "name": "ST际华",
+      "holder_name": "新兴际华集团有限公司",
+      "holder_type": "公司",
+      "change_vol_wan": "3,394",
+      "change_ratio": "0.78",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "204,060",
+      "after_ratio": "46.79",
+      "significant": false
+    },
+    {
+      "ts_code": "002879.SZ",
+      "name": "长缆科技",
+      "holder_name": "俞涛",
+      "holder_type": "高管",
+      "change_vol_wan": "100",
+      "change_ratio": "0.73",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "43",
+      "after_ratio": "0.31",
+      "significant": false
+    },
+    {
+      "ts_code": "300929.SZ",
+      "name": "华骐环保",
+      "holder_name": "王根九",
+      "holder_type": "个人",
+      "change_vol_wan": "49",
+      "change_ratio": "0.39",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "1,281",
+      "after_ratio": "10.22",
+      "significant": false
+    },
+    {
+      "ts_code": "301439.SZ",
+      "name": "泓淋电力",
+      "holder_name": "威海市明博线缆科技有限公司",
+      "holder_type": "公司",
+      "change_vol_wan": "66",
+      "change_ratio": "0.36",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "516",
+      "after_ratio": "2.81",
+      "significant": false
+    },
+    {
+      "ts_code": "688267.SH",
+      "name": "中触媒",
+      "holder_name": "中触媒集团有限公司",
+      "holder_type": "公司",
+      "change_vol_wan": "81",
+      "change_ratio": "0.35",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "6,437",
+      "after_ratio": "28.21",
+      "significant": false
+    },
+    {
+      "ts_code": "002825.SZ",
+      "name": "纳尔股份",
+      "holder_name": "游景超",
+      "holder_type": "个人",
+      "change_vol_wan": "72",
+      "change_ratio": "0.28",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "123",
+      "after_ratio": "0.48",
+      "significant": false
+    },
+    {
+      "ts_code": "600900.SH",
+      "name": "长江电力",
+      "holder_name": "中国长江三峡集团有限公司",
+      "holder_type": "公司",
+      "change_vol_wan": "5,824",
+      "change_ratio": "0.24",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "-",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "600338.SH",
+      "name": "西藏珠峰",
+      "holder_name": "西藏珠峰资源股份有限公司-2026年员工持股计划",
+      "holder_type": "公司",
+      "change_vol_wan": "57",
+      "change_ratio": "0.06",
+      "avg_price": "13.06",
+      "est_amount_wan": "744",
+      "after_share_wan": "-",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "300003.SZ",
+      "name": "乐普医疗",
+      "holder_name": "蒲忠杰",
+      "holder_type": "高管",
+      "change_vol_wan": "85",
+      "change_ratio": "0.05",
+      "avg_price": "11.71",
+      "est_amount_wan": "1,000",
+      "after_share_wan": "-",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "600238.SH",
+      "name": "ST椰岛",
+      "holder_name": "海南环樾科技合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "11",
+      "change_ratio": "0.03",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "2,186",
+      "after_ratio": "4.91",
+      "significant": false
+    },
+    {
+      "ts_code": "002192.SZ",
+      "name": "融捷股份",
+      "holder_name": "张长虹",
+      "holder_type": "个人",
+      "change_vol_wan": "2",
+      "change_ratio": "0.01",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "464",
+      "after_ratio": "1.79",
+      "significant": false
+    },
+    {
+      "ts_code": "300832.SZ",
+      "name": "新产业",
+      "holder_name": "张蕾",
+      "holder_type": "高管",
+      "change_vol_wan": "2",
+      "change_ratio": "0.00",
+      "avg_price": "45.98",
+      "est_amount_wan": "92",
+      "after_share_wan": "-",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "300832.SZ",
+      "name": "新产业",
+      "holder_name": "张蕾",
+      "holder_type": "高管",
+      "change_vol_wan": "1",
+      "change_ratio": "0.00",
+      "avg_price": "47.69",
+      "est_amount_wan": "48",
+      "after_share_wan": "-",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "300832.SZ",
+      "name": "新产业",
+      "holder_name": "李婷华",
+      "holder_type": "高管",
+      "change_vol_wan": "1",
+      "change_ratio": "0.00",
+      "avg_price": "45.79",
+      "est_amount_wan": "46",
+      "after_share_wan": "-",
+      "after_ratio": "-",
+      "significant": false
+    }
+  ],
+  "holder_de": [
+    {
+      "ts_code": "603120.SH",
+      "name": "肯特催化",
+      "holder_name": "嘉兴附加值青山投资合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "271",
+      "change_ratio": "7.16",
+      "avg_price": "53.93",
+      "est_amount_wan": "14,626",
+      "after_share_wan": "-",
+      "after_ratio": "-",
+      "significant": true
+    },
+    {
+      "ts_code": "688356.SH",
+      "name": "键凯科技",
+      "holder_name": "吴凯庭",
+      "holder_type": "个人",
+      "change_vol_wan": "177",
+      "change_ratio": "2.92",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "429",
+      "after_ratio": "7.08",
+      "significant": false
+    },
+    {
+      "ts_code": "001301.SZ",
+      "name": "尚太科技",
+      "holder_name": "长江晨道(湖北)新能源产业投资合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "493",
+      "change_ratio": "1.89",
+      "avg_price": "53.53",
+      "est_amount_wan": "26,366",
+      "after_share_wan": "1,281",
+      "after_ratio": "4.93",
+      "significant": true
+    },
+    {
+      "ts_code": "600613.SH",
+      "name": "神奇制药",
+      "holder_name": "张之君",
+      "holder_type": "个人",
+      "change_vol_wan": "902",
+      "change_ratio": "1.88",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "0",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "920953.BJ",
+      "name": "国子软件",
+      "holder_name": "济南国子学投资有限公司",
+      "holder_type": "公司",
+      "change_vol_wan": "85",
+      "change_ratio": "1.42",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "373",
+      "after_ratio": "6.22",
+      "significant": false
+    },
+    {
+      "ts_code": "002695.SZ",
+      "name": "煌上煌",
+      "holder_name": "江西煌上煌集团食品股份有限公司-2021年员工持股计划",
+      "holder_type": "公司",
+      "change_vol_wan": "716",
+      "change_ratio": "1.40",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "0",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "688279.SH",
+      "name": "峰岹科技",
+      "holder_name": "上海华芯创业投资合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "100",
+      "change_ratio": "1.07",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "1,018",
+      "after_ratio": "8.84",
+      "significant": false
+    },
+    {
+      "ts_code": "002973.SZ",
+      "name": "侨银股份",
+      "holder_name": "郭倍华",
+      "holder_type": "高管",
+      "change_vol_wan": "290",
+      "change_ratio": "0.91",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "1,503",
+      "after_ratio": "4.73",
+      "significant": false
+    },
+    {
+      "ts_code": "920429.BJ",
+      "name": "康比特",
+      "holder_name": "陈庆玥",
+      "holder_type": "个人",
+      "change_vol_wan": "100",
+      "change_ratio": "0.88",
+      "avg_price": "10.35",
+      "est_amount_wan": "1,035",
+      "after_share_wan": "0",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "688180.SH",
+      "name": "君实生物",
+      "holder_name": "上海檀英投资合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "653",
+      "change_ratio": "0.85",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "3,893",
+      "after_ratio": "3.79",
+      "significant": false
+    },
+    {
+      "ts_code": "600052.SH",
+      "name": "东望时代",
+      "holder_name": "东阳市新岭科技有限公司",
+      "holder_type": "公司",
+      "change_vol_wan": "681",
+      "change_ratio": "0.81",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "1,852",
+      "after_ratio": "2.19",
+      "significant": false
+    },
+    {
+      "ts_code": "001287.SZ",
+      "name": "中电港",
+      "holder_name": "共青城亿科合融投资管理合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "602",
+      "change_ratio": "0.79",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "4,559",
+      "after_ratio": "6.00",
+      "significant": false
+    },
+    {
+      "ts_code": "301173.SZ",
+      "name": "毓恬冠佳",
+      "holder_name": "国泰君安证券资管-招商银行-国泰君安君享创业板毓恬冠佳1号战略配售集合资产管理计划",
+      "holder_type": "公司",
+      "change_vol_wan": "24",
+      "change_ratio": "0.78",
+      "avg_price": "29.32",
+      "est_amount_wan": "703",
+      "after_share_wan": "64",
+      "after_ratio": "2.08",
+      "significant": false
+    },
+    {
+      "ts_code": "300858.SZ",
+      "name": "科拓生物",
+      "holder_name": "宁波顺懿创业投资合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "149",
+      "change_ratio": "0.76",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "1,432",
+      "after_ratio": "7.32",
+      "significant": false
+    },
+    {
+      "ts_code": "605033.SH",
+      "name": "美邦股份",
+      "holder_name": "郝新新",
+      "holder_type": "个人",
+      "change_vol_wan": "94",
+      "change_ratio": "0.69",
+      "avg_price": "18.65",
+      "est_amount_wan": "1,749",
+      "after_share_wan": "100",
+      "after_ratio": "0.74",
+      "significant": false
+    },
+    {
+      "ts_code": "300603.SZ",
+      "name": "立昂技术",
+      "holder_name": "葛良娣",
+      "holder_type": "高管",
+      "change_vol_wan": "208",
+      "change_ratio": "0.56",
+      "avg_price": "11.54",
+      "est_amount_wan": "2,404",
+      "after_share_wan": "289",
+      "after_ratio": "0.77",
+      "significant": false
+    },
+    {
+      "ts_code": "603665.SH",
+      "name": "康隆达",
+      "holder_name": "海南裕昊创业投资合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "69",
+      "change_ratio": "0.43",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "777",
+      "after_ratio": "4.85",
+      "significant": false
+    },
+    {
+      "ts_code": "002973.SZ",
+      "name": "侨银股份",
+      "holder_name": "安义珑欣企业管理合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "119",
+      "change_ratio": "0.38",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "1,618",
+      "after_ratio": "5.09",
+      "significant": false
+    },
+    {
+      "ts_code": "603665.SH",
+      "name": "康隆达",
+      "holder_name": "海南裕昊创业投资合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "57",
+      "change_ratio": "0.36",
+      "avg_price": "23.91",
+      "est_amount_wan": "1,370",
+      "after_share_wan": "790",
+      "after_ratio": "4.93",
+      "significant": false
+    },
+    {
+      "ts_code": "301319.SZ",
+      "name": "唯特偶",
+      "holder_name": "桑泽林",
+      "holder_type": "高管",
+      "change_vol_wan": "47",
+      "change_ratio": "0.34",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "0",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "920002.BJ",
+      "name": "万达轴承",
+      "holder_name": "徐明",
+      "holder_type": "高管",
+      "change_vol_wan": "14",
+      "change_ratio": "0.32",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "48",
+      "after_ratio": "1.09",
+      "significant": false
+    },
+    {
+      "ts_code": "920002.BJ",
+      "name": "万达轴承",
+      "holder_name": "徐群生",
+      "holder_type": "高管",
+      "change_vol_wan": "12",
+      "change_ratio": "0.28",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "59",
+      "after_ratio": "1.32",
+      "significant": false
+    },
+    {
+      "ts_code": "920429.BJ",
+      "name": "康比特",
+      "holder_name": "张炜",
+      "holder_type": "个人",
+      "change_vol_wan": "24",
+      "change_ratio": "0.21",
+      "avg_price": "10.68",
+      "est_amount_wan": "261",
+      "after_share_wan": "1,076",
+      "after_ratio": "9.48",
+      "significant": false
+    },
+    {
+      "ts_code": "001301.SZ",
+      "name": "尚太科技",
+      "holder_name": "长江晨道(湖北)新能源产业投资合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "37",
+      "change_ratio": "0.20",
+      "avg_price": "91.07",
+      "est_amount_wan": "3,370",
+      "after_share_wan": "1,267",
+      "after_ratio": "6.82",
+      "significant": false
+    },
+    {
+      "ts_code": "600770.SH",
+      "name": "综艺股份",
+      "holder_name": "海安瑞海城镇化投资建设有限公司",
+      "holder_type": "公司",
+      "change_vol_wan": "250",
+      "change_ratio": "0.19",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "6,250",
+      "after_ratio": "4.81",
+      "significant": false
+    },
+    {
+      "ts_code": "688433.SH",
+      "name": "华曙高科",
+      "holder_name": "侯银华",
+      "holder_type": "个人",
+      "change_vol_wan": "72",
+      "change_ratio": "0.17",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "4,538",
+      "after_ratio": "10.92",
+      "significant": false
+    },
+    {
+      "ts_code": "600847.SH",
+      "name": "万里股份",
+      "holder_name": "北京世达祺祥贸易有限公司",
+      "holder_type": "公司",
+      "change_vol_wan": "23",
+      "change_ratio": "0.15",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "283",
+      "after_ratio": "1.85",
+      "significant": false
+    },
+    {
+      "ts_code": "002489.SZ",
+      "name": "浙江永强",
+      "holder_name": "谢建勇",
+      "holder_type": "高管",
+      "change_vol_wan": "271",
+      "change_ratio": "0.14",
+      "avg_price": "3.44",
+      "est_amount_wan": "932",
+      "after_share_wan": "2,188",
+      "after_ratio": "1.14",
+      "significant": false
+    },
+    {
+      "ts_code": "603639.SH",
+      "name": "海利尔",
+      "holder_name": "青岛合意投资中心(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "42",
+      "change_ratio": "0.12",
+      "avg_price": "10.79",
+      "est_amount_wan": "458",
+      "after_share_wan": "1,678",
+      "after_ratio": "4.94",
+      "significant": false
+    },
+    {
+      "ts_code": "300603.SZ",
+      "name": "立昂技术",
+      "holder_name": "葛良娣",
+      "holder_type": "高管",
+      "change_vol_wan": "38",
+      "change_ratio": "0.10",
+      "avg_price": "11.52",
+      "est_amount_wan": "435",
+      "after_share_wan": "252",
+      "after_ratio": "0.67",
+      "significant": false
+    },
+    {
+      "ts_code": "001390.SZ",
+      "name": "古麒绒材",
+      "holder_name": "北京城建一期(芜湖)股权投资基金合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "12",
+      "change_ratio": "0.10",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "1,663",
+      "after_ratio": "14.00",
+      "significant": false
+    },
+    {
+      "ts_code": "300759.SZ",
+      "name": "康龙化成",
+      "holder_name": "安义龙泰众信企业管理合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "133",
+      "change_ratio": "0.09",
+      "avg_price": "47.95",
+      "est_amount_wan": "6,373",
+      "after_share_wan": "300",
+      "after_ratio": "0.17",
+      "significant": false
+    },
+    {
+      "ts_code": "301118.SZ",
+      "name": "恒光股份",
+      "holder_name": "朱友良",
+      "holder_type": "高管",
+      "change_vol_wan": "8",
+      "change_ratio": "0.07",
+      "avg_price": "30.17",
+      "est_amount_wan": "240",
+      "after_share_wan": "10",
+      "after_ratio": "0.10",
+      "significant": false
+    },
+    {
+      "ts_code": "603665.SH",
+      "name": "康隆达",
+      "holder_name": "海南裕昊创业投资合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "12",
+      "change_ratio": "0.07",
+      "avg_price": "21.66",
+      "est_amount_wan": "256",
+      "after_share_wan": "777",
+      "after_ratio": "4.85",
+      "significant": false
+    },
+    {
+      "ts_code": "920002.BJ",
+      "name": "万达轴承",
+      "holder_name": "徐飞",
+      "holder_type": "高管",
+      "change_vol_wan": "3",
+      "change_ratio": "0.07",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "10",
+      "after_ratio": "0.22",
+      "significant": false
+    },
+    {
+      "ts_code": "300610.SZ",
+      "name": "晨化股份",
+      "holder_name": "董晓红",
+      "holder_type": "高管",
+      "change_vol_wan": "10",
+      "change_ratio": "0.06",
+      "avg_price": "10.64",
+      "est_amount_wan": "106",
+      "after_share_wan": "73",
+      "after_ratio": "0.44",
+      "significant": false
+    },
+    {
+      "ts_code": "600590.SH",
+      "name": "泰豪科技",
+      "holder_name": "泰豪集团有限公司",
+      "holder_type": "公司",
+      "change_vol_wan": "50",
+      "change_ratio": "0.06",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "10,298",
+      "after_ratio": "12.21",
+      "significant": false
+    },
+    {
+      "ts_code": "001390.SZ",
+      "name": "古麒绒材",
+      "holder_name": "芜湖京城二期股权投资基金合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "4",
+      "change_ratio": "0.04",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "720",
+      "after_ratio": "6.06",
+      "significant": false
+    },
+    {
+      "ts_code": "300603.SZ",
+      "name": "立昂技术",
+      "holder_name": "葛良娣",
+      "holder_type": "高管",
+      "change_vol_wan": "10",
+      "change_ratio": "0.03",
+      "avg_price": "11.19",
+      "est_amount_wan": "108",
+      "after_share_wan": "242",
+      "after_ratio": "0.65",
+      "significant": false
+    },
+    {
+      "ts_code": "603639.SH",
+      "name": "海利尔",
+      "holder_name": "刘玉龙",
+      "holder_type": "高管",
+      "change_vol_wan": "6",
+      "change_ratio": "0.02",
+      "avg_price": "10.59",
+      "est_amount_wan": "59",
+      "after_share_wan": "-",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "300732.SZ",
+      "name": "设研院",
+      "holder_name": "魏俊锋",
+      "holder_type": "高管",
+      "change_vol_wan": "5",
+      "change_ratio": "0.01",
+      "avg_price": "6.07",
+      "est_amount_wan": "28",
+      "after_share_wan": "0",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "301319.SZ",
+      "name": "唯特偶",
+      "holder_name": "杜宣",
+      "holder_type": "个人",
+      "change_vol_wan": "2",
+      "change_ratio": "0.01",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "1,616",
+      "after_ratio": "11.75",
+      "significant": false
+    },
+    {
+      "ts_code": "603887.SH",
+      "name": "城地香江",
+      "holder_name": "许奇",
+      "holder_type": "个人",
+      "change_vol_wan": "6",
+      "change_ratio": "0.01",
+      "avg_price": "11.67",
+      "est_amount_wan": "70",
+      "after_share_wan": "-",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "688628.SH",
+      "name": "优利德",
+      "holder_name": "张兴",
+      "holder_type": "高管",
+      "change_vol_wan": "1",
+      "change_ratio": "0.01",
+      "avg_price": "101.00",
+      "est_amount_wan": "97",
+      "after_share_wan": "-",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "688628.SH",
+      "name": "优利德",
+      "holder_name": "周建华",
+      "holder_type": "高管",
+      "change_vol_wan": "1",
+      "change_ratio": "0.01",
+      "avg_price": "81.50",
+      "est_amount_wan": "78",
+      "after_share_wan": "-",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "603887.SH",
+      "name": "城地香江",
+      "holder_name": "张杨",
+      "holder_type": "高管",
+      "change_vol_wan": "5",
+      "change_ratio": "0.01",
+      "avg_price": "10.29",
+      "est_amount_wan": "51",
+      "after_share_wan": "-",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "688079.SH",
+      "name": "美迪凯",
+      "holder_name": "矢岛大和",
+      "holder_type": "高管",
+      "change_vol_wan": "2",
+      "change_ratio": "0.01",
+      "avg_price": "24.00",
+      "est_amount_wan": "60",
+      "after_share_wan": "-",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "688079.SH",
+      "name": "美迪凯",
+      "holder_name": "翁钦盛",
+      "holder_type": "高管",
+      "change_vol_wan": "2",
+      "change_ratio": "0.01",
+      "avg_price": "31.94",
+      "est_amount_wan": "80",
+      "after_share_wan": "-",
+      "after_ratio": "-",
+      "significant": false
+    },
+    {
+      "ts_code": "920123.BJ",
+      "name": "芭薇股份",
+      "holder_name": "广州市白云投资基金管理有限公司-广州云美产业投资合伙企业(有限合伙)",
+      "holder_type": "公司",
+      "change_vol_wan": "0",
+      "change_ratio": "0.00",
+      "avg_price": "-",
+      "est_amount_wan": "0",
+      "after_share_wan": "558",
+      "after_ratio": "8.58",
+      "significant": false
+    }
+  ]
+}
