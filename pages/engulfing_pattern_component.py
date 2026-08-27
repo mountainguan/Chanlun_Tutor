@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-"""6 大指数吞没形态识别器 —— 公告栏子面板渲染。
+"""7 大指数吞没形态识别器 —— 公告栏子面板渲染。
 
 布局：
   顶部品牌色标题条
   数据口径说明（折叠）
   4 张概览卡（近 3 年看涨/看跌 / 近期触发指数 / 总指数数）
   日期选择器 + 刷新按钮
-  「最新吞没信号」 6 张指数卡（每指数显示：最新信号 + 最近 5 次信号 mini list）
+  「最新吞没信号」 7 张指数卡（每指数显示：最新信号 + 最近 5 次信号 mini list）
   「近 3 年信号总览」表格（按指数聚合）
   「形态识别详情」 —— 选中某指数后展示 K 线 + 信号标注（Plotly）
 """
@@ -743,7 +743,7 @@ def render_engulfing_pattern_panel(plotly_renderer=None):
         ):
             ui.icon("candlestick_chart", color="white").classes("text-3xl")
             with ui.column().classes("gap-0"):
-                ui.label("6 大指数 · 吞没形态识别器").classes(
+                ui.label("7 大指数 · 吞没形态识别器").classes(
                     "text-xl font-bold text-white tracking-wide leading-tight"
                 )
                 ui.label("Engulfing Pattern Detector · Tushare Pro").classes(
@@ -762,7 +762,7 @@ def render_engulfing_pattern_panel(plotly_renderer=None):
         ):
             with ui.column().classes("p-4 text-gray-600 text-sm gap-2"):
                 ui.markdown(
-                    "- **覆盖指数**：上证指数、深证成指、创业板指、沪深300、科创50、中证A50（俗称『中证50』）。\n"
+                    "- **覆盖指数**：上证指数、深证成指、创业板指、沪深300、科创50、**中证500**、中证A50（俗称『中证50』）。\n"
                     "- **数据源**：Tushare Pro `index_daily`，近 3 年日线（缓存于 `data/engulfing_cache/`）。\n"
                     "- **形态定义（标准 2 蜡烛线反转型态）**：\n"
                     "  - **看涨吞没 Bullish Engulfing**：前一日阴线、当日阳线，且**当日开盘价 ≤ 前日收盘价**、"
@@ -901,7 +901,9 @@ def render_engulfing_pattern_panel(plotly_renderer=None):
                         f"近 3 年总计 {payload.get('summary', {}).get('bullish', 0) + payload.get('summary', {}).get('bearish', 0)} 次"
                     ).classes("text-xs text-gray-500")
 
-                with ui.grid(columns="1fr 1fr 1fr").classes("w-full gap-3"):
+                with ui.grid(columns="repeat(auto-fit, minmax(280px, 1fr))").classes(
+                    "w-full gap-3"
+                ):
                     for d in INDEX_DEFS:
                         _render_latest_index_card(d, payload, plot_func)
 

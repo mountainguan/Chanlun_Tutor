@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""6 大指数吞没形态识别器（基于 Tushare Pro）。
+"""7 大指数吞没形态识别器（基于 Tushare Pro）。
 
 覆盖指数：
   - 上证指数    000001.SH
@@ -7,6 +7,7 @@
   - 创业板指    399006.SZ
   - 沪深300    000300.SH
   - 科创50      000688.SH
+  - 中证500     000905.SH
   - 中证A50     930050.CSI（中证50 的现代名称，2024 上交所发布）
 
 吞没形态（Engulfing Pattern）定义（标准 2 蜡烛线反转型态）：
@@ -62,7 +63,7 @@ LOOKBACK_YEARS = 3
 LOOKBACK_CALENDAR_DAYS = LOOKBACK_YEARS * 365 + 30
 LOOKBACK_DAYS = LOOKBACK_YEARS * 365 + 30  # 含节假日缓冲
 
-# 6 大指数定义（Tushare 代码 + 中文名 + 短名 + 主题色）
+# 7 大指数定义（Tushare 代码 + 中文名 + 短名 + 主题色）
 INDEX_DEFS: List[Dict] = [
     {
         "ts_code": "000001.SH",
@@ -98,6 +99,13 @@ INDEX_DEFS: List[Dict] = [
         "short": "科创50",
         "color": "teal",
         "accent": "#0d9488",
+    },
+    {
+        "ts_code": "000905.SH",
+        "name": "中证500",
+        "short": "中证500",
+        "color": "cyan",
+        "accent": "#0891b2",
     },
     {
         "ts_code": "930050.CSI",
@@ -534,7 +542,7 @@ class EngulfingPatternBoard:
 
     # -------- 全市场构建 --------
     def build_struct_data(self, force_refresh: bool = False) -> Dict:
-        """对 6 大指数执行检测，返回页面渲染所需的结构化数据。"""
+        """对 7 大指数执行检测，返回页面渲染所需的结构化数据。"""
         results: Dict[str, Dict] = {}
         for d in INDEX_DEFS:
             code = d["ts_code"]
