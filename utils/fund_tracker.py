@@ -397,6 +397,317 @@ class FundTracker:
         return rec
 
     # =================================================================
+    # 规模变动（季度）— 天天基金 fundf10 gmbd 接口
+    # 因子分解：基金规模变化 = 基金本身涨跌（净值因子） + 散户申赎（份额因子）
+    # =================================================================
+
+    # F10 规模变动接口（fundf10.eastmoney.com/gmbd_{code}.html 页面背后的数据源）
+    _EM_F10_URL = 'http://fundf10.eastmoney.com/FundArchivesDatas.aspx'
+    _EM_F10_TIMEOUT = 8  # 秒
+    # 内存缓存：{code6: {'date': 'YYYY-MM-DD', 'quarters': [...]}}
+    _gmbd_mem_cache: dict[str, dict] = {}
+
+    # ── 真实净值记录（用于补充每季度末的真实单位/累计净值） ───────
+
+    # 内存缓存：{code6: {'date': 'YYYY-MM-DD', 'nav': {...}, 'ac': {...}}}
+    _nav_mem_cache: dict[str, dict] = {}
+
+    def _get_nav_series(self, code6: str) -> dict:
+        """拉取基金完整净值历史（天天基金 pingzhongdata，当日内存缓存）。
+
+        返回：{'nav': {iso_date: unit_nav}, 'ac': {iso_date: ac_nav}}
+            nav — 单位净值序列（Data_netWorthTrend）
+            ac  — 累计净值序列（Data_ACWorthTrend，含分红再投资）
+        """
+        today_str = datetime.date.today().strftime('%Y-%m-%d')
+        mem = type(self)._nav_mem_cache.get(code6)
+        if mem and mem.get('date') == today_str:
+            return mem
+
+        result = {'nav': {}, 'ac': {}}
+        url = f'http://fund.eastmoney.com/pingzhongdata/{code6}.js'
+        try:
+            r = requests.get(
+                url, timeout=8,
+                headers={'User-Agent': 'Mozilla/5.0',
+                         'Referer': 'http://fund.eastmoney.com/'},
+            )
+            text = r.text
+        except Exception as e:
+            print(f'[FundTracker] nav-series fetch({code6}) error: {e}')
+            return result
+
+        def _parse_iso(var_pattern: str, pair_mode: bool) -> dict:
+            m = re.search(var_pattern, text, re.DOTALL)
+            if not m:
+                return {}
+            try:
+                arr = json.loads(m.group(1))
+            except Exception:
+                return {}
+            out = {}
+            if pair_mode:
+                # ACWorthTrend：[[ms, ac_nav], ...]
+                for e in arr:
+                    try:
+                        d = datetime.datetime.utcfromtimestamp(e[0] / 1000.0).date().isoformat()
+                        out[d] = float(e[1])
+                    except Exception:
+                        continue
+            else:
+                # netWorthTrend：[{x: ms, y: unit_nav, ...}, ...]
+                for e in arr:
+                    try:
+                        d = datetime.datetime.utcfromtimestamp(e.get('x', 0) / 1000.0).date().isoformat()
+                        out[d] = float(e.get('y', 0))
+                    except Exception:
+                        continue
+            return out
+
+        result['nav'] = _parse_iso(r'Data_netWorthTrend\s*=\s*(\[.*?\]);', pair_mode=False)
+        result['ac'] = _parse_iso(r'Data_ACWorthTrend\s*=\s*(\[.*?\]);', pair_mode=True)
+        type(self)._nav_mem_cache[code6] = {'date': today_str, **result}
+        return result
+
+    def _attach_real_nav(self, code6: str, records: list[dict]) -> None:
+        """把每季度末的真实净值（单位/累计）回填到 gmbd 记录里。
+
+        - 季末非交易日的，取 ≤ 季末的最近一个净值日。
+        - real_nav_chg      — 累计净值季度涨跌率%（含分红再投资，无分红失真）
+        - real_unit_nav_chg — 单位净值季度涨跌率%（直观但受分红影响）
+        """
+        series = self._get_nav_series(code6)
+        nav_map: dict = series.get('nav') or {}
+        ac_map: dict = series.get('ac') or {}
+        if not records:
+            return
+
+        # 按时间正序处理，便于算“相对上期末”的涨跌
+        sorted_recs = sorted(records, key=lambda x: x['date'])
+        prev_ac_date = None
+        prev_unit_date = None
+        for rec in sorted_recs:
+            q_date = rec['date']
+            unit_keys = [k for k in nav_map if k <= q_date]
+            ac_keys = [k for k in ac_map if k <= q_date]
+            unit_date = max(unit_keys) if unit_keys else None
+            ac_date = max(ac_keys) if ac_keys else None
+
+            rec['real_nav_date'] = ac_date or unit_date
+            rec['real_unit_nav'] = nav_map.get(unit_date) if unit_date else None
+            rec['real_ac_nav'] = ac_map.get(ac_date) if ac_date else None
+
+            # 真实涨跌率：相对上期末
+            if prev_ac_date and ac_date and prev_ac_date in ac_map and ac_date in ac_map:
+                base = ac_map[prev_ac_date]
+                if base and base > 0:
+                    rec['real_nav_chg'] = round((ac_map[ac_date] / base - 1.0) * 100.0, 2)
+            if prev_unit_date and unit_date and prev_unit_date in nav_map and unit_date in nav_map:
+                base = nav_map[prev_unit_date]
+                if base and base > 0:
+                    rec['real_unit_nav_chg'] = round((nav_map[unit_date] / base - 1.0) * 100.0, 2)
+
+            if ac_date:
+                prev_ac_date = ac_date
+            if unit_date:
+                prev_unit_date = unit_date
+
+    def get_fund_scale_change(self, ts_code: str, force_refresh: bool = False) -> dict:
+        """获取单只基金的季度规模变动数据，并做双因子分解。
+
+        因子分解模型（按季度，不含分红/拆分的近似口径）：
+            期末净资产 ≈ 期末总份额 × 期末单位净值
+            → 净资产变动率 ≈ (1 + 份额变动率) × (1 + 净值变动率) - 1
+
+        两个因子：
+            - 「基金本身涨跌」（净值因子）：期末单位净值相对上期末的变化率
+              —— 由 (1+净资产变动率)/(1+份额变动率) 反推，与散户申赎无关
+            - 「散户申赎」（份额因子）：期末总份额相对上期末的变化率
+              —— 直接来自 gmbd 的 QMZFE（期末总份额），反映散户买卖方向
+
+        返回：
+            {
+                'as_of': '2026-06-30',            # 最新一期季度末日期
+                'quarters': [                     # 按时间倒序（最新在前）
+                    {
+                        'date': '2026-06-30',
+                        'sub_scribe': float,      # 期间申购（份）
+                        'redeem': float,          # 期间赎回（份）
+                        'net_flow': float,        # 净申赎 = 申购 - 赎回（份）
+                        'end_shares': float,      # 期末总份额（份）
+                        'end_nav_cap': float,     # 期末净资产（元）
+                        'shares_chg': float|None, # 份额变动率 %（散户因子）
+                        'nav_chg': float|None,    # 净值变动率 %（公式反推）
+                        'cap_chg': float|None,    # 净资产变动率 %（EM 原始 CHANGE 字段）
+                        'real_nav_date': str,     # 季末真实净值日（≤ 季末最近交易日）
+                        'real_unit_nav': float,   # 季末真实单位净值
+                        'real_ac_nav': float,     # 季末真实累计净值（含分红再投资）
+                        'real_unit_nav_chg': float, # 单位净值季度涨跌 %（真实记录）
+                        'real_nav_chg': float,    # 累计净值季度涨跌 %（真实记录，排除分红失真）
+                    }, ...
+                ],
+                'source': 'eastmoney-f10',
+            }
+        """
+        code6 = (ts_code or '').split('.')[0]
+        if not code6 or not code6.isdigit() or len(code6) != 6:
+            return {'as_of': None, 'quarters': [], 'source': 'eastmoney-f10',
+                    'error': 'invalid code'}
+        records: list[dict] = []
+
+        # 1) 内存缓存（当日有效）
+        today_str = datetime.date.today().strftime('%Y-%m-%d')
+        mem = type(self)._gmbd_mem_cache.get(code6)
+        if mem and not force_refresh and mem.get('date') == today_str:
+            return {k: v for k, v in mem.items() if k != 'date'}
+
+        # 2) 请求 EM F10
+        try:
+            r = requests.get(
+                self._EM_F10_URL,
+                params={'type': 'gmbd', 'code': code6},
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                                  'AppleWebKit/537.36',
+                    'Referer': f'https://fundf10.eastmoney.com/gmbd_{code6}.html',
+                },
+                timeout=self._EM_F10_TIMEOUT,
+            )
+            r.raise_for_status()
+            text = r.text
+        except Exception as e:
+            print(f'[FundTracker] gmbd fetch({code6}) error: {e}')
+            return {'as_of': None, 'quarters': [], 'source': 'eastmoney-f10',
+                    'error': str(e)}
+
+        # 响应结构：
+        # var gmbd_apidata={ content:"<table …>…</table>",
+        #                    summary:"…", data:[{…}, …] };
+        m = re.search(r'"data"\s*:\s*(\[\{.*?\}\])', text, re.DOTALL)
+        if not m:
+            print(f'[FundTracker] gmbd: data array not found for {code6}')
+            return {'as_of': None, 'quarters': [], 'source': 'eastmoney-f10',
+                    'error': 'no data'}
+        try:
+            raw = json.loads(m.group(1))
+        except Exception as e:
+            print(f'[FundTracker] gmbd: parse data array error for {code6}: {e}')
+            return {'as_of': None, 'quarters': [], 'source': 'eastmoney-f10',
+                    'error': str(e)}
+
+        # 3) 字段对照（EM 原始单位是元/份，不是亿）：
+        #    FSRQ   季度末日期        QJSG   期间申购（份）
+        #    QJSH   期间赎回（份）    QMZFE  期末总份额（份）
+        #    QMJZC  期末净资产（元）  ZFEBDL 总份额变动率%
+        #    CHANGE 净资产变动率%
+        for d in raw:
+            try:
+                date = (d.get('FSRQ') or '').strip()
+                if not date:
+                    continue
+                qjsg = _to_float(d.get('QJSG')) or 0.0
+                qjsh = _to_float(d.get('QJSH')) or 0.0
+                records.append({
+                    'date': date,
+                    'sub_scribe': qjsg,
+                    'redeem': qjsh,
+                    'net_flow': qjsg - qjsh,
+                    'end_shares': _to_float(d.get('QMZFE')),
+                    'end_nav_cap': _to_float(d.get('QMJZC')),
+                    'shares_chg': _to_float(d.get('ZFEBDL')),
+                    'nav_chg': None,   # 下方推算
+                    'cap_chg': _to_float(d.get('CHANGE')),
+                })
+            except Exception:
+                continue
+
+        # 4) 推算净值因子：nav_chg = (1+cap_chg)/(1+shares_chg) - 1
+        records.sort(key=lambda x: x['date'], reverse=True)
+        for rec in records:
+            if rec['cap_chg'] is not None and rec['shares_chg'] is not None:
+                try:
+                    cap_f = 1.0 + rec['cap_chg'] / 100.0
+                    sh_f = 1.0 + rec['shares_chg'] / 100.0
+                    if sh_f != 0:
+                        rec['nav_chg'] = round((cap_f / sh_f - 1.0) * 100.0, 2)
+                except Exception:
+                    rec['nav_chg'] = None
+
+        # 5) 回填季度末真实净值记录（单位/累计净值 + 真实季度涨跌率）
+        try:
+            self._attach_real_nav(code6, records)
+        except Exception as e:
+            print(f'[FundTracker] attach real nav({code6}) error: {e}')
+
+        result = {
+            'as_of': records[0]['date'] if records else None,
+            'quarters': records,
+            'source': 'eastmoney-f10',
+        }
+        type(self)._gmbd_mem_cache[code6] = {'date': today_str, **result}
+        return result
+
+    def get_subs_scale_change(self, subs: list) -> dict:
+        """批量获取订阅基金的规模变动 + 双因子分解。
+
+        subs: [{"ts_code": "008903.OF", "name": "广发科技先锋混合", ...}, ...]
+
+        返回：
+            {
+                'rows': [
+                    {'ts_code', 'name', 'as_of', 'quarters', 'error',
+                     'net_flow_ratio' (最新一期净申赎/上期末份额 %)},
+                    ...
+                ],
+                'summary': {
+                    'count', 'valid_count',
+                    'avg_shares_chg': 平均份额变动率%（散户因子）,
+                    'avg_nav_chg': 平均净值变动率%（基金涨跌因子）,
+                    'avg_net_flow_ratio': 平均净申赎比 %
+                },
+            }
+        """
+        rows = []
+        shares_chgs: list[float] = []
+        nav_chgs: list[float] = []
+        flow_ratios: list[float] = []
+
+        for sub in subs:
+            ts_code = sub.get('ts_code', '') or ''
+            name = sub.get('name', '') or ts_code
+            data = self.get_fund_scale_change(ts_code)
+            quarters = data.get('quarters') or []
+            row = {
+                'ts_code': ts_code,
+                'name': name,
+                'as_of': data.get('as_of'),
+                'quarters': quarters,
+                'error': data.get('error'),
+            }
+            # 汇总统计只取最新一期
+            if quarters:
+                latest = quarters[0]
+                if latest.get('shares_chg') is not None:
+                    shares_chgs.append(latest['shares_chg'])
+                if latest.get('nav_chg') is not None:
+                    nav_chgs.append(latest['nav_chg'])
+                prev_shares = quarters[1].get('end_shares') if len(quarters) > 1 else None
+                if prev_shares and prev_shares > 0:
+                    fr = latest.get('net_flow', 0.0) / prev_shares * 100.0
+                    row['net_flow_ratio'] = round(fr, 2)
+                    flow_ratios.append(fr)
+            rows.append(row)
+
+        summary = {
+            'count': len(rows),
+            'valid_count': sum(1 for r in rows if r['quarters']),
+            'avg_shares_chg': round(float(np.mean(shares_chgs)), 2) if shares_chgs else None,
+            'avg_nav_chg': round(float(np.mean(nav_chgs)), 2) if nav_chgs else None,
+            'avg_net_flow_ratio': round(float(np.mean(flow_ratios)), 2) if flow_ratios else None,
+        }
+        return {'rows': rows, 'summary': summary}
+
+    # =================================================================
     # 基金日线行情
     # =================================================================
 
@@ -983,4 +1294,15 @@ def _pct_ytd_from_df(df: pd.DataFrame, today: datetime.date | None = None) -> fl
             return None
         return (c_now - c_ytd) / c_ytd * 100.0
     except Exception:
+        return None
+
+
+def _to_float(v) -> float | None:
+    """把 EM 返回的数值字段安全转 float（兼容 '' / None / 数字 / 字符串）。"""
+    try:
+        if v is None or v == '':
+            return None
+        f = float(v)
+        return f if np.isfinite(f) else None
+    except (TypeError, ValueError):
         return None

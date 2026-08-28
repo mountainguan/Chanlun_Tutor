@@ -342,9 +342,244 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
                         ui.label(f'对标: {sub.get("index_name") or sub.get("index_code")}').classes(
                             'text-indigo-600 truncate max-w-44'
                         )
-            ui.button(icon='delete_outline',
-                      on_click=lambda c=sub.get('ts_code'): remove_sub(c)) \
-                .props('flat dense round color=grey').classes('text-gray-400 hover:text-red-500')
+            with ui.row().classes('items-center gap-1'):
+                ui.button('规模', icon='donut_small',
+                          on_click=lambda s=dict(sub): open_scale_dialog(s)) \
+                    .props('flat dense no-caps color=indigo').classes('text-xs')
+                ui.button(icon='delete_outline',
+                          on_click=lambda c=sub.get('ts_code'): remove_sub(c)) \
+                    .props('flat dense round color=grey').classes('text-gray-400 hover:text-red-500')
+
+    # ── 规模变动双因子分析（季度） ───────────────────
+
+    def _chg_chip(value, classes: str = ''):
+        """统一渲染双因子涨跌 chip：正绿负红，None 灰。"""
+        if value is None:
+            ui.label('—').classes(f'{classes} text-gray-400')
+            return
+        try:
+            v = float(value)
+        except (TypeError, ValueError):
+            ui.label('—').classes(f'{classes} text-gray-400')
+            return
+        if v > 0:
+            cls, prefix = 'text-emerald-600', '+'
+        elif v < 0:
+            cls, prefix = 'text-rose-600', ''
+        else:
+            cls, prefix = 'text-gray-500', ''
+        ui.label(f'{prefix}{v:.2f}%').classes(f'{classes} {cls}')
+
+    def _flow_chip(value_yi: float, classes: str = ''):
+        """渲染净申赎（亿份）chip：净申购绿色 / 净赎回红色。"""
+        if value_yi is None:
+            ui.label('—').classes(f'{classes} text-gray-400')
+            return
+        v = float(value_yi)
+        if v > 0:
+            cls, fmt = 'text-emerald-600', f'+{v:.2f}亿份'
+        elif v < 0:
+            cls, fmt = 'text-rose-600', f'-{abs(v):.2f}亿份'
+        else:
+            cls, fmt = 'text-gray-500', '0.00亿份'
+        ui.label(fmt).classes(f'{classes} {cls}')
+
+    def _fmt_yi(v) -> str:
+        """份 → 亿份（2位小数）字符串。"""
+        try:
+            return f'{float(v) / 1e8:.2f}'
+        except (TypeError, ValueError):
+            return '—'
+
+    scale_dialog = None
+    scale_dialog_body = None
+
+    def open_scale_dialog(sub: dict):
+        """打开单只基金的季度规模变动 + 双因子分解对话框。"""
+        nonlocal scale_dialog, scale_dialog_body
+        if scale_dialog is None:
+            scale_dialog = ui.dialog().classes('items-center')
+            scale_dialog_body = ui.column().classes('w-full')
+
+        name = sub.get('name') or sub.get('ts_code', '')
+        ts_code = sub.get('ts_code', '')
+        scale_dialog.clear()
+        with scale_dialog, ui.card().classes('w-[820px] max-w-[96vw] p-0 rounded-xl overflow-hidden'):
+            # 标题栏
+            with ui.row().classes('w-full items-center justify-between px-5 py-3 bg-indigo-50 border-b border-indigo-100'):
+                with ui.row().classes('items-center gap-2'):
+                    ui.icon('donut_small', color='indigo').classes('text-xl')
+                    with ui.column().classes('gap-0'):
+                        ui.label(f'规模变动 · {name}').classes('text-base font-bold text-indigo-800')
+                        ui.label(
+                            f'{ts_code}  ·  数据源: 天天基金 fundf10 季度 gmbd  ·  '
+                            '双因子 = 基金涨跌（净值） + 散户申赎（份额）'
+                        ).classes('text-[10px] text-indigo-400 font-mono')
+                ui.button(icon='close', on_click=lambda: scale_dialog.close()) \
+                    .props('flat round dense color=grey').classes('text-gray-400')
+            scale_dialog_body = ui.column().classes('w-full p-5 gap-4 items-center')
+            with scale_dialog_body:
+                ui.spinner('dots', size='md', color='indigo')
+                ui.label('正在拉取季度规模数据…').classes('text-xs text-gray-400')
+        scale_dialog.open()
+
+        async def _load_and_render():
+            loop = asyncio.get_running_loop()
+            try:
+                data = await loop.run_in_executor(
+                    executor, tracker.get_fund_scale_change, ts_code
+                )
+            except Exception as e:
+                ui.notify(f'规模数据拉取失败: {e}', type='negative')
+                data = {'as_of': None, 'quarters': [], 'error': str(e)}
+            if not scale_dialog or not scale_dialog_body:
+                return
+            scale_dialog_body.clear()
+            with scale_dialog_body:
+                quarters = data.get('quarters') or []
+                if data.get('error') and not quarters:
+                    ui.icon('error_outline', color='negative').classes('text-3xl')
+                    ui.label(f'拉取失败: {data.get("error")}').classes('text-sm text-rose-500')
+                    return
+                if not quarters:
+                    ui.icon('info', color='grey').classes('text-3xl')
+                    ui.label('该基金暂无季度规模数据（可能成立时间太短）').classes(
+                        'text-sm text-gray-400'
+                    )
+                    return
+
+                # ── 最新一期双因子摘要卡 ──
+                latest = quarters[0]
+                prev = quarters[1] if len(quarters) > 1 else None
+                with ui.card().classes('w-full p-4 rounded-xl border border-indigo-100 bg-indigo-50/50'):
+                    with ui.row().classes('w-full items-center justify-between mb-3 flex-wrap gap-2'):
+                        with ui.row().classes('items-center gap-2'):
+                            ui.label(f'最新一期（{latest["date"]}）规模双因子分解').classes(
+                                'text-sm font-bold text-indigo-900'
+                            )
+                        ui.label(f'截至 {data.get("as_of")}').classes('text-[10px] text-gray-400 font-mono')
+                    with ui.grid(columns=3).classes('w-full gap-3'):
+                        # 净资产总变化（结果）
+                        with ui.column().classes('items-center p-3 rounded-lg bg-white border border-indigo-50 gap-1'):
+                            ui.label('净资产变动（结果）').classes('text-[10px] text-gray-500')
+                            _chg_chip(latest.get('cap_chg'), 'text-xl font-bold')
+                            ui.label(f'{_fmt_yi(latest.get("end_nav_cap"))} 亿元').classes(
+                                'text-[11px] text-gray-500 font-mono'
+                            )
+                        # 因子1：基金本身涨跌（净值）
+                        with ui.column().classes('items-center p-3 rounded-lg bg-white border border-amber-100 gap-1'):
+                            ui.label('📈 基金本身涨跌（净值因子）').classes('text-[10px] text-amber-700')
+                            # 优先用真实累计净值涨跌（含分红再投资，排除分红失真）；缺时回退公式反推
+                            nav_disp = latest.get('real_nav_chg')
+                            _chg_chip(nav_disp if nav_disp is not None else latest.get('nav_chg'), 'text-xl font-bold')
+                            nu = latest.get('real_unit_nav')
+                            na = latest.get('real_ac_nav')
+                            if nu is not None and na is not None:
+                                nav_note = f'季末单位 {nu:.4f}｜累计 {na:.4f}'
+                            else:
+                                nav_note = '排除申赎后的净值变化（推算）'
+                            ui.label(nav_note).classes('text-[10px] text-gray-400 font-mono')
+                        # 因子2：散户申赎（份额）
+                        with ui.column().classes('items-center p-3 rounded-lg bg-white border border-emerald-100 gap-1'):
+                            ui.label('👥 散户申赎（份额因子）').classes('text-[10px] text-emerald-700')
+                            _chg_chip(latest.get('shares_chg'), 'text-xl font-bold')
+                            nf = latest.get('net_flow')
+                            nf_disp = None if nf is None else nf / 1e8
+                            _flow_chip(nf_disp, 'text-[11px] font-mono')
+                    if prev:
+                        with ui.row().classes('w-full items-center gap-1 mt-2'):
+                            ui.icon('lightbulb', size='xs', color='amber-6')
+                            ui.label(
+                                f'解读：规模变化 ≈ (1+份额变动)×(1+净值变动)-1 → '
+                                f'上期末份额 {_fmt_yi(prev.get("end_shares"))} 亿份'
+                            ).classes('text-[10px] text-gray-400')
+
+                # ── 历史季度明细表 ──
+                with ui.element('div').classes('w-full overflow-x-auto rounded-lg border border-gray-200 bg-white'):
+                    with ui.element('table').classes('w-full text-sm'):
+                        with ui.element('thead').classes('bg-gray-50 text-gray-600'):
+                            with ui.element('tr'):
+                                for h in ['季度末', '申购(亿份)', '赎回(亿份)', '净申赎(亿份)',
+                                          '期末份额(亿份)', '份额变动↓', '净值变动↓', '季末单位净值', '季末累计净值',
+                                          '净资产变动', '期末净资产(亿)']:
+                                    with ui.element('th').classes(
+                                        'px-3 py-2 text-left font-semibold text-xs whitespace-nowrap'
+                                    ):
+                                        ui.label(h)
+                        with ui.element('tbody'):
+                            for q in quarters:
+                                nf_yi = None if q.get('net_flow') is None else q['net_flow'] / 1e8
+                                with ui.element('tr').classes(
+                                    'border-t border-gray-100 hover:bg-indigo-50/40'
+                                    + (' bg-indigo-50/60' if q is latest else '')
+                                ):
+                                    with ui.element('td').classes(
+                                        'px-3 py-2 font-mono text-xs text-gray-700 whitespace-nowrap'
+                                    ):
+                                        ui.label(q.get('date', ''))
+                                    with ui.element('td').classes('px-3 py-2 font-mono text-xs text-gray-600'):
+                                        ui.label(_fmt_yi(q.get('sub_scribe')))
+                                    with ui.element('td').classes('px-3 py-2 font-mono text-xs text-gray-600'):
+                                        ui.label(_fmt_yi(q.get('redeem')))
+                                    with ui.element('td').classes('px-3 py-2'):
+                                        _flow_chip(nf_yi, 'text-xs font-mono font-semibold')
+                                    with ui.element('td').classes('px-3 py-2 font-mono text-xs text-gray-700'):
+                                        ui.label(_fmt_yi(q.get('end_shares')))
+                                    with ui.element('td').classes('px-3 py-2'):
+                                        if q is latest:
+                                            with ui.row().classes('items-center gap-1'):
+                                                _chg_chip(q.get('shares_chg'), 'text-xs font-mono font-semibold')
+                                                ui.chip('散户因子', color='emerald').props(
+                                                    'dense outline square'
+                                                ).classes('text-[9px]')
+                                        else:
+                                            _chg_chip(q.get('shares_chg'), 'text-xs font-mono font-semibold')
+                                    with ui.element('td').classes('px-3 py-2'):
+                                        if q is latest:
+                                            with ui.row().classes('items-center gap-1'):
+                                                _chg_chip(q.get('nav_chg'), 'text-xs font-mono font-semibold')
+                                                ui.chip('涨跌因子', color='amber').props(
+                                                    'dense outline square'
+                                                ).classes('text-[9px]')
+                                        else:
+                                            _chg_chip(q.get('nav_chg'), 'text-xs font-mono font-semibold')
+                                    # 季末真实净值记录（单位净值 + 累计净值，以及真实涨跌）
+                                    with ui.element('td').classes('px-3 py-2 whitespace-nowrap'):
+                                        with ui.column().classes('gap-0'):
+                                            if q.get('real_unit_nav') is not None:
+                                                _chg_chip_q = None  # noop 占位
+                                                ui.label(f"{q['real_unit_nav']:.4f}").classes(
+                                                    'font-mono text-xs text-gray-700'
+                                                )
+                                                if q.get('real_unit_nav_chg') is not None:
+                                                    _chg_chip(q['real_unit_nav_chg'], 'text-[10px] font-mono')
+                                            else:
+                                                ui.label('—').classes('text-xs text-gray-400')
+                                    with ui.element('td').classes('px-3 py-2 whitespace-nowrap'):
+                                        if q.get('real_ac_nav') is not None:
+                                            ui.label(f"{q['real_ac_nav']:.4f}").classes(
+                                                'font-mono text-xs text-gray-700'
+                                            )
+                                            if q.get('real_nav_chg') is not None:
+                                                _chg_chip(q['real_nav_chg'], 'text-[10px] font-mono')
+                                        else:
+                                            ui.label('—').classes('text-xs text-gray-400')
+                                    with ui.element('td').classes('px-3 py-2'):
+                                        _chg_chip(q.get('cap_chg'), 'text-xs font-mono font-semibold')
+                                    with ui.element('td').classes('px-3 py-2 font-mono text-xs text-gray-700'):
+                                        ui.label(_fmt_yi(q.get('end_nav_cap')))
+                        with ui.element('tfoot'):
+                            with ui.element('tr').classes('bg-gray-50 border-t border-gray-200'):
+                                with ui.element('td').props('colspan="11"').classes(
+                                    'px-3 py-2 text-[10px] text-gray-400'
+                                ) as td_note:
+                                    ui.label(
+                                        '↓ 双因子口径：份额变动 = (本期末总份额/上期末总份额)-1（散户买卖方向）；'
+                                        '净值变动 = [(1+净资产变动)/(1+份额变动)]-1（推算口径）；'
+                                        '季末单位/累计净值取自天天基金净值历史（含分红再投资，真实记录）'
+                                    )
+
+        asyncio.create_task(_load_and_render())
 
     # ── 表现对比 ─────────────────────────────────
 
@@ -766,10 +1001,171 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
 
                 perf_container = ui.column().classes('w-full')
 
+        # ── 订阅基金规模双因子总览（季度）──
+        with ui.card().classes('w-full p-4 rounded-xl shadow-sm border border-gray-100'):
+            with ui.row().classes('w-full items-center justify-between mb-1 flex-wrap gap-2'):
+                with ui.row().classes('items-center gap-2'):
+                    with ui.element('div').classes('w-7 h-7 rounded-md flex items-center justify-center').style(
+                        'background: linear-gradient(135deg, #f59e0b 0%, #10b981 100%);'
+                    ):
+                        ui.icon('donut_small', color='white').classes('text-sm')
+                    ui.label('订阅基金规模双因子（季度）').classes('text-sm font-bold text-gray-800')
+                    ui.chip('基金涨跌因子 × 散户申赎因子', color='amber').props(
+                        'dense outline square'
+                    ).classes('text-[10px]')
+                with ui.row().classes('items-center gap-2'):
+                    ui.label('净值因子 = 排除申赎后的涨跌；份额因子 = 散户买卖方向').classes(
+                        'text-[10px] text-gray-400'
+                    )
+                    ui.button('刷新规模', icon='refresh',
+                              on_click=lambda: asyncio.create_task(refresh_scale_overview())) \
+                        .props('outline dense no-caps color=amber-6').classes('text-xs')
+            ui.label(
+                '口径：净资产变动 ≈ (1+份额变动)×(1+净值变动) - 1 ｜ 数据源：天天基金 fundf10 季度规模变动'
+            ).classes('text-[10px] text-gray-400 mb-2')
+            scale_overview_container = ui.column().classes('w-full')
+
         # ── 底部数据源 / 提示 ──
         with ui.row().classes('w-full items-center justify-between text-[10px] text-gray-400 px-2'):
             ui.label('💡 订阅信息保存在浏览器 localStorage 中，可在多设备分别记录自己的基金清单')
-            ui.label('数据源：Tushare Pro')
+            ui.label('数据源：Tushare Pro + 天天基金')
+
+    # ── 订阅基金规模双因子总览 ─────────────────────────
+
+    async def refresh_scale_overview():
+        """拉取全部订阅基金的季度规模双因子并渲染总览表。"""
+        if scale_overview_container is None:
+            return
+        scale_overview_container.clear()
+        with scale_overview_container:
+            if not state['subs']:
+                ui.label('添加订阅后将在此展示规模双因子总览').classes(
+                    'text-xs text-gray-400 text-center py-4'
+                )
+                return
+            with ui.row().classes('w-full items-center justify-center py-5 gap-2'):
+                ui.spinner('dots', size='sm', color='amber-6')
+                ui.label(f'正在拉取 {len(state["subs"])} 只订阅基金的季度规模数据…').classes(
+                    'text-xs text-gray-500'
+                )
+        loop = asyncio.get_running_loop()
+        try:
+            data = await loop.run_in_executor(
+                executor,
+                lambda: tracker.get_subs_scale_change(state['subs']),
+            )
+            render_scale_overview(data)
+        except Exception as e:
+            scale_overview_container.clear()
+            with scale_overview_container:
+                ui.label(f'规模数据加载失败: {e}').classes(
+                    'text-xs text-rose-500 text-center py-4'
+                )
+
+    def render_scale_overview(data: dict):
+        """渲染规模双因子总览表（含汇总行 + 每只基金最新一期双因子）。"""
+        if scale_overview_container is None:
+            return
+        rows = data.get('rows') or []
+        summary = data.get('summary') or {}
+        scale_overview_container.clear()
+        with scale_overview_container:
+            if not rows:
+                ui.label('暂无数据').classes('text-xs text-gray-400 text-center py-4')
+                return
+
+            # 汇总行
+            with ui.row().classes('w-full items-center gap-4 mb-2 px-1 flex-wrap'):
+                ui.label(f'基金数: {summary.get("count", 0)}').classes('text-xs text-gray-500')
+                if summary.get('avg_nav_chg') is not None:
+                    ui.label('平均「基金涨跌」:').classes('text-xs text-gray-500')
+                    _chg_chip(summary['avg_nav_chg'], 'text-sm font-bold')
+                if summary.get('avg_shares_chg') is not None:
+                    ui.label('平均「散户申赎」:').classes('text-xs text-gray-500')
+                    _chg_chip(summary['avg_shares_chg'], 'text-sm font-bold')
+                if summary.get('avg_net_flow_ratio') is not None:
+                    ui.label('平均净申赎比:').classes('text-xs text-gray-500')
+                    _chg_chip(summary['avg_net_flow_ratio'], 'text-sm font-bold')
+
+            with ui.element('div').classes(
+                'w-full overflow-x-auto rounded-lg border border-gray-200 bg-white'
+            ):
+                with ui.element('table').classes('w-full text-sm'):
+                    with ui.element('thead').classes('bg-gray-50 text-gray-600'):
+                        with ui.element('tr'):
+                            for h in ['基金', '季度末', '净资产变动', '📈 基金涨跌（净值）',
+                                      '👥 散户申赎（份额）', '净申赎(亿份)', '近4季份额趋势']:
+                                with ui.element('th').classes(
+                                    'px-3 py-2 text-left font-semibold text-xs whitespace-nowrap'
+                                ):
+                                    ui.label(h)
+                    with ui.element('tbody'):
+                        for row in rows:
+                            quarters = row.get('quarters') or []
+                            latest = quarters[0] if quarters else None
+                            code = row.get('ts_code', '')
+                            with ui.element('tr').classes(
+                                'border-t border-gray-100 hover:bg-amber-50/40'
+                            ):
+                                with ui.element('td').classes('px-3 py-2 whitespace-nowrap'):
+                                    with ui.row().classes('items-center gap-2'):
+                                        sub_item = next(
+                                            (s for s in state['subs']
+                                             if s.get('ts_code') == code), None
+                                        )
+                                        if sub_item is not None:
+                                            ui.button(row.get('name') or code,
+                                                      on_click=lambda s=dict(sub_item): open_scale_dialog(s)) \
+                                                .props('flat dense no-caps color=indigo') \
+                                                .classes('text-xs font-semibold')
+                                        else:
+                                            ui.label(row.get('name') or code).classes(
+                                                'text-xs font-semibold text-gray-800'
+                                            )
+                                        ui.label(code).classes(
+                                            'font-mono text-[10px] text-gray-400'
+                                        )
+                                with ui.element('td').classes('px-3 py-2 font-mono text-xs text-gray-500'):
+                                    ui.label(row.get('as_of') or '—')
+                                if latest:
+                                    with ui.element('td').classes('px-3 py-2'):
+                                        _chg_chip(latest.get('cap_chg'), 'text-sm font-bold')
+                                    with ui.element('td').classes('px-3 py-2'):
+                                        _chg_chip(latest.get('nav_chg'), 'text-sm font-bold')
+                                    with ui.element('td').classes('px-3 py-2'):
+                                        _chg_chip(latest.get('shares_chg'), 'text-sm font-bold')
+                                    nf_yi = None if latest.get('net_flow') is None else latest['net_flow'] / 1e8
+                                    with ui.element('td').classes('px-3 py-2'):
+                                        _flow_chip(nf_yi, 'text-xs font-mono')
+                                    with ui.element('td').classes('px-3 py-2'):
+                                        _render_shares_trend(quarters)
+                                else:
+                                    with ui.element('td').props('colspan="5"').classes(
+                                        'px-3 py-2 text-[10px] text-rose-400'
+                                    ):
+                                        ui.label(f'拉取失败: {row.get("error") or "无数据"}')
+
+    def _render_shares_trend(quarters: list):
+        """近 4 季份额变动率迷你趋势（彩色文字序列）。"""
+        qs = list(reversed((quarters or [])[:4]))  # 时间正序
+        chips = []
+        for q in qs:
+            v = q.get('shares_chg')
+            if v is None:
+                chips.append('<span style="color:#cbd5e1">·</span>')
+            elif v >= 0:
+                chips.append(f'<span style="color:#10b981;font-weight:600">+{v:.0f}%</span>')
+            else:
+                chips.append(f'<span style="color:#ef4444;font-weight:600">{v:.0f}%</span>')
+        if not chips:
+            ui.label('—').classes('text-xs text-gray-400')
+            return
+        ui.html(
+            '<div style="display:flex;align-items:center;gap:6px;font-family:monospace;font-size:11px">'
+            f'<span style="color:#94a3b8;font-size:9px">近{len(chips)}季</span>'
+            + ''.join(chips) + '</div>',
+            sanitize=False,
+        )
 
     # ── 初始化流程 ────────────────────────────────
 
@@ -782,11 +1178,21 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
             refresh_index_compare(),
             refresh_performance(force_update=True),
         )
+        # 3) 规模双因子总览（订阅非空时才拉）
+        if state['subs']:
+            asyncio.create_task(refresh_scale_overview())
+        else:
+            scale_overview_container.clear()
+            with scale_overview_container:
+                ui.label('添加订阅后将在此展示规模双因子总览').classes(
+                    'text-xs text-gray-400 text-center py-4'
+                )
 
     async def refresh_all():
         await asyncio.gather(
             refresh_index_compare(),
             refresh_performance(force_update=True),
+            refresh_scale_overview(),
         )
 
     ui.timer(0, init_all, once=True)
