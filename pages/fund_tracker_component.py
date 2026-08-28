@@ -301,9 +301,10 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
             ui.notify(msg, type='positive')
             if add_dialog:
                 add_dialog.close()
-            # 自动刷新表现数据
+            # 自动刷新表现数据 + 规模双因子总览
             if state['auto_reload_after_add']:
                 asyncio.create_task(refresh_performance())
+                asyncio.create_task(refresh_scale_overview())
         else:
             ui.notify(msg, type='warning')
 
@@ -1017,11 +1018,9 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
                     ui.label('净值因子 = 排除申赎后的涨跌；份额因子 = 散户买卖方向').classes(
                         'text-[10px] text-gray-400'
                     )
-                    ui.button('刷新规模', icon='refresh',
-                              on_click=lambda: asyncio.create_task(refresh_scale_overview())) \
-                        .props('outline dense no-caps color=amber-6').classes('text-xs')
             ui.label(
-                '口径：净资产变动 ≈ (1+份额变动)×(1+净值变动) - 1 ｜ 数据源：天天基金 fundf10 季度规模变动'
+                '口径：净资产变动 ≈ (1+份额变动)×(1+净值变动) - 1 ｜ '
+                '数据源：天天基金 fundf10 季度规模变动 ｜ 点击顶部「刷新数据」同步更新'
             ).classes('text-[10px] text-gray-400 mb-2')
             scale_overview_container = ui.column().classes('w-full')
 
@@ -1032,8 +1031,12 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
 
     # ── 订阅基金规模双因子总览 ─────────────────────────
 
-    async def refresh_scale_overview():
-        """拉取全部订阅基金的季度规模双因子并渲染总览表。"""
+    async def refresh_scale_overview(force_update: bool = False):
+        """拉取全部订阅基金的季度规模双因子并渲染总览表。
+
+        force_update: True 时强制重新请求天天基金（绕过当日缓存），
+        由顶部「刷新数据」按钮触发；页面初始化用 False 命中缓存快加载。
+        """
         if scale_overview_container is None:
             return
         scale_overview_container.clear()
@@ -1045,15 +1048,23 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
                 return
             with ui.row().classes('w-full items-center justify-center py-5 gap-2'):
                 ui.spinner('dots', size='sm', color='amber-6')
-                ui.label(f'正在拉取 {len(state["subs"])} 只订阅基金的季度规模数据…').classes(
-                    'text-xs text-gray-500'
-                )
+                ui.label(
+                    f'正在{"强制更新" if force_update else "拉取"} '
+                    f'{len(state["subs"])} 只订阅基金的季度规模数据…'
+                ).classes('text-xs text-gray-500')
         loop = asyncio.get_running_loop()
+        started_at = asyncio.get_event_loop().time()
         try:
             data = await loop.run_in_executor(
                 executor,
-                lambda: tracker.get_subs_scale_change(state['subs']),
+                lambda: tracker.get_subs_scale_change(state['subs'], force_refresh=force_update),
             )
+            # 最小 loading 展示时长：接口太快时 spinner 一闪而过反而像"没刷新"，
+            # 保底展示 0.8s，与其他板块的 loading 观感一致
+            elapsed = asyncio.get_event_loop().time() - started_at
+            min_loading = 0.8
+            if elapsed < min_loading:
+                await asyncio.sleep(min_loading - elapsed)
             render_scale_overview(data)
         except Exception as e:
             scale_overview_container.clear()
@@ -1086,6 +1097,10 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
                 if summary.get('avg_net_flow_ratio') is not None:
                     ui.label('平均净申赎比:').classes('text-xs text-gray-500')
                     _chg_chip(summary['avg_net_flow_ratio'], 'text-sm font-bold')
+                # 更新时间戳：让「刷新数据」触发的重渲染可见
+                ui.label(f'更新于 {datetime.datetime.now().strftime("%H:%M:%S")}').classes(
+                    'text-[10px] text-gray-400 font-mono ml-auto'
+                )
 
             with ui.element('div').classes(
                 'w-full overflow-x-auto rounded-lg border border-gray-200 bg-white'
@@ -1131,7 +1146,12 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
                                     with ui.element('td').classes('px-3 py-2'):
                                         _chg_chip(latest.get('cap_chg'), 'text-sm font-bold')
                                     with ui.element('td').classes('px-3 py-2'):
-                                        _chg_chip(latest.get('nav_chg'), 'text-sm font-bold')
+                                        # 优先真实累计净值涨跌；缺则回退公式反推
+                                        nav_disp = latest.get('real_nav_chg')
+                                        _chg_chip(
+                                            nav_disp if nav_disp is not None else latest.get('nav_chg'),
+                                            'text-sm font-bold'
+                                        )
                                     with ui.element('td').classes('px-3 py-2'):
                                         _chg_chip(latest.get('shares_chg'), 'text-sm font-bold')
                                     nf_yi = None if latest.get('net_flow') is None else latest['net_flow'] / 1e8
@@ -1192,7 +1212,7 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
         await asyncio.gather(
             refresh_index_compare(),
             refresh_performance(force_update=True),
-            refresh_scale_overview(),
+            refresh_scale_overview(force_update=True),
         )
 
     ui.timer(0, init_all, once=True)

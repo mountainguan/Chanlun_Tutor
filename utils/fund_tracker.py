@@ -647,10 +647,11 @@ class FundTracker:
         type(self)._gmbd_mem_cache[code6] = {'date': today_str, **result}
         return result
 
-    def get_subs_scale_change(self, subs: list) -> dict:
+    def get_subs_scale_change(self, subs: list, force_refresh: bool = False) -> dict:
         """批量获取订阅基金的规模变动 + 双因子分解。
 
         subs: [{"ts_code": "008903.OF", "name": "广发科技先锋混合", ...}, ...]
+        force_refresh: True 时绕过当日内存缓存，强制重新请求天天基金接口。
 
         返回：
             {
@@ -675,7 +676,7 @@ class FundTracker:
         for sub in subs:
             ts_code = sub.get('ts_code', '') or ''
             name = sub.get('name', '') or ts_code
-            data = self.get_fund_scale_change(ts_code)
+            data = self.get_fund_scale_change(ts_code, force_refresh=force_refresh)
             quarters = data.get('quarters') or []
             row = {
                 'ts_code': ts_code,
