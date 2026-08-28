@@ -186,15 +186,28 @@ class FundTracker:
     # 仅供精确代码回退使用：6 位数字场外基金代码
     _OTC_CODE_RE = re.compile(r'^\d{6}$')
 
+    # 天天基金搜索 API：覆盖全市场基金（含 Tushare fund_basic 列表缺失的部分）
+    # 返回字段含 CODE（6位）/ NAME / CATEGORYDESC / STOCKMARKET / FundBaseInfo.*
+    _EM_SEARCH_URL = 'https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx'
+    _EM_SEARCH_TIMEOUT = 5  # 秒
+    # 内存去重：避免同一会话多次回退时重复打 EM API
+    _em_cache: dict[str, list[dict]] = {}
+
     def search_funds(self, keyword: str, limit: int = 30) -> list:
         """按代码 / 名称 / 管理人模糊搜索基金。
 
         增强（2026-08-28）：
             Tushare Pro 的 ``fund_basic(market='O', ...)`` 列表接口对场外基金
-            覆盖不全（如 011120、001985 都在列表外），导致用户精确输入 6 位
-            场外代码时搜不到。这里增加一次「精确代码回退」：当输入是 6 位
-            数字且模糊搜索无结果时，调用 ``pro.fund_basic(ts_code=xxx.OF)``
-            直接补查，结果仅放入内存，不写本地缓存。
+            覆盖不全（实测 011120、001985、富国低碳新经济等均不在列表内），
+            导致用户用代码或名字模糊搜都搜不到。这里加了两层回退：
+
+            1. **精确代码回退**：当输入是 6 位数字且 Tushare 缓存无结果时，
+               调用 ``pro.fund_basic(ts_code=xxx.OF)`` 直接补查。
+            2. **天天基金搜索回退**：以上两层都没结果时，调
+               ``fundsuggest.eastmoney.com`` 的搜索 API，覆盖全市场基金。
+
+            所有回退结果均仅放入内存，不写本地缓存（避免污染
+            ``fund_basic`` 全量缓存）。
         """
         if not keyword:
             return []
@@ -216,11 +229,17 @@ class FundTracker:
         )
         result = df[mask].head(limit).fillna('').to_dict(orient='records')
 
-        # ── 精确代码回退：仅在 6 位数字场外代码 + 模糊搜索无结果时触发 ──
+        # ── 精确代码回退：6 位数字 + 模糊搜索无结果 ──
         if not result and self._OTC_CODE_RE.match(kw):
             fallback = self._fetch_fund_by_exact_code(kw)
             if fallback:
                 result = [fallback]
+
+        # ── 天天基金搜索回退：上面都没结果 → 用名字 / 任意代码去 EM 搜 ──
+        if not result:
+            em_records = self._search_eastmoney(keyword.strip(), limit=limit)
+            if em_records:
+                result = em_records
 
         return result
 
@@ -248,6 +267,122 @@ class FundTracker:
                     'index_code', 'index_name', 'status',
                     'list_date', 'delist_date'):
             rec.setdefault(col, '')
+        rec['_source'] = 'tushare_exact'
+        return rec
+
+    # =================================================================
+    # 天天基金搜索回退（fundsuggest.eastmoney.com）
+    # =================================================================
+
+    def _search_eastmoney(self, keyword: str, limit: int = 30) -> list[dict]:
+        """调天天基金搜索 API，按关键字返回全市场基金记录（仅内存）。
+
+        返回的每条记录字段统一为：
+            ts_code / name / management / fund_type / index_code / index_name /
+            status / list_date / delist_date / _source / _em_category
+        其中 ``_source='eastmoney'`` 标识来源，便于前端区分。
+        """
+        if not keyword:
+            return []
+        # 内存缓存（同 keyword 仅打一次）
+        if keyword in self._em_cache:
+            return self._em_cache[keyword][:limit]
+
+        records: list[dict] = []
+        try:
+            r = requests.get(
+                self._EM_SEARCH_URL,
+                params={'m': 1, 'key': keyword},
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Referer': 'http://fund.eastmoney.com/',
+                },
+                timeout=self._EM_SEARCH_TIMEOUT,
+            )
+            js = r.json()
+        except Exception as e:
+            print(f'[FundTracker] eastmoney search({keyword}) error: {e}')
+            self._em_cache[keyword] = records
+            return records
+
+        if js.get('ErrCode') != 0 or not js.get('Datas'):
+            self._em_cache[keyword] = records
+            return records
+
+        # 把 EM 的 6 位代码补成 Tushare ts_code 格式
+        # ETF 场内：代码以 15/16/18/51/56/58 开头 → 5xxxxx.SH / 1xxxxx.SZ
+        # 其他 6 位 → 场外 .OF
+        for d in js['Datas']:
+            rec = self._em_record_to_tushare(d)
+            if rec:
+                records.append(rec)
+            if len(records) >= limit:
+                break
+
+        self._em_cache[keyword] = records
+        return records
+
+    @staticmethod
+    def _em_code_to_ts_code(code: str, stock_market: str | None) -> str:
+        """把天天基金 6 位 code 转成 Tushare ts_code 格式。"""
+        code = (code or '').strip()
+        if not code or len(code) != 6 or not code.isdigit():
+            return f'{code}.OF'  # fallback：默认场外
+        # 场内基金特征：前两位 51/56/58/15/16/18
+        prefix2 = code[:2]
+        prefix3 = code[:3]
+        is_etf = prefix2 in ('51', '56', '58') or prefix3 in ('159', '160', '162', '163', '164', '165', '168', '169', '501', '502')
+        if is_etf:
+            # 15/16/17/18 开头 → 深市 .SZ；51/56/58 开头 → 沪市 .SH
+            if prefix2 in ('51', '56', '58'):
+                return f'{code}.SH'
+            return f'{code}.SZ'
+        # 场外默认 .OF
+        return f'{code}.OF'
+
+    @staticmethod
+    def _em_fund_type_to_tushare(ftype: str) -> str:
+        """把天天基金 FTYPE（'-' 分隔的二级分类）映射成 Tushare fund_type 一级分类。"""
+        ftype = (ftype or '').strip()
+        if not ftype:
+            return ''
+        head = ftype.split('-', 1)[0]
+        mapping = {
+            '股票型': '股票型',
+            '混合型': '混合型',
+            '债券型': '债券型',
+            '货币型': '货币型',
+            '指数型': '指数型',
+            'QDII': 'QDII',
+            'FOF': 'FOF',
+        }
+        return mapping.get(head, ftype)
+
+    def _em_record_to_tushare(self, d: dict) -> dict | None:
+        """把天天基金搜索结果的一条记录转成与 Tushare 字段一致的 dict。"""
+        code = (d.get('CODE') or '').strip()
+        name = (d.get('NAME') or '').strip()
+        if not code or not name:
+            return None
+        bi = d.get('FundBaseInfo', {}) or {}
+        stock_market = d.get('STOCKMARKET')
+        ts_code = self._em_code_to_ts_code(code, stock_market)
+
+        rec = {
+            'ts_code': ts_code,
+            'name': name,
+            'management': (bi.get('JJGS') or '').strip(),
+            'fund_type': self._em_fund_type_to_tushare(bi.get('FTYPE') or ''),
+            'index_code': '',
+            'index_name': '',
+            'status': 'L',
+            'list_date': '',
+            'delist_date': '',
+            '_source': 'eastmoney',
+            '_em_category': d.get('CATEGORYDESC', '') or '',
+            '_em_shortname': bi.get('SHORTNAME', '') or '',
+        }
+        # 后续如果有用户订阅，再走 Tushare fund_basic(ts_code=) 拉一次补全 index_code
         return rec
 
     def get_fund_meta(self, ts_code: str) -> dict | None:
