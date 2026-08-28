@@ -183,14 +183,28 @@ class FundTracker:
 
         return df
 
+    # 仅供精确代码回退使用：6 位数字场外基金代码
+    _OTC_CODE_RE = re.compile(r'^\d{6}$')
+
     def search_funds(self, keyword: str, limit: int = 30) -> list:
-        """按代码 / 名称 / 管理人模糊搜索基金。"""
+        """按代码 / 名称 / 管理人模糊搜索基金。
+
+        增强（2026-08-28）：
+            Tushare Pro 的 ``fund_basic(market='O', ...)`` 列表接口对场外基金
+            覆盖不全（如 011120、001985 都在列表外），导致用户精确输入 6 位
+            场外代码时搜不到。这里增加一次「精确代码回退」：当输入是 6 位
+            数字且模糊搜索无结果时，调用 ``pro.fund_basic(ts_code=xxx.OF)``
+            直接补查，结果仅放入内存，不写本地缓存。
+        """
         if not keyword:
             return []
         kw = keyword.strip().upper()
         df = self.get_fund_basic()
         if df.empty:
-            return []
+            df = pd.DataFrame(columns=['ts_code', 'name', 'management', 'fund_type',
+                                       'index_code', 'index_name', 'status',
+                                       'list_date', 'delist_date'])
+
         # 名称去占位空格
         df = df.copy()
         df['name_clean'] = df['name'].astype(str).str.replace(r'\s+', '', regex=True)
@@ -200,8 +214,41 @@ class FundTracker:
             df['name'].str.contains(keyword.strip(), na=False, case=False) |
             df['management'].str.contains(keyword.strip(), na=False, case=False)
         )
-        result = df[mask].head(limit)
-        return result.fillna('').to_dict(orient='records')
+        result = df[mask].head(limit).fillna('').to_dict(orient='records')
+
+        # ── 精确代码回退：仅在 6 位数字场外代码 + 模糊搜索无结果时触发 ──
+        if not result and self._OTC_CODE_RE.match(kw):
+            fallback = self._fetch_fund_by_exact_code(kw)
+            if fallback:
+                result = [fallback]
+
+        return result
+
+    def _fetch_fund_by_exact_code(self, code6: str) -> dict | None:
+        """精确代码回退：直接调用 Tushare 查 6 位场外代码。
+
+        仅作本次搜索补漏，结果不写本地缓存（避免污染 fund_basic 全量缓存）。
+        """
+        ts_code = f'{code6}.OF'
+        try:
+            self._throttle()
+            pro = self._get_pro()
+            df = pro.fund_basic(
+                ts_code=ts_code,
+                fields='ts_code,name,management,fund_type,index_code,index_name,status,list_date,delist_date',
+            )
+        except Exception as e:
+            print(f'[FundTracker] exact-code fallback({ts_code}) error: {e}')
+            return None
+        if df is None or df.empty:
+            return None
+        rec = df.iloc[0].fillna('').to_dict()
+        # 字段统一（与缓存列保持一致）
+        for col in ('ts_code', 'name', 'management', 'fund_type',
+                    'index_code', 'index_name', 'status',
+                    'list_date', 'delist_date'):
+            rec.setdefault(col, '')
+        return rec
 
     def get_fund_meta(self, ts_code: str) -> dict | None:
         """获取单只基金的完整基础信息（含 index_code / index_name）。"""
