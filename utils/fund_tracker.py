@@ -9,7 +9,8 @@
 
 缓存策略：
     - 基金基础信息按交易日缓存（仅交易日更新，避免节假日的脏数据）
-    - 基金日线行情缓存到 data/fund_tracker_cache/funds/ 目录
+    - 场内 ETF（.SH / .SZ） 日线通过 Tushare fund_daily 抓取
+    - 场外基金（.OF）**完全不落盘**，仅依赖浏览器端 localStorage + 同源代理 /api/fund_eastmoney 抓取
     - 指数日线行情缓存到 data/fund_tracker_cache/indexes/ 目录
     - 每次刷新只增量拉取最近 5 个交易日的数据
 
@@ -69,9 +70,8 @@ class FundTracker:
         self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.data_dir = os.path.join(self.base_dir, 'data')
         self.cache_dir = os.path.join(self.data_dir, 'fund_tracker_cache')
-        self.fund_cache_dir = os.path.join(self.cache_dir, 'funds')
+        # 场外 OF 基金**不落盘**：服务端不再创建 funds/ 目录；也不读取任何 *.csv 缓存。
         self.index_cache_dir = os.path.join(self.cache_dir, 'indexes')
-        os.makedirs(self.fund_cache_dir, exist_ok=True)
         os.makedirs(self.index_cache_dir, exist_ok=True)
 
         self._pro = None
@@ -713,8 +713,12 @@ class FundTracker:
     # =================================================================
 
     def _fund_cache_path(self, ts_code: str) -> str:
+        # 场外 OF（.OF）**绝不写盘**：返回一个永远不存在的路径，
+        # 让 load_fund_history 一定返回空 df；update_fund_history 也不会再 to_csv。
+        if ts_code and ts_code.endswith('.OF'):
+            return os.path.join(self.cache_dir, '_never_written_of', f'{ts_code.replace(".", "_")}.csv')
         safe = ts_code.replace('.', '_')
-        return os.path.join(self.fund_cache_dir, f'{safe}.csv')
+        return os.path.join(self.cache_dir, 'funds', f'{safe}.csv')
 
     def _normalize_trade_date(self, df: pd.DataFrame) -> pd.DataFrame:
         """统一把 trade_date 列转成 datetime64（兼容 YYYYMMDD 字符串 / 时间戳 / 已是 datetime）。"""
@@ -728,7 +732,14 @@ class FundTracker:
         return df
 
     def load_fund_history(self, ts_code: str) -> pd.DataFrame:
-        """加载本地缓存的基金日线历史（含 trade_date / close / pct_chg 等）。"""
+        """加载本地缓存的基金日线历史。
+
+        场外 OF（.OF）：**绝不读盘**，永远返回空 df；数据由浏览器端 fetch /api/fund_eastmoney
+        后通过 fund_overrides 传入 get_subs_performance。
+        场内 ETF（.SH / .SZ）：读取 data/fund_tracker_cache/funds/<ts_code>.csv。
+        """
+        if ts_code and ts_code.endswith('.OF'):
+            return pd.DataFrame()
         path = self._fund_cache_path(ts_code)
         if not os.path.exists(path):
             return pd.DataFrame()
@@ -745,62 +756,13 @@ class FundTracker:
     # 400 天 ≈ 280 交易日，覆盖近 60 日 + 年内（年初至今）
     _CACHE_MIN_DAYS = 400
 
-    def _fetch_eastmoney_fund_history(self, fund_code: str) -> pd.DataFrame:
-        """从天天基金（fund.eastmoney.com）拉取基金净值历史，返回标准化 df。
-
-        fund_code: 6 位基金代号，如 '019889'（不含市场后缀）
-        返回：trade_date / open / high / low / close / pct_chg / volume 等列
-              （其中 open/high/low/volume 在场外基金无数据 → NaN；close = 单位净值）
-        """
-        if not fund_code or len(fund_code) != 6 or not fund_code.isdigit():
-            return pd.DataFrame()
-        url = f'http://fund.eastmoney.com/pingzhongdata/{fund_code}.js'
-        try:
-            res = requests.get(url, timeout=8,
-                               headers={'User-Agent': 'Mozilla/5.0', 'Referer': 'http://fund.eastmoney.com/'})
-            text = res.text
-        except Exception as e:
-            print(f'[FundTracker] eastmoney fetch error: {e}')
-            return pd.DataFrame()
-
-        # 解析 Data_netWorthTrend = [{x: ms, y: unitNAV, equityReturn: pct, unitMoney: ''}, ...]
-        import re
-        m = re.search(r'Data_netWorthTrend\s*=\s*(\[.*?\]);', text, re.DOTALL)
-        if not m:
-            print(f'[FundTracker] eastmoney: netWorthTrend not found for {fund_code}')
-            return pd.DataFrame()
-        try:
-            data = json.loads(m.group(1))
-        except Exception as e:
-            print(f'[FundTracker] eastmoney: parse netWorthTrend error: {e}')
-            return pd.DataFrame()
-        if not data:
-            return pd.DataFrame()
-
-        rows = []
-        for entry in data:
-            try:
-                ts_ms = int(entry.get('x', 0))
-                nav = float(entry.get('y', 0))
-                pct = float(entry.get('equityReturn', 0) or 0)
-                if ts_ms <= 0 or nav <= 0:
-                    continue
-                d = datetime.datetime.utcfromtimestamp(ts_ms / 1000.0).date()
-                rows.append({
-                    'trade_date': d.strftime('%Y%m%d'),
-                    'close': nav,
-                    'pct_chg': pct,
-                })
-            except Exception:
-                continue
-        if not rows:
-            return pd.DataFrame()
-        df = pd.DataFrame(rows)
-        df = df.drop_duplicates(subset=['trade_date']).sort_values('trade_date').reset_index(drop=True)
-        return df
+    # ── 服务端不再抓取/缓存场外 OF ──
+    # 场外 .OF 基金的净值历史完全交给浏览器：_browser_fetch_fund 通过本地代理
+    # /api/fund_eastmoney/{code} 在浏览器侧拉取 -> 写入 localStorage（TTL=1h）
+    # -> 通过 refresh_performance(..., fund_overrides=...) 回传给服务端消费。
 
     def _is_eastmoney_only(self, ts_code: str) -> bool:
-        """判断该基金是否只能用天天基金（场外 OF，Tushare 无数据）。"""
+        """保留供兼容；OF 仍走服务端不抓取的策略，但用此标志防止下游误拉网络。"""
         if not ts_code:
             return False
         return ts_code.endswith('.OF')
@@ -809,8 +771,9 @@ class FundTracker:
         """增量更新单只基金日线（仅拉取最近 lookback_days 个交易日）。
 
         数据源策略：
-          - 场内 ETF（.SH / .SZ） → 优先 Tushare fund_daily
-          - 场外 OF → Tushare 不支持，自动走天天基金 pingzhongdata/{code}.js
+          - 场内 ETF（.SH / .SZ） → Tushare fund_daily
+          - 场外 OF（.OF） → **服务端不抓、不落盘**；数据由浏览器侧 fetch /api/fund_eastmoney
+            回传，详见 _browser_fetch_fund（pages/fund_tracker_component.py）。
 
         缓存策略：
           - 保留窗口固定为最近 _CACHE_MIN_DAYS 天，不会随 lookback_days 收缩
@@ -822,28 +785,10 @@ class FundTracker:
         # 本次需要的日历日窗口（lookback_days*4 换算成日历日，留 60% 缓冲）
         needed_calendar_start = today - datetime.timedelta(days=max(lookback_days * 4, self._CACHE_MIN_DAYS))
 
-        # ── 天天基金路径（场外 OF） ──
+        # ── 场外 OF：服务端完全不抓、不落盘 ──
+        # 数据完全交给浏览器端的 _browser_fetch_fund → localStorage → fund_overrides。
         if self._is_eastmoney_only(ts_code):
-            fund_code = ts_code.split('.')[0]
-            # 如果缓存已经覆盖到所需窗口起点，就跳过网络请求
-            if not cached.empty and cached['trade_date'].min().date() <= needed_calendar_start:
-                return cached
-            df_new = self._fetch_eastmoney_fund_history(fund_code)
-            if df_new is None or df_new.empty:
-                return cached
-            # 给 df_new 补齐 ts_code 列以保持一致
-            df_new['ts_code'] = ts_code
-            merged = pd.concat([cached, df_new], ignore_index=True)
-            merged = self._normalize_trade_date(merged)
-            merged = merged.drop_duplicates(subset=['trade_date']).sort_values('trade_date').reset_index(drop=True)
-            if not merged.empty:
-                cutoff = datetime.datetime.combine(today, datetime.time()) - datetime.timedelta(days=self._CACHE_MIN_DAYS)
-                merged = merged[merged['trade_date'] >= cutoff]
-            try:
-                merged.to_csv(self._fund_cache_path(ts_code), index=False)
-            except Exception as e:
-                print(f'[FundTracker] save fund cache error: {e}')
-            return merged
+            return pd.DataFrame()
 
         # ── Tushare 路径（场内 ETF） ──
         pro = self._get_pro()
@@ -886,6 +831,9 @@ class FundTracker:
             cutoff = datetime.datetime.combine(today, datetime.time()) - datetime.timedelta(days=self._CACHE_MIN_DAYS)
             merged = merged[merged['trade_date'] >= cutoff]
 
+        # 防御：OF 再次兜底，绝不写盘
+        if ts_code and ts_code.endswith('.OF'):
+            return merged
         try:
             merged.to_csv(self._fund_cache_path(ts_code), index=False)
         except Exception as e:
@@ -1155,29 +1103,49 @@ class FundTracker:
             'valid_count': len(fund_pcts),
         }
 
-        # as_of_date: 优先用 override 的最新日期；其次服务端缓存
-        as_of = None
+        # as_of_date: 取所有数据源最新交易日的最大值（基金 override / 服务端缓存 / 4 大指数）。
+        # 这样即使某一支基金缓存滞后或浏览器抓取日期异常，也不会让"快照日期"停留在旧的某一天。
+        as_of_candidates: list[datetime.date] = []
+
+        # 1) 浏览器 override（场外 .OF 基金从天天基金预拉的最近一天）
+        for ts_code, rows_list in fund_overrides.items():
+            if not rows_list:
+                continue
+            for entry in reversed(rows_list):
+                last_raw = entry.get('date') if isinstance(entry, dict) else None
+                if not last_raw or len(str(last_raw)) < 8:
+                    continue
+                s = str(last_raw)
+                try:
+                    as_of_candidates.append(datetime.date(int(s[:4]), int(s[4:6]), int(s[6:8])))
+                except (TypeError, ValueError):
+                    continue
+                break
+
+        # 2) 服务端基金 CSV 缓存
         for r in rows:
-            if r['fund_pct'] is not None:
-                ts_code = r['fund_ts_code']
-                if ts_code in fund_overrides and fund_overrides[ts_code]:
-                    try:
-                        last_raw = fund_overrides[ts_code][-1].get('date')
-                        if last_raw:
-                            as_of = f"{last_raw[:4]}-{last_raw[4:6]}-{last_raw[6:8]}"
-                            break
-                    except Exception:
-                        pass
-                d = self.load_fund_history(ts_code)
-                if not d.empty:
-                    as_of = d['trade_date'].max().strftime('%Y-%m-%d')
-                    break
-        if as_of is None:
-            for ic in indexes_compare:
-                if ic.get('last_date'):
-                    as_of = ic['last_date']
-                    break
-        if as_of is None:
+            ts_code = r.get('fund_ts_code')
+            if not ts_code:
+                continue
+            d = self.load_fund_history(ts_code)
+            if not d.empty:
+                try:
+                    as_of_candidates.append(d['trade_date'].max().date())
+                except AttributeError:
+                    as_of_candidates.append(d['trade_date'].max().to_pydatetime().date())
+
+        # 3) 4 大指数缓存（最权威兜底；指数每日都刷新，落后概率极低）
+        for ic in indexes_compare:
+            ld = ic.get('last_date')
+            if ld:
+                try:
+                    as_of_candidates.append(datetime.date.fromisoformat(ld))
+                except (TypeError, ValueError):
+                    continue
+
+        if as_of_candidates:
+            as_of = max(as_of_candidates).strftime('%Y-%m-%d')
+        else:
             as_of = datetime.date.today().strftime('%Y-%m-%d')
 
         return {
