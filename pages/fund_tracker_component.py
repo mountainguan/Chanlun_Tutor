@@ -599,43 +599,56 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
 
         client: 传入 ui.context.client 以保留 UI 上下文（asyncio.create_task 时必需）
         """
-        js_code = (
-            '(async () => {'
-            '  const KEY = "fund_em_" + ' + json.dumps(code6) + ';'
-            '  const TTL = 60*60*1000;'
-            '  try {'
-            '    const cached = localStorage.getItem(KEY);'
-            '    if (cached) {'
-            '      const obj = JSON.parse(cached);'
-            '      if (obj && obj.ts && (Date.now()-obj.ts) < TTL && Array.isArray(obj.data) && obj.data.length) {'
-            '        return obj.data;'
-            '      }'
-            '    }'
-            '    const resp = await fetch("/api/fund_eastmoney/" + ' + json.dumps(code6) + ');'
-            '    if (!resp.ok) throw new Error("HTTP " + resp.status);'
-            '    const payload = await resp.json();'
-            '    if (payload && payload.__error) throw new Error(payload.__error);'
-            '    const arr = payload && payload.ts ? payload.ts : [];'
-            '    const out = [];'
-            '    for (const e of arr) {'
-            '      const ts = parseInt(e.x, 10); const nav = parseFloat(e.y); const pct = parseFloat(e.equityReturn||0);'
-            '      if (!ts || !nav) continue;'
-            '      // 天天基金 x 是"北京时间当日 00:00"的毫秒戳，按 UTC 读取会少 8 小时、跨日错位。'
-            '      // 补偿 +8h 后再按 UTC 取年月日，等价于按 Asia/Shanghai 取当日日期。'
-            '      const bj = new Date(ts + 8 * 3600 * 1000);'
-            '      const date = bj.getUTCFullYear() + String(bj.getUTCMonth()+1).padStart(2,"0") + String(bj.getUTCDate()).padStart(2,"0");'
-            '      out.push({ date: date, close: nav, pct_chg: isNaN(pct)?0:pct });'
-            '    }'
-            '    try { localStorage.setItem(KEY, JSON.stringify({ ts: Date.now(), data: out })); } catch(e){}'
-            '    return out;'
-            '  } catch(err) {'
-            '    return { __error: String(err) };'
-            '  }'
-            '})()'
-        )
+        # 通过反斜杠转义双引号，保证 JS 字符串在 IIFE 里语法正确。
+        js_code = f'''
+(async () => {{
+  const CODE = "{code6}";
+  const KEY = "fund_em_" + CODE;
+  const TTL = 60 * 60 * 1000;
+  try {{
+    const cached = localStorage.getItem(KEY);
+    if (cached) {{
+      const obj = JSON.parse(cached);
+      if (obj && obj.ts && (Date.now() - obj.ts) < TTL && Array.isArray(obj.data) && obj.data.length) {{
+        return obj.data;
+      }}
+    }}
+    // AbortController 防止代理端拖到 15s+ 仍然“JavaScript did not respond”
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    let resp;
+    try {{
+      resp = await fetch("/api/fund_eastmoney/" + CODE, {{ signal: controller.signal }});
+    }} finally {{
+      clearTimeout(timer);
+    }}
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const payload = await resp.json();
+    if (payload && payload.__error) throw new Error(payload.__error);
+    const arr = (payload && payload.ts) ? payload.ts : [];
+    const out = [];
+    for (const e of arr) {{
+      const ts = parseInt(e.x, 10);
+      const nav = parseFloat(e.y);
+      const pct = parseFloat(e.equityReturn || 0);
+      if (!ts || !nav) continue;
+      const bj = new Date(ts + 8 * 3600 * 1000);
+      const date = bj.getUTCFullYear()
+        + String(bj.getUTCMonth() + 1).padStart(2, "0")
+        + String(bj.getUTCDate()).padStart(2, "0");
+      out.push({{ date: date, close: nav, pct_chg: isNaN(pct) ? 0 : pct }});
+    }}
+    try {{ localStorage.setItem(KEY, JSON.stringify({{ ts: Date.now(), data: out }})); }} catch (e) {{}}
+    return out;
+  }} catch (err) {{
+    return {{ __error: String(err && err.message || err) }};
+  }}
+}})()
+'''.strip()
         run_fn = (client.run_javascript if client is not None else ui.run_javascript)
         try:
-            result = await run_fn(js_code, timeout=15.0)
+            # 12s：覆盖一次代理端 4s + JSON 解析 + 网络抖动；超过 12s 多半是 agent / event loop 阻塞
+            result = await run_fn(js_code, timeout=12.0)
             if isinstance(result, dict) and '__error' in result:
                 print(f'[FundTracker] browser fetch {code6} error: {result["__error"]}')
                 return None

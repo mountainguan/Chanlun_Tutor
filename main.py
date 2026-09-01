@@ -97,18 +97,22 @@ app.add_static_files('/static', os.path.join(BASE_DIR, 'static'))
 # 浏览器 fetch('http://fund.eastmoney.com/...') 会被 CORS 拦截，
 # 通过本接口做同源代理，浏览器拿到数据后可缓存到 localStorage。
 @app.get('/api/fund_eastmoney/{code}')
-def fund_eastmoney_proxy(code: str):
+async def fund_eastmoney_proxy(code: str):  # async 让 pingzhongdata 同步阻塞时不拖整个 event loop → 浏览器侧 fetch 才不会因前一次请求迟迟拿不到响应而间接“超时”
     """代理天天基金 pingzhongdata，返回 Data_netWorthTrend 解析后的 JSON。"""
     import re as _re
-    import requests as _requests
+    import json as _json
+    import httpx
     # 校验 code 必须是 6 位数字
     if not code or len(code) != 6 or not code.isdigit():
         return {'__error': 'invalid code'}
     url = f'http://fund.eastmoney.com/pingzhongdata/{code}.js'
     try:
-        resp = _requests.get(url, timeout=6,
-                             headers={'User-Agent': 'Mozilla/5.0',
-                                      'Referer': 'http://fund.eastmoney.com/'})
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            resp = await client.get(
+                url,
+                headers={'User-Agent': 'Mozilla/5.0',
+                         'Referer': 'http://fund.eastmoney.com/'},
+            )
         text = resp.text
     except Exception as e:
         return {'__error': f'fetch failed: {e}'}
@@ -116,7 +120,6 @@ def fund_eastmoney_proxy(code: str):
     if not m:
         return {'__error': 'netWorthTrend not found'}
     try:
-        import json as _json
         arr = _json.loads(m.group(1))
     except Exception as e:
         return {'__error': f'parse failed: {e}'}
