@@ -15,9 +15,18 @@ from nicegui import ui
 import json
 import asyncio
 import datetime
+import re
 from concurrent.futures import ThreadPoolExecutor
 
 from utils.fund_tracker import FundTracker
+from utils.fund_tracker import (
+    compute_multi_period_excess,
+    detect_deviation_alerts_v2,
+    aggregate_by_tag,
+    build_llm_prompt_payload,
+    LLM_SYSTEM_PROMPT,
+    DEVIATION_RULES,
+)
 
 executor = ThreadPoolExecutor(max_workers=2)
 
@@ -47,7 +56,7 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
 
     # ── 视图状态 ─────────────────────────────────────
     state = {
-        'subs': [],                # [{ts_code, name, index_code, index_name, added_at}]
+        'subs': [],                # [{ts_code, name, index_code, index_name, tags, added_at}]
         'period': '1d',            # 当前对比周期：1d / 5d / 20d / 60d / ytd
         'search_keyword': '',
         'search_results': [],
@@ -57,6 +66,9 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
         'auto_reload_after_add': True,
         'fund_overrides': {},      # {ts_code: [{date: 'YYYY-MM-DD', close: float, pct_chg: float}, ...]}
                                   # 由浏览器 fetch 天天基金后回填，绕过服务端
+        'selected_tags': set(),    # 用户勾选的标签过滤集合；空集合表示「全部」
+        'deviation_alerts': [],    # 最新一次 detect_deviation_alerts_v2 结果
+        'multi_period_data': None, # compute_multi_period_excess 结果（5d/10d/20d 超额）
     }
 
     # ── UI 容器引用 ──────────────────────────────────
@@ -69,12 +81,60 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
     add_dialog = None
     add_dialog_body = None
     period_buttons = {}
+    tag_filter_container = None    # 标签筛选条
+    deviation_container = None     # 单只基金偏离值提示面板
+    llm_container = None           # MiniMax 板块偏离智能分析面板
+    scale_overview_container = None  # 规模双因子总览面板
 
     # ── localStorage 读写 ───────────────────────────────
 
     def save_subs():
         js_val = json.dumps(state['subs'], ensure_ascii=False)
         ui.run_javascript(f'localStorage.setItem({json.dumps(LS_KEY_SUBS)}, {json.dumps(js_val)})')
+
+    # ── 标签工具函数 ─────────────────────────────
+
+    def _normalize_tags(raw) -> list[str]:
+        """把多种来源（逗号字符串 / 列表 / 含空格）规范化：去空、去重、保持顺序。"""
+        if not raw:
+            return []
+        items: list[str] = []
+        if isinstance(raw, str):
+            # 支持中文逗号 / 英文逗号 / 顿号 / 空格
+            tokens = re.split(r'[,，、\s]+', raw)
+            items = [t.strip() for t in tokens]
+        elif isinstance(raw, (list, tuple, set)):
+            for t in raw:
+                items.extend(re.split(r'[,，、\s]+', str(t)))
+                items.append(t if isinstance(t, str) else '')
+            items = [t.strip() for t in items if isinstance(t, str)]
+        seen = set()
+        out = []
+        for t in items:
+            if not t or t in seen:
+                continue
+            seen.add(t)
+            out.append(t)
+        return out
+
+    def _all_tags() -> list[str]:
+        """聚合当前所有订阅基金的标签全集（按字母序 + 出现频次）。"""
+        counter: dict[str, int] = {}
+        for s in state['subs']:
+            for t in (s.get('tags') or []):
+                t = (t or '').strip()
+                if not t:
+                    continue
+                counter[t] = counter.get(t, 0) + 1
+        # 频次降序，相同频次按字母序
+        return sorted(counter.keys(), key=lambda x: (-counter[x], x))
+
+    def _filter_subs(subs: list) -> list:
+        """按 state['selected_tags'] 过滤；空集 → 全部。"""
+        sel = state.get('selected_tags') or set()
+        if not sel:
+            return list(subs)
+        return [s for s in subs if sel.intersection(s.get('tags') or [])]
 
     async def load_subs_from_browser():
         try:
@@ -94,8 +154,11 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
 
     # ── 操作：添加基金 ───────────────────────────────
 
-    def add_sub(rec: dict, override_index_code: str = '', override_index_name: str = ''):
-        """rec 来自 search_results 单条记录（dict）。override_* 用于用户在添加对话框里手动改对标指数。"""
+    def add_sub(rec: dict, override_index_code: str = '', override_index_name: str = '',
+                tags: list[str] | None = None):
+        """rec 来自 search_results 单条记录（dict）。override_* 用于用户在添加对话框里手动改对标指数。
+        tags: 用户填的自定义标签列表（已规范化去重）。
+        """
         ts_code = rec.get('ts_code', '')
         if not ts_code:
             ui.notify('基金代码无效', type='negative')
@@ -113,17 +176,24 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
             'index_name': idx_name,
             'management': (rec.get('management') or '').strip(),
             'fund_type': (rec.get('fund_type') or '').strip(),
+            'tags': _normalize_tags(tags or []),
             'added_at': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         }
         state['subs'].append(sub)
         save_subs()
         refresh_sub_list()
+        # 标签全集变了，重建筛选器
+        refresh_tag_filter()
         return True, '已添加'
 
     def remove_sub(ts_code: str):
         state['subs'] = [s for s in state['subs'] if s.get('ts_code') != ts_code]
+        # 顺手清理已不存在的标签筛选
+        all_now = set(_all_tags())
+        state['selected_tags'] = state['selected_tags'] & all_now
         save_subs()
         refresh_sub_list()
+        refresh_tag_filter()
         # 删除后无需立刻刷新表现（用户可能还要继续删），由用户主动刷新
 
     # ── 搜索 ─────────────────────────────────────
@@ -230,7 +300,7 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
         if add_dialog is None:
             return
         add_dialog.clear()
-        with add_dialog, ui.card().classes('w-[480px] max-w-[95vw] p-0 rounded-xl overflow-hidden'):
+        with add_dialog, ui.card().classes('w-[560px] max-w-[95vw] p-0 rounded-xl overflow-hidden'):
             # 标题栏
             with ui.row().classes('w-full items-center gap-2 px-5 py-3 bg-indigo-50 border-b border-indigo-100'):
                 ui.icon('add_circle', color='indigo').classes('text-xl')
@@ -281,6 +351,75 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
                     if custom_row is not None:
                         custom_row.classes('w-full hidden', remove='w-full')
 
+                # ── 标签输入区 ─────────────────────
+                # 当前已填的标签（chip 列表 + 可删除）
+                tags_state: list[str] = []
+                tags_chips_row = ui.row().classes('w-full flex-wrap gap-1 min-h-[28px]')
+                tag_suggest_row = ui.row().classes('w-full flex-wrap gap-1 items-center')
+
+                def _render_tags_chips():
+                    if tags_chips_row is None:
+                        return
+                    tags_chips_row.clear()
+                    with tags_chips_row:
+                        if not tags_state:
+                            ui.label('（暂无标签）').classes('text-[11px] text-gray-400 italic')
+                        for t in tags_state:
+                            with ui.row().classes('items-center gap-1 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full'):
+                                ui.label(t).classes('text-xs font-medium text-indigo-700')
+                                # 删除按钮
+                                ui.icon('close', size='xs') \
+                                    .classes('cursor-pointer text-indigo-400 hover:text-rose-500') \
+                                    .on('click', lambda _, tag=t: (tags_state.remove(tag), _render_tags_chips(), _maybe_refresh_suggest()))
+
+                def _commit_tag_input(text: str):
+                    new = _normalize_tags(text)
+                    if not new:
+                        return
+                    added = 0
+                    for t in new:
+                        if t not in tags_state:
+                            tags_state.append(t)
+                            added += 1
+                    if added:
+                        _render_tags_chips()
+                        _maybe_refresh_suggest()
+
+                def _maybe_refresh_suggest():
+                    # 输入框清空后刷新建议条（已选的就不重复建议）
+                    if tag_suggest_row is None:
+                        return
+                    tag_suggest_row.clear()
+                    with tag_suggest_row:
+                        others = [t for t in _all_tags() if t not in tags_state]
+                        if others:
+                            ui.label('复用已有标签:').classes('text-[10px] text-gray-400 mr-1')
+                            for t in others[:12]:
+                                ui.button(t,
+                                          on_click=lambda _, tag=t: _commit_tag_input(tag)) \
+                                    .props('flat dense no-caps size=sm color=indigo-3') \
+                                    .classes('text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-full px-2')
+
+                with ui.column().classes('w-full gap-1'):
+                    ui.label('标签（板块/概念分组）').classes('text-xs text-gray-500 font-semibold')
+                    tag_input = ui.input(
+                        placeholder='输入标签后回车或逗号确认；如 白酒、消费、长线',
+                    ).props('outlined dense clearable').classes('w-full')
+
+                    def _on_tag_input_keydown(e):
+                        # Enter / 中文逗号 / 英文逗号 → 提交
+                        if e.args.get('key') in ('Enter', ',', '，'):
+                            text = (tag_input.value or '').strip()
+                            if text:
+                                _commit_tag_input(text)
+                                tag_input.value = ''
+
+                    tag_input.on('keydown', _on_tag_input_keydown)
+                    tag_input.on('blur', lambda: _commit_tag_input(tag_input.value or ''))
+
+                _render_tags_chips()
+                _maybe_refresh_suggest()
+
                 with ui.row().classes('w-full justify-end gap-2 mt-2'):
                     ui.button('取消', on_click=lambda: add_dialog.close()).props('flat color=grey')
                     ui.button('确认添加', icon='check',
@@ -290,7 +429,8 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
                                       index_select.value or '',
                                       custom_code_input.value if custom_code_input else '',
                                       custom_name_input.value if custom_name_input else '',
-                                  )
+                                  ),
+                                  tags=list(tags_state),
                               )).props('unelevated color=indigo')
         # 渲染完表单再打开 dialog（NiceGUI 必须在内容就绪后 open）
         add_dialog.open()
@@ -314,6 +454,8 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
         if sub_list_container is None:
             return
         sub_list_container.clear()
+        # 同时刷新顶部标签筛选条
+        refresh_tag_filter()
         with sub_list_container:
             if not state['subs']:
                 with ui.column().classes('w-full items-center justify-center py-8 gap-2'):
@@ -321,8 +463,24 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
                     ui.label('暂无订阅').classes('text-sm text-gray-400')
                     ui.label('在上方搜索框输入代码或名称来添加').classes('text-xs text-gray-400')
                 return
+            visible = _filter_subs(state['subs'])
+            with ui.row().classes('w-full items-center justify-between px-1 mb-1'):
+                ui.label(
+                    f'共 {len(state["subs"])} 只'
+                    + (f' · 已筛选 {len(visible)} 只' if len(visible) != len(state['subs']) else '')
+                ).classes('text-[10px] text-gray-400 font-mono')
+                if state['selected_tags']:
+                    ui.button('清除筛选', icon='filter_alt_off',
+                              on_click=lambda: clear_tag_filter()) \
+                        .props('flat dense no-caps size=sm color=grey-5') \
+                        .classes('text-[10px]')
+            if not visible:
+                ui.label('当前筛选下没有匹配的订阅').classes(
+                    'text-xs text-gray-400 text-center py-4'
+                )
+                return
             with ui.column().classes('w-full gap-2 max-h-[480px] overflow-y-auto'):
-                for sub in state['subs']:
+                for sub in visible:
                     render_sub_row(sub)
 
     def render_sub_row(sub: dict):
@@ -331,25 +489,190 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
             'bg-white border border-gray-100 hover:border-indigo-200 hover:shadow-sm '
             'transition-all'
         ):
-            with ui.column().classes('gap-0 flex-1 min-w-0'):
+            with ui.column().classes('gap-1 flex-1 min-w-0'):
                 with ui.row().classes('items-center gap-2'):
                     ui.label(sub.get('name') or sub.get('ts_code', '')).classes(
                         'text-sm font-semibold text-gray-800 truncate'
                     )
-                with ui.row().classes('items-center gap-2 text-[11px] text-gray-500'):
+                with ui.row().classes('items-center gap-2 text-[11px] text-gray-500 flex-wrap'):
                     ui.label(sub.get('ts_code', '')).classes('font-mono')
                     if sub.get('index_code'):
                         ui.label('·').classes('text-gray-300')
                         ui.label(f'对标: {sub.get("index_name") or sub.get("index_code")}').classes(
                             'text-indigo-600 truncate max-w-44'
                         )
+                    # 标签 chip 行（点击切换筛选）
+                    sub_tags = sub.get('tags') or []
+                    for t in sub_tags:
+                        sel = t in state['selected_tags']
+                        ui.button(
+                            t,
+                            icon='check' if sel else 'label',
+                            on_click=lambda _, tag=t: toggle_tag(tag),
+                        ).props('flat dense no-caps size=sm color=indigo-3' if sel else 'flat dense no-caps size=sm') \
+                         .classes(
+                             'text-[10px] rounded-full px-2 '
+                             + ('bg-indigo-600 text-white'
+                                if sel else 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100')
+                         )
             with ui.row().classes('items-center gap-1'):
+                ui.button('标签', icon='sell',
+                          on_click=lambda s=dict(sub): open_tags_dialog(s)) \
+                    .props('flat dense no-caps color=indigo').classes('text-xs')
                 ui.button('规模', icon='donut_small',
                           on_click=lambda s=dict(sub): open_scale_dialog(s)) \
                     .props('flat dense no-caps color=indigo').classes('text-xs')
                 ui.button(icon='delete_outline',
                           on_click=lambda c=sub.get('ts_code'): remove_sub(c)) \
                     .props('flat dense round color=grey').classes('text-gray-400 hover:text-red-500')
+
+    # ── 标签筛选逻辑 ─────────────────────────────
+
+    def toggle_tag(tag: str):
+        sel = state['selected_tags']
+        if tag in sel:
+            sel.discard(tag)
+        else:
+            sel.add(tag)
+        refresh_sub_list()
+
+    def clear_tag_filter():
+        state['selected_tags'].clear()
+        refresh_sub_list()
+
+    def refresh_tag_filter():
+        if tag_filter_container is None:
+            return
+        all_tags = _all_tags()
+        sel = state['selected_tags']
+        tag_filter_container.clear()
+        with tag_filter_container:
+            if not all_tags:
+                return
+            with ui.row().classes('w-full flex-wrap gap-1 items-center'):
+                ui.label('标签筛选:').classes('text-[10px] text-gray-400 mr-1')
+                # 「全部」按钮
+                ui.button('全部',
+                          icon='all_inclusive',
+                          on_click=clear_tag_filter) \
+                    .props('flat dense no-caps size=sm') \
+                    .classes(
+                        'text-[10px] rounded-full px-2 '
+                        + ('bg-slate-700 text-white'
+                           if not sel else 'bg-slate-100 text-slate-600 hover:bg-slate-200')
+                    )
+                for t in all_tags:
+                    active = t in sel
+                    ui.button(t,
+                              icon='check' if active else 'label_outline',
+                              on_click=lambda _, tag=t: toggle_tag(tag)) \
+                        .props('flat dense no-caps size=sm color=indigo-3') \
+                        .classes(
+                            'text-[10px] rounded-full px-2 '
+                            + ('bg-indigo-600 text-white'
+                               if active else 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100')
+                        )
+
+    # ── 编辑标签对话框 ─────────────────────────────
+
+    tags_dialog = None
+    tags_dialog_body = None
+
+    def open_tags_dialog(sub: dict):
+        """在订阅列表上点击「标签」时弹出，与添加对话框相同的交互。"""
+        nonlocal tags_dialog, tags_dialog_body
+        if tags_dialog is None:
+            tags_dialog = ui.dialog().classes('items-center')
+            tags_dialog_body = ui.column().classes('w-full')
+
+        ts_code = sub.get('ts_code', '')
+        name = sub.get('name') or ts_code
+        # 本地副本（确认后才写回 state['subs']）
+        editing_tags: list[str] = list(sub.get('tags') or [])
+
+        tags_dialog.clear()
+        with tags_dialog, ui.card().classes('w-[520px] max-w-[95vw] p-0 rounded-xl overflow-hidden'):
+            with ui.row().classes('w-full items-center gap-2 px-5 py-3 bg-indigo-50 border-b border-indigo-100'):
+                ui.icon('sell', color='indigo').classes('text-xl')
+                with ui.column().classes('gap-0'):
+                    ui.label('编辑标签').classes('text-base font-bold text-indigo-700')
+                    ui.label(f'{name} · {ts_code}').classes('text-[10px] text-indigo-400 font-mono')
+
+            body = ui.column().classes('w-full p-5 gap-3')
+            tags_dialog_body = body
+
+            with body:
+                chips_row = ui.row().classes('w-full flex-wrap gap-1 min-h-[28px]')
+                suggest_row = ui.row().classes('w-full flex-wrap gap-1 items-center')
+
+                def _render():
+                    chips_row.clear()
+                    with chips_row:
+                        if not editing_tags:
+                            ui.label('（暂无标签）').classes('text-[11px] text-gray-400 italic')
+                        for t in editing_tags:
+                            with ui.row().classes('items-center gap-1 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full'):
+                                ui.label(t).classes('text-xs font-medium text-indigo-700')
+                                ui.icon('close', size='xs') \
+                                    .classes('cursor-pointer text-indigo-400 hover:text-rose-500') \
+                                    .on('click', lambda _, tag=t: (
+                                        editing_tags.remove(tag), _render(), _refresh_suggest()))
+
+                def _commit(text: str):
+                    new = _normalize_tags(text)
+                    added = 0
+                    for t in new:
+                        if t not in editing_tags:
+                            editing_tags.append(t)
+                            added += 1
+                    if added:
+                        _render()
+                        _refresh_suggest()
+
+                def _refresh_suggest():
+                    suggest_row.clear()
+                    with suggest_row:
+                        others = [t for t in _all_tags() if t not in editing_tags]
+                        if others:
+                            ui.label('复用已有标签:').classes('text-[10px] text-gray-400 mr-1')
+                            for t in others[:12]:
+                                ui.button(t,
+                                          on_click=lambda _, tag=t: (_commit(tag), tag_input.set_value(''))) \
+                                    .props('flat dense no-caps size=sm color=indigo-3') \
+                                    .classes('text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-full px-2')
+
+                tag_input = ui.input(
+                    placeholder='输入标签后回车或逗号确认',
+                ).props('outlined dense clearable').classes('w-full')
+
+                def _on_key(e):
+                    if e.args.get('key') in ('Enter', ',', '，'):
+                        text = (tag_input.value or '').strip()
+                        if text:
+                            _commit(text)
+                            tag_input.value = ''
+                tag_input.on('keydown', _on_key)
+                tag_input.on('blur', lambda: _commit(tag_input.value or ''))
+
+                _render()
+                _refresh_suggest()
+
+                with ui.row().classes('w-full justify-end gap-2 mt-2'):
+                    ui.button('取消', on_click=lambda: tags_dialog.close()).props('flat color=grey')
+                    def _save():
+                        # 找到订阅并写回 tags
+                        for s in state['subs']:
+                            if s.get('ts_code') == ts_code:
+                                s['tags'] = _normalize_tags(editing_tags)
+                                break
+                        save_subs()
+                        refresh_sub_list()
+                        tags_dialog.close()
+                        ui.notify('标签已更新', type='positive')
+                    ui.button('保存', icon='check', on_click=_save) \
+                        .props('unelevated color=indigo')
+
+        tags_dialog.open()
 
     # ── 规模变动双因子分析（季度） ───────────────────
 
@@ -988,6 +1311,9 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
 
                 ui.separator().classes('my-2')
 
+                # 标签筛选条（紧挨订阅列表上方）
+                tag_filter_container = ui.row().classes('w-full flex-wrap gap-1 items-center mb-2')
+
                 sub_list_container = ui.column().classes('w-full')
 
             # 右：表现对比
@@ -1039,10 +1365,54 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
             ).classes('text-[10px] text-gray-400 mb-2')
             scale_overview_container = ui.column().classes('w-full')
 
+        # ── 单只基金偏离值提示（固定阈值） ──
+        with ui.card().classes('w-full p-4 rounded-xl shadow-sm border border-rose-100'):
+            with ui.row().classes('w-full items-center justify-between mb-2 flex-wrap gap-2'):
+                with ui.row().classes('items-center gap-2'):
+                    with ui.element('div').classes('w-7 h-7 rounded-md flex items-center justify-center').style(
+                        'background: linear-gradient(135deg, #ef4444 0%, #f59e0b 100%);'
+                    ):
+                        ui.icon('priority_high', color='white').classes('text-sm')
+                    ui.label('单只基金偏离值提示').classes('text-sm font-bold text-gray-800')
+                    ui.chip('固定规则｜超额收益阈值', color='rose').props(
+                        'dense outline square'
+                    ).classes('text-[10px]')
+                with ui.row().classes('items-center gap-2'):
+                    ui.label('5日>5% / 10日>15% / 1月>20%').classes(
+                        'text-[10px] text-gray-400 font-mono'
+                    )
+            ui.label(
+                '口径：偏离 = 基金涨跌幅 − 对标指数涨跌幅（超额收益）；'
+                '命中阈值即弹出固定提示，便于一眼定位异常基金'
+            ).classes('text-[10px] text-gray-400 mb-2')
+            deviation_container = ui.column().classes('w-full')
+
+        # ── 板块偏离提示（MiniMax 智能分析） ──
+        with ui.card().classes('w-full p-4 rounded-xl shadow-sm border border-violet-100'):
+            with ui.row().classes('w-full items-center justify-between mb-2 flex-wrap gap-2'):
+                with ui.row().classes('items-center gap-2'):
+                    with ui.element('div').classes('w-7 h-7 rounded-md flex items-center justify-center').style(
+                        'background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);'
+                    ):
+                        ui.icon('psychology', color='white').classes('text-sm')
+                    ui.label('板块偏离智能分析').classes('text-sm font-bold text-gray-800')
+                    ui.chip('MiniMax Token Plan', color='violet').props(
+                        'dense outline square'
+                    ).classes('text-[10px]')
+                with ui.row().classes('items-center gap-2'):
+                    ui.button('重新分析', icon='auto_awesome',
+                              on_click=lambda: asyncio.create_task(refresh_llm_analysis(force=True))) \
+                        .props('flat dense no-caps color=violet') \
+                        .classes('text-xs')
+            ui.label(
+                '基于你的标签聚合 + 多周期超额收益，让模型先自己拆解、再下结论、最后向你提出新问题'
+            ).classes('text-[10px] text-gray-400 mb-2')
+            llm_container = ui.column().classes('w-full')
+
         # ── 底部数据源 / 提示 ──
         with ui.row().classes('w-full items-center justify-between text-[10px] text-gray-400 px-2'):
             ui.label('💡 订阅信息保存在浏览器 localStorage 中，可在多设备分别记录自己的基金清单')
-            ui.label('数据源：Tushare Pro + 天天基金')
+            ui.label('数据源：Tushare Pro + 天天基金 + MiniMax LLM')
 
     # ── 订阅基金规模双因子总览 ─────────────────────────
 
@@ -1202,6 +1572,367 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
             sanitize=False,
         )
 
+    # ── 偏离值分析（多周期超额收益 + 固定阈值检测） ──────────────
+
+    async def refresh_deviation():
+        """拉取 5d/10d/20d 的多周期超额收益 + 触发固定阈值检测 + 渲染。
+
+        严格复用浏览器已拿到的 fund_overrides：
+        - 场外 OF 基金必须先经 _browser_fetch_fund 落到 state['fund_overrides']
+        - 场内 ETF 直接走服务端 Tushare 缓存
+        """
+        if deviation_container is None:
+            return
+        if not state['subs']:
+            deviation_container.clear()
+            with deviation_container:
+                ui.label('添加订阅后将在此展示偏离值提示').classes(
+                    'text-xs text-gray-400 text-center py-4'
+                )
+            state['deviation_alerts'] = []
+            state['multi_period_data'] = None
+            return
+
+        deviation_container.clear()
+        with deviation_container:
+            with ui.row().classes('w-full items-center justify-center py-4 gap-2'):
+                ui.spinner('dots', size='sm', color='rose')
+                ui.label('正在计算偏离值…').classes('text-xs text-gray-500')
+
+        # ── 1) 先把场外 OF 的浏览器缓存补齐 ──
+        client = page_client
+        of_subs = [s for s in state['subs'] if s.get('ts_code', '').endswith('.OF')]
+        if client is not None and of_subs:
+            for sub in of_subs:
+                ts_code = sub.get('ts_code', '')
+                code6 = ts_code.split('.')[0]
+                # 已有缓存就跳过；否则去浏览器 fetch（带回 localStorage 缓存 1h）
+                if ts_code in state['fund_overrides'] and state['fund_overrides'][ts_code]:
+                    continue
+                data = await _browser_fetch_fund(code6, client=client)
+                if data:
+                    state['fund_overrides'][ts_code] = data
+
+        # ── 2) 计算多周期超额（在场外 OF 缓存就绪后） ──
+        loop = asyncio.get_running_loop()
+        try:
+            multi = await loop.run_in_executor(
+                executor,
+                lambda: compute_multi_period_excess(
+                    state['subs'],
+                    tracker,
+                    fund_overrides=state.get('fund_overrides') or None,
+                    periods=(5, 10, 20),
+                ),
+            )
+            state['multi_period_data'] = multi
+            state['deviation_alerts'] = detect_deviation_alerts_v2(multi)
+        except Exception as e:
+            ui.notify(f'偏离值计算失败: {e}', type='negative')
+            state['multi_period_data'] = None
+            state['deviation_alerts'] = []
+
+        render_deviation_panel()
+
+    def render_deviation_panel():
+        if deviation_container is None:
+            return
+        alerts = state.get('deviation_alerts') or []
+        multi = state.get('multi_period_data') or {}
+        as_of = multi.get('as_of_date', '')
+        deviation_container.clear()
+        with deviation_container:
+            if not state['subs']:
+                ui.label('添加订阅后将在此展示偏离值提示').classes(
+                    'text-xs text-gray-400 text-center py-4'
+                )
+                return
+            if not multi.get('rows'):
+                ui.label('暂无偏离值数据（基金净值未拉取成功）').classes(
+                    'text-xs text-gray-400 text-center py-4'
+                )
+                return
+
+            # ── 数据缺失提示（场外 OF 浏览器 fetch 失败时）──
+            missing = [r for r in multi.get('rows', [])
+                       if r.get('data_source') == 'missing']
+            if missing:
+                with ui.row().classes(
+                    'w-full items-center gap-2 px-3 py-2 mb-2 '
+                    'rounded-md bg-amber-50 border border-amber-200'
+                ):
+                    ui.icon('warning_amber', size='xs', color='amber-7')
+                    ui.label(
+                        f'⚠️ 以下 {len(missing)} 只基金净值未拿到（浏览器 fetch 失败，'
+                        f'将不会出现在偏离表中）：'
+                        + '、'.join(r.get('name') or r.get('ts_code') for r in missing[:5])
+                        + (' 等' if len(missing) > 5 else '')
+                    ).classes('text-[11px] text-amber-700')
+
+            # 顶部摘要
+            high_cnt = sum(1 for a in alerts if a['severity'] == 'high')
+            med_cnt = sum(1 for a in alerts if a['severity'] == 'medium')
+            with ui.row().classes('w-full items-center gap-3 mb-2 px-1 flex-wrap'):
+                ui.label(f'快照日期: {as_of}').classes('text-[10px] text-gray-500 font-mono')
+                ui.label(f'订阅: {len(state["subs"])} 只').classes('text-[10px] text-gray-500')
+                if high_cnt:
+                    ui.label(f'🔴 严重偏离: {high_cnt}').classes(
+                        'text-xs font-bold text-rose-600'
+                    )
+                if med_cnt:
+                    ui.label(f'🟡 轻微偏离: {med_cnt}').classes(
+                        'text-xs font-bold text-amber-600'
+                    )
+                if not alerts:
+                    ui.label('✅ 全部在阈值范围内').classes(
+                        'text-xs font-bold text-emerald-600'
+                    )
+
+            # 命中表
+            if alerts:
+                with ui.element('div').classes(
+                    'w-full overflow-x-auto rounded-lg border border-rose-200 bg-white'
+                ):
+                    with ui.element('table').classes('w-full text-sm'):
+                        with ui.element('thead').classes('bg-rose-50 text-rose-700'):
+                            with ui.element('tr'):
+                                for h in ['基金', '命中周期', '偏离值', '基金涨跌', '对标涨跌', '方向', '严重度', '提示']:
+                                    with ui.element('th').classes(
+                                        'px-3 py-2 text-left font-semibold text-xs whitespace-nowrap'
+                                    ):
+                                        ui.label(h)
+                        with ui.element('tbody'):
+                            for a in alerts:
+                                # 主命中行的 excess / fund / index
+                                exc = a['excess']
+                                fund_pct = a['fund_pct']
+                                idx_pct = a['index_pct']
+                                exc_color = 'text-rose-600' if exc < 0 else 'text-emerald-600'
+                                direction_color = 'text-rose-500' if a['direction'] == 'down' else 'text-emerald-500'
+                                direction_label = '↓ 跑输' if a['direction'] == 'down' else '↑ 跑赢'
+                                sev_color = 'bg-rose-100 text-rose-700' if a['severity'] == 'high' else 'bg-amber-100 text-amber-700'
+                                sev_label = '高（多条命中）' if a['severity'] == 'high' else '中（单条命中）'
+
+                                with ui.element('tr').classes(
+                                    'border-t border-gray-100 hover:bg-rose-50/40'
+                                ):
+                                    with ui.element('td').classes('px-3 py-2 font-medium text-gray-800 whitespace-nowrap'):
+                                        ui.label(a['name'])
+                                    with ui.element('td').classes('px-3 py-2 font-mono text-xs text-gray-600'):
+                                        # 主告警 + 其它命中周期
+                                        primary = f"近{a['trading_days']}日"
+                                        others = [
+                                            f"近{h['trading_days']}日" for h in a['all_hits']
+                                            if h['trading_days'] != a['trading_days']
+                                        ]
+                                        ui.label(primary + (' / ' + ' / '.join(others) if others else ''))
+                                    with ui.element('td').classes('px-3 py-2 font-mono font-bold'):
+                                        ui.label(f'{exc:+.2f}%').classes(f'text-sm {exc_color}')
+                                    with ui.element('td').classes('px-3 py-2 font-mono text-xs'):
+                                        ui.label(f'{fund_pct:+.2f}%' if fund_pct is not None else '—').classes(
+                                            'text-gray-700'
+                                        )
+                                    with ui.element('td').classes('px-3 py-2 font-mono text-xs'):
+                                        ui.label(f'{idx_pct:+.2f}%' if idx_pct is not None else '—').classes(
+                                            'text-indigo-600'
+                                        )
+                                    with ui.element('td').classes('px-3 py-2'):
+                                        ui.label(direction_label).classes(f'text-xs font-bold {direction_color}')
+                                    with ui.element('td').classes('px-3 py-2'):
+                                        ui.label(sev_label).classes(
+                                            f'text-[10px] px-2 py-0.5 rounded-full font-semibold {sev_color}'
+                                        )
+                                    with ui.element('td').classes('px-3 py-2 text-xs text-gray-600'):
+                                        ui.label(a['message'])
+
+            # ── 多周期超额收益总表（即便没命中阈值也能看） ──
+            with ui.row().classes('w-full items-center gap-2 mt-4 mb-1 px-1'):
+                ui.label('多周期超额收益总表').classes('text-xs font-bold text-gray-700')
+                ui.label(
+                    '偏离 = 基金 − 对标指数；超阈值即上表报警'
+                ).classes('text-[10px] text-gray-400')
+            with ui.element('div').classes(
+                'w-full overflow-x-auto rounded-lg border border-gray-200 bg-white'
+            ):
+                with ui.element('table').classes('w-full text-sm'):
+                    with ui.element('thead').classes('bg-gray-50 text-gray-600'):
+                        with ui.element('tr'):
+                            for h in ['基金', '对标指数', '近5日偏离', '近10日偏离', '近1月偏离']:
+                                with ui.element('th').classes(
+                                    'px-3 py-2 text-left font-semibold text-xs whitespace-nowrap'
+                                ):
+                                    ui.label(h)
+                    with ui.element('tbody'):
+                        for r in multi.get('rows', []):
+                            e5 = (r.get('excess_by_period') or {}).get('5')
+                            e10 = (r.get('excess_by_period') or {}).get('10')
+                            e20 = (r.get('excess_by_period') or {}).get('20')
+
+                            def _exc(v, threshold):
+                                if v is None:
+                                    return '—', 'text-gray-400'
+                                if abs(v) >= threshold:
+                                    return f'{v:+.2f}%', 'text-rose-600 font-bold'
+                                return f'{v:+.2f}%', 'text-gray-700'
+
+                            t5, c5 = _exc(e5, 5.0)
+                            t10, c10 = _exc(e10, 15.0)
+                            t20, c20 = _exc(e20, 20.0)
+
+                            with ui.element('tr').classes('border-t border-gray-100 hover:bg-gray-50'):
+                                with ui.element('td').classes('px-3 py-2 font-medium text-gray-800 whitespace-nowrap'):
+                                    ui.label(r.get('name'))
+                                with ui.element('td').classes('px-3 py-2 text-xs text-indigo-600 whitespace-nowrap'):
+                                    ui.label(r.get('index_name') or r.get('index_code') or '—')
+                                with ui.element('td').classes('px-3 py-2 font-mono text-xs'):
+                                    ui.label(t5).classes(c5)
+                                with ui.element('td').classes('px-3 py-2 font-mono text-xs'):
+                                    ui.label(t10).classes(c10)
+                                with ui.element('td').classes('px-3 py-2 font-mono text-xs'):
+                                    ui.label(t20).classes(c20)
+
+    # ── MiniMax 板块偏离智能分析 ─────────────────────────
+
+    _llm_cache: dict[str, str] = {}   # as_of_date -> markdown 报告
+
+    async def refresh_llm_analysis(force: bool = False):
+        """调用 MiniMax 让它对 tag_summary + 4 大指数 + 多周期超额做板块级思考。"""
+        if llm_container is None:
+            return
+        if not state['subs']:
+            llm_container.clear()
+            with llm_container:
+                ui.label('添加订阅后将在此展示板块偏离分析').classes(
+                    'text-xs text-gray-400 text-center py-4'
+                )
+            return
+
+        llm_container.clear()
+        with llm_container:
+            with ui.row().classes('w-full items-center justify-center py-4 gap-2'):
+                ui.spinner('dots', size='sm', color='violet')
+                ui.label('正在让 MiniMax 思考板块偏离…').classes('text-xs text-gray-500')
+
+        # ── 0) 浏览器侧场外 OF 数据补齐（与 refresh_deviation 共享 fund_overrides） ──
+        client = page_client
+        of_subs = [s for s in state['subs'] if s.get('ts_code', '').endswith('.OF')]
+        if client is not None and of_subs:
+            for sub in of_subs:
+                ts_code = sub.get('ts_code', '')
+                code6 = ts_code.split('.')[0]
+                if ts_code in state['fund_overrides'] and state['fund_overrides'][ts_code]:
+                    continue
+                data = await _browser_fetch_fund(code6, client=client)
+                if data:
+                    state['fund_overrides'][ts_code] = data
+
+        # 复跑 compute_multi_period_excess（避免和 deviation 抢资源）
+        loop = asyncio.get_running_loop()
+        try:
+            multi = await loop.run_in_executor(
+                executor,
+                lambda: compute_multi_period_excess(
+                    state['subs'],
+                    tracker,
+                    fund_overrides=state.get('fund_overrides') or None,
+                    periods=(5, 10, 20),
+                ),
+            )
+            tag_summary = aggregate_by_tag(multi)
+            payload = build_llm_prompt_payload(state['subs'], tracker, multi, tag_summary)
+        except Exception as e:
+            llm_container.clear()
+            with llm_container:
+                ui.label(f'数据准备失败: {e}').classes('text-xs text-rose-500 text-center py-4')
+            return
+
+        # 缓存命中（按 as_of_date + selected_tags 避免错位）
+        cache_key = f"{payload.get('as_of_date')}|{sorted(state['selected_tags'])}|{len(state['subs'])}"
+        if not force and cache_key in _llm_cache:
+            render_llm_panel(_llm_cache[cache_key], payload)
+            return
+
+        try:
+            from utils.llm_client import call_minimax_analyze  # 延迟导入，避免常驻依赖
+        except Exception as e:
+            llm_container.clear()
+            with llm_container:
+                with ui.column().classes('w-full items-center justify-center py-6 gap-2'):
+                    ui.icon('error_outline', color='rose').classes('text-3xl')
+                    ui.label('LLM 客户端未配置').classes('text-sm font-bold text-rose-600')
+                    ui.label(str(e)).classes('text-[10px] text-gray-500 font-mono')
+                    ui.label('请参考 utils/llm_client.py 配置 MiniMax Token').classes(
+                        'text-[10px] text-gray-400'
+                    )
+            return
+
+        try:
+            md = await call_minimax_analyze(payload, system_prompt=LLM_SYSTEM_PROMPT)
+            _llm_cache[cache_key] = md
+            render_llm_panel(md, payload)
+        except Exception as e:
+            llm_container.clear()
+            with llm_container:
+                with ui.column().classes('w-full items-center justify-center py-6 gap-2'):
+                    ui.icon('error_outline', color='rose').classes('text-3xl')
+                    ui.label(f'MiniMax 调用失败: {e}').classes(
+                        'text-xs text-rose-500 text-center'
+                    )
+
+    def render_llm_panel(md: str, payload: dict | None = None):
+        if llm_container is None:
+            return
+        llm_container.clear()
+        with llm_container:
+            tag_summary = payload.get('tag_summary', {}) if payload else {}
+            # 标签偏离速览（让用户一眼看到哪些板块最热/最冷）
+            if tag_summary:
+                rows = sorted(
+                    tag_summary.items(),
+                    key=lambda kv: abs(kv[1].get('avg_excess_20d') or 0),
+                    reverse=True,
+                )
+                with ui.row().classes('w-full flex-wrap gap-2 mb-3'):
+                    for tag, s in rows[:8]:
+                        e20 = s.get('avg_excess_20d')
+                        e10 = s.get('avg_excess_10d')
+                        e5 = s.get('avg_excess_5d')
+                        # 整体颜色按 20d 偏离符号
+                        if e20 is None:
+                            color = 'border-gray-200 bg-gray-50'
+                            txt = '—'
+                        elif e20 > 0:
+                            color = 'border-emerald-200 bg-emerald-50'
+                            txt = f'+{e20:.1f}%'
+                        else:
+                            color = 'border-rose-200 bg-rose-50'
+                            txt = f'{e20:.1f}%'
+                        with ui.card().classes(
+                            f'px-3 py-2 rounded-lg border {color} min-w-[120px]'
+                        ):
+                            with ui.row().classes('items-center gap-2'):
+                                ui.label(tag).classes('text-xs font-bold text-gray-700')
+                                ui.label(f'{s.get("fund_count", 0)} 只').classes(
+                                    'text-[10px] text-gray-400'
+                                )
+                            ui.label(f'近1月: {txt}').classes(
+                                'text-sm font-bold text-gray-800'
+                            )
+                            with ui.row().classes('gap-2 mt-1'):
+                                ui.label(
+                                    f'5d: {e5:+.1f}%' if e5 is not None else '5d: —'
+                                ).classes('text-[10px] text-gray-500 font-mono')
+                                ui.label(
+                                    f'10d: {e10:+.1f}%' if e10 is not None else '10d: —'
+                                ).classes('text-[10px] text-gray-500 font-mono')
+
+            # 主报告区（Markdown 渲染）
+            with ui.element('div').classes(
+                'w-full p-4 rounded-lg border border-violet-100 bg-white '
+                'prose prose-sm max-w-none'
+            ):
+                ui.markdown(md).classes('w-full text-sm text-gray-800')
+
     # ── 初始化流程 ────────────────────────────────
 
     async def init_all():
@@ -1222,12 +1953,32 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
                 ui.label('添加订阅后将在此展示规模双因子总览').classes(
                     'text-xs text-gray-400 text-center py-4'
                 )
+        # 4) 偏离值 + LLM 板块分析（与上方并发）
+        if state['subs']:
+            asyncio.create_task(refresh_deviation())
+            asyncio.create_task(refresh_llm_analysis())
+        else:
+            if deviation_container is not None:
+                deviation_container.clear()
+                with deviation_container:
+                    ui.label('添加订阅后将在此展示偏离值提示').classes(
+                        'text-xs text-gray-400 text-center py-4'
+                    )
+            if llm_container is not None:
+                llm_container.clear()
+                with llm_container:
+                    ui.label('添加订阅后将在此展示板块偏离分析').classes(
+                        'text-xs text-gray-400 text-center py-4'
+                    )
 
     async def refresh_all():
         await asyncio.gather(
             refresh_index_compare(),
             refresh_performance(force_update=True),
             refresh_scale_overview(force_update=True),
+            refresh_deviation(),
         )
+        # LLM 单独发起（避免阻塞其它任务）
+        asyncio.create_task(refresh_llm_analysis())
 
     ui.timer(0, init_all, once=True)

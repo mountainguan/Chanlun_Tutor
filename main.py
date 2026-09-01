@@ -97,8 +97,12 @@ app.add_static_files('/static', os.path.join(BASE_DIR, 'static'))
 # 浏览器 fetch('http://fund.eastmoney.com/...') 会被 CORS 拦截，
 # 通过本接口做同源代理，浏览器拿到数据后可缓存到 localStorage。
 @app.get('/api/fund_eastmoney/{code}')
-async def fund_eastmoney_proxy(code: str):  # async 让 pingzhongdata 同步阻塞时不拖整个 event loop → 浏览器侧 fetch 才不会因前一次请求迟迟拿不到响应而间接“超时”
-    """代理天天基金 pingzhongdata，返回 Data_netWorthTrend 解析后的 JSON。"""
+async def fund_eastmoney_proxy(code: str):  # async 让 pingzhongdata 同步阻塞时不拖整个 event loop → 浏览器侧 fetch 才不会因前一次请求迟迟拿不到响应而间接"超时"
+    """代理天天基金 pingzhongdata，返回 Data_netWorthTrend 解析后的 JSON。
+
+    2026-09 天天基金 pingzhongdata 把 http 重定向到 https（301），必须显式
+    follow_redirects=True，否则拿到空 body 误报 netWorthTrend not found。
+    """
     import re as _re
     import json as _json
     import httpx
@@ -107,7 +111,7 @@ async def fund_eastmoney_proxy(code: str):  # async 让 pingzhongdata 同步阻�
         return {'__error': 'invalid code'}
     url = f'http://fund.eastmoney.com/pingzhongdata/{code}.js'
     try:
-        async with httpx.AsyncClient(timeout=4.0) as client:
+        async with httpx.AsyncClient(timeout=4.0, follow_redirects=True) as client:
             resp = await client.get(
                 url,
                 headers={'User-Agent': 'Mozilla/5.0',

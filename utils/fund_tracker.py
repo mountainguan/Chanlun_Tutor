@@ -1275,3 +1275,439 @@ def _to_float(v) -> float | None:
         return f if np.isfinite(f) else None
     except (TypeError, ValueError):
         return None
+
+
+# =================================================================
+# 基金分析模块：标签 / 偏离值 / 板块偏离提示
+# =================================================================
+
+# 偏离值阈值（超额收益 abs，超出报警）
+# 5 个交易日 / 10 个交易日 / 1 个月（≈20 个交易日）
+DEVIATION_RULES = [
+    {'key': '5d',  'trading_days': 5,  'threshold': 5.0,  'label': '近5日偏离 > 5%'},
+    {'key': '10d', 'trading_days': 10, 'threshold': 15.0, 'label': '近10日偏离 > 15%'},
+    {'key': '20d', 'trading_days': 20, 'threshold': 20.0, 'label': '近1月偏离 > 20%'},
+]
+
+
+def compute_multi_period_excess(subs: list,
+                                 tracker: 'FundTracker',
+                                 fund_overrides: dict | None = None,
+                                 periods=(5, 10, 20)) -> dict:
+    """为每只订阅基金计算 5d / 10d / 20d 的「超额收益」，再交给 detect_deviation_alerts。
+
+    数据来源策略：
+        - 场外 OF 基金 (.OF)：**严格走浏览器 fund_overrides**（即天天基金已 fetch
+          并落到 localStorage / 由 UI 回传的部分）。服务端**不**拉，避免出现
+          "场外净值拉不到" 的误报。
+        - 场内 ETF (.SH / .SZ)：服务端 Tushare fund_daily 缓存（hit cache 即返回）。
+        - 对标指数：复用现有 4 大指数 / 自定义指数缓存。
+
+    返回 dict：
+        {
+            "as_of_date": "YYYY-MM-DD",
+            "periods": [5, 10, 20],
+            "rows": [
+                {
+                    "ts_code": ..., "name": ...,
+                    "excess_by_period": {"5": ..., "10": ..., "20": ...},
+                    "fund_pct_by_period": {"5": ..., "10": ..., "20": ...},
+                    "index_pct_by_period": {"5": ..., "10": ..., "20": ...},
+                    "data_source": "browser" | "tushare" | "missing"
+                },
+                ...
+            ]
+        }
+    """
+    fund_overrides = fund_overrides or {}
+
+    def _override_to_df(rows_list):
+        if not rows_list:
+            return pd.DataFrame()
+        try:
+            df = pd.DataFrame(rows_list)
+            if 'date' in df.columns:
+                df = df.rename(columns={'date': 'trade_date'})
+            df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d', errors='coerce')
+            df = df.dropna(subset=['trade_date'])
+            df['close'] = pd.to_numeric(df['close'], errors='coerce')
+            return df.sort_values('trade_date').reset_index(drop=True)
+        except Exception:
+            return pd.DataFrame()
+
+    needed_index_codes = set(tracker.INDEX_TS_CODE_MAP.keys())
+    for sub in subs:
+        ic = (sub.get('index_code') or '').strip()
+        if ic:
+            needed_index_codes.add(ic)
+
+    max_days = max(periods)
+    out_rows = []
+    as_of_candidates: list[datetime.date] = []
+
+    for sub in subs:
+        ts_code = sub.get('ts_code') or ''
+        if not ts_code:
+            continue
+
+        # ── 基金日线：按品种选数据源 ──
+        fund_df = pd.DataFrame()
+        data_source = 'missing'
+        override = fund_overrides.get(ts_code)
+        if ts_code.endswith('.OF'):
+            # 场外 OF：只走浏览器 override，缺数据即为 None
+            if override:
+                fund_df = _override_to_df(override)
+                if not fund_df.empty:
+                    data_source = 'browser'
+        else:
+            # 场内 ETF：服务端 Tushare 缓存（fetch_fund_history 会自动增量更新）
+            try:
+                fund_df = tracker.fetch_fund_history(ts_code, lookback_days=max_days)
+                if not fund_df.empty:
+                    data_source = 'tushare'
+            except Exception:
+                fund_df = pd.DataFrame()
+
+        if not fund_df.empty:
+            try:
+                as_of_candidates.append(fund_df['trade_date'].max().date())
+            except AttributeError:
+                as_of_candidates.append(fund_df['trade_date'].max().to_pydatetime().date())
+
+        # ── 对标指数日线：缓存命中优先，未命中则 Tushare 补拉 ──
+        idx_code = (sub.get('index_code') or '').strip()
+        idx_df = pd.DataFrame()
+        if idx_code:
+            needed_index_codes.add(idx_code)
+            idx_df = tracker._load_index_history_any(idx_code)
+            if idx_df is None or idx_df.empty:
+                try:
+                    idx_df = tracker._fetch_and_cache_index(idx_code, lookback_days=max_days)
+                except Exception:
+                    idx_df = pd.DataFrame()
+
+        fund_pct_by_period = {}
+        index_pct_by_period = {}
+        excess_by_period = {}
+        for n in periods:
+            fp = _pct_n_from_df(fund_df, n)
+            ip = _pct_n_from_df(idx_df, n)
+            fund_pct_by_period[str(n)] = round(fp, 2) if fp is not None else None
+            index_pct_by_period[str(n)] = round(ip, 2) if ip is not None else None
+            if fp is not None and ip is not None:
+                excess_by_period[str(n)] = round(fp - ip, 2)
+            else:
+                excess_by_period[str(n)] = None
+
+        out_rows.append({
+            'ts_code': ts_code,
+            'name': sub.get('name') or ts_code,
+            'fund_pct_by_period': fund_pct_by_period,
+            'index_pct_by_period': index_pct_by_period,
+            'excess_by_period': excess_by_period,
+            'tags': sub.get('tags') or [],
+            'index_code': idx_code,
+            'index_name': sub.get('index_name') or '',
+            'data_source': data_source,
+        })
+
+    # as_of_date: 来自 4 大指数缓存（最权威）
+    if not as_of_candidates:
+        for d in tracker.INDEX_DEFS:
+            df = tracker.load_index_history(d['ts_code'])
+            if not df.empty:
+                try:
+                    as_of_candidates.append(df['trade_date'].max().date())
+                except AttributeError:
+                    as_of_candidates.append(df['trade_date'].max().to_pydatetime().date())
+                break
+
+    as_of = max(as_of_candidates).strftime('%Y-%m-%d') if as_of_candidates else datetime.date.today().strftime('%Y-%m-%d')
+
+    return {
+        'as_of_date': as_of,
+        'periods': list(periods),
+        'rows': out_rows,
+    }
+
+
+def detect_deviation_alerts_v2(multi: dict) -> list[dict]:
+    """基于 multi_period_excess 的结果扫描偏离阈值。
+
+    返回 alerts: [{ts_code, name, period_key, trading_days, threshold, excess, ...,
+                   direction, severity, message}, ...]
+    """
+    alerts = []
+    rows = (multi or {}).get('rows') or []
+    as_of = (multi or {}).get('as_of_date', '')
+    rules_by_days = {r['trading_days']: r for r in DEVIATION_RULES}
+    for row in rows:
+        ts_code = row.get('ts_code') or ''
+        name = row.get('name') or ts_code
+        excess_by = row.get('excess_by_period') or {}
+        fund_by = row.get('fund_pct_by_period') or {}
+        idx_by = row.get('index_pct_by_period') or {}
+        # 命中规则的 (period_days, threshold, excess)
+        hits = []
+        for n_str, exc in excess_by.items():
+            try:
+                n = int(n_str)
+            except (TypeError, ValueError):
+                continue
+            rule = rules_by_days.get(n)
+            if rule is None or exc is None:
+                continue
+            if abs(exc) >= rule['threshold']:
+                hits.append({
+                    'period': rule['key'],
+                    'trading_days': n,
+                    'threshold': rule['threshold'],
+                    'excess': exc,
+                    'fund_pct': fund_by.get(n_str),
+                    'index_pct': idx_by.get(n_str),
+                })
+        if not hits:
+            continue
+        # severity: 命中多条 → high
+        severity = 'high' if len(hits) >= 2 else 'medium'
+        # direction: 整体偏负 = down，偏正 = up（按 excess 符号判断）
+        primary = sorted(hits, key=lambda h: -h['trading_days'])[0]  # 选最长周期作主告警
+        direction = 'down' if primary['excess'] < 0 else 'up'
+
+        sign_word = '跑输' if direction == 'down' else '跑赢'
+        # 文案拼接：主告警必出现 + 命中多条时再追加
+        msg_parts = [
+            f'【{sign_word}对标指数 {primary["threshold"]:.1f}%+】'
+            f'近 {primary["trading_days"]} 个交易日偏离 {primary["excess"]:+.2f}%'
+            f'（基金 {primary["fund_pct"]:+.2f}% vs 对标 {primary["index_pct"]:+.2f}%）'
+        ]
+        for h in hits:
+            if h is primary:
+                continue
+            msg_parts.append(
+                f'近 {h["trading_days"]} 个交易日偏离 {h["excess"]:+.2f}%'
+                f'（阈值 {h["threshold"]:.0f}%）'
+            )
+        message = '；'.join(msg_parts) + '。'
+
+        alerts.append({
+            'ts_code': ts_code,
+            'name': name,
+            'period_key': primary['period'],
+            'trading_days': primary['trading_days'],
+            'threshold': primary['threshold'],
+            'excess': primary['excess'],
+            'fund_pct': primary['fund_pct'],
+            'index_pct': primary['index_pct'],
+            'direction': direction,
+            'severity': severity,
+            'all_hits': hits,
+            'message': message,
+            'as_of': as_of,
+        })
+    return alerts
+
+
+def aggregate_by_tag(multi: dict, tags_index: dict | None = None) -> dict:
+    """把多周期超额收益按用户的自定义 tag 聚合，返回 {tag: {n: avg_excess, count}}。
+
+    tags_index: {ts_code: [tag1, tag2]} 兜底（用于 multi 里没回填 tags 的情况）。
+    """
+    tags_index = tags_index or {}
+    bucket: dict[str, dict[str, list[float]]] = {}
+    for row in (multi or {}).get('rows') or []:
+        ts_code = row.get('ts_code') or ''
+        tags = row.get('tags') or tags_index.get(ts_code) or []
+        if not tags:
+            continue
+        excess_by = row.get('excess_by_period') or {}
+        for tag in tags:
+            tag = (tag or '').strip()
+            if not tag:
+                continue
+            slot = bucket.setdefault(tag, {'5': [], '10': [], '20': []})
+            for k in ('5', '10', '20'):
+                v = excess_by.get(k)
+                if v is not None:
+                    slot[k].append(v)
+    result = {}
+    for tag, slot in bucket.items():
+        result[tag] = {
+            'count': len(slot['5']) + len(slot['10']) + len(slot['20']),
+            'fund_count': len(slot['5']),  # 用 5 日基金数代表覆盖基金数（一致时正确）
+            'avg_excess_5d': round(float(np.mean(slot['5'])), 2) if slot['5'] else None,
+            'avg_excess_10d': round(float(np.mean(slot['10'])), 2) if slot['10'] else None,
+            'avg_excess_20d': round(float(np.mean(slot['20'])), 2) if slot['20'] else None,
+        }
+    return result
+
+
+def build_llm_prompt_payload(subs: list,
+                             tracker: 'FundTracker',
+                             multi: dict,
+                             tag_summary: dict,
+                             index_compare: list | None = None) -> dict:
+    """打包发给 MiniMax 的 JSON：标签聚合 + 周期偏离 + 4 大指数 + 订阅明细。"""
+    indexes = index_compare or tracker.get_indexes_compare()
+    return {
+        'as_of_date': multi.get('as_of_date'),
+        'four_indexes': [
+            {
+                'code': i.get('ts_code'),
+                'name': i.get('name'),
+                'close': i.get('close'),
+                'pct_1d': i.get('pct_1d'),
+                'pct_5d': i.get('pct_5d'),
+                'pct_20d': i.get('pct_20d'),
+                'pct_60d': i.get('pct_60d'),
+                'pct_ytd': i.get('pct_ytd'),
+            }
+            for i in indexes
+        ],
+        'tag_summary': tag_summary,
+        'funds': [
+            {
+                'ts_code': r.get('ts_code'),
+                'name': r.get('name'),
+                'tags': r.get('tags') or [],
+                'index_code': r.get('index_code'),
+                'index_name': r.get('index_name'),
+                'fund_pct_by_period': r.get('fund_pct_by_period'),
+                'index_pct_by_period': r.get('index_pct_by_period'),
+                'excess_by_period': r.get('excess_by_period'),
+            }
+            for r in multi.get('rows', [])
+        ],
+    }
+
+
+# ── 系统提示词（让 MiniMax 自己思考、自己提问题） ──────────────────
+# 设计原则：
+#   1. **数据范围就是实际传进来的 JSON**：模型只能基于这些字段做判断，禁止编造持仓 / 资金流等未提供的数据。
+#   2. **基民视角**：关心「相对收益 / 风格一致性 / 持仓结构」，操作是「持有 / 赎回 / 转换 / 观望」。
+#   3. **强制三层 + 反幻觉 + 不预测点位**。
+LLM_SYSTEM_PROMPT = """你是「基金组合诊断助手」，帮助 A 股基民诊断其订阅基金组合的相对表现与潜在风险。你的读者是有 1-3 年基金投资经验、希望系统化梳理"该不该继续持有 / 是否该换"的个人投资者。
+
+═══════════════════════════════════════
+零、数据红线 —— 你「能」和「不能」分析什么
+═══════════════════════════════════════
+【你能用的数据】（输入 JSON 里**实际有**的字段）
+
+| 字段 | 含义 | 用途 |
+|---|---|---|
+| `as_of_date` | 当前快照交易日 | 时间锚点 |
+| `four_indexes` | 上证 / 深证 / 创业板 / 科创50 的 1d / 5d / 20d / 60d / ytd 涨跌幅 | 参考市场环境 |
+| `tag_summary[tag].fund_count` | 该标签覆盖几只基金 | 样本厚度判断 |
+| `tag_summary[tag].avg_excess_5d / 10d / 20d` | 该标签下基金的平均超额收益 | 板块 / 主题聚合 |
+| `funds[i].tags` | 用户给该基金打的自定义标签 | 聚合分组 |
+| `funds[i].fund_pct_by_period` | 该基金 5/10/20d 累计涨跌幅 | 绝对收益 |
+| `funds[i].index_pct_by_period` | 对标指数同期累计涨跌幅 | 基准 |
+| `funds[i].excess_by_period` | 基金 - 对标指数的超额收益 | 相对收益（核心） |
+| `funds[i].data_source` | 'browser' / 'tushare' / 'missing' | 数据可信度 |
+
+【你没有的数据】—— **禁止分析、禁止提及、禁止脑补**
+
+❌ 持仓明细（前十大重仓股、行业分布、持仓集中度）
+❌ 基金经理变更、基金规模绝对值、申赎结构（机构 vs 散户）
+❌ 北向资金 / 主力资金流向、换手率、成交量
+❌ 风格指数（中证消费 / 半导体30 / 申万一级等）的具体走势
+❌ 净值绝对数（只有涨跌幅%）
+❌ 任何你没拿到的字段
+
+如果想分析上面这些维度，**只能在新问题里让用户去查**，不要在分析里假装有这些数据。
+
+═══════════════════════════════════════
+一、你必须时刻铭记的「基民视角 vs 股民视角」差异
+═══════════════════════════════════════
+1. **基民关心的是「相对收益」，不是绝对收益**：
+   - 大盘涨 5%、基金涨 5% → excess=0%，不功不过，**不兴奋也不恐慌**。
+   - 大盘跌 5%、基金跌 3% → excess=+2%（抗跌），**这才是好信号**。
+   - 大盘涨 5%、基金涨 12% → excess=+7%（优秀），**但要拆解：赛道 beta vs 选股 alpha**。
+2. **基金产品的「风格」是契约性的，不是策略选择**：
+   - 「消费主题基金」合同约定买消费，基金经理改买新能源 = 风格漂移 = 合同违约。
+   - 「宽基指数 ETF」必须严格跟踪指数，否则就是跟踪误差异常。
+   - 但你**没有持仓数据**，所以风格漂移只能作为"建议用户去查"的假设，不能下死结论。
+3. **基民的操作是「申购 / 赎回 / 转换 / 观望」**：
+   - 不是「买 / 卖 / 加仓 / 止损」，那是股民术语。
+   - 给出建议时要落到这四种操作之一，而不是"先建仓观察"这种个股话术。
+
+═══════════════════════════════════════
+二、基金分析独有的诊断维度（必须按此框架判断）
+═══════════════════════════════════════
+【维度 A · 相对收益健康度】（核心）
+   - excess = fund_pct - index_pct（**这是你唯一能用的相对收益指标**）。
+   - 短期（5d）跑输但中长期（20d）跑赢 = 短期波动，不用慌。
+   - 短期跑赢但中长期跑输 = 黄灯，可能进入策略失效期。
+   - 多周期同向偏离 = 持续性问题，不是噪音。
+
+【维度 B · 风格稳定性】
+   - 用户填写的 `tags` 和 `index_code / index_name` 是你判断风格一致性的唯一线索。
+   - 主动型基金（股票型 / 混合型 / 主题型）应当与 `index_code` 高度一致：
+     * 连续 10d/20d 偏离 `index_code` > 阈值 → 必须二选一判断「基准错配」vs「风格漂移」。
+     * **基准错配**：用户填的对标指数不匹配（如白酒基金对标科创 50）→ 切换对标后偏离消失。
+     * **风格漂移**：基金实际持仓偏离名义主题 → **但你没有持仓数据，只能作为假设**，建议用户查持仓报告。
+   - 被动型基金（宽基 ETF / 行业 ETF）：应当紧密跟踪指数。
+     * excess > 1% 持续 5d+ → 跟踪误差异常，可能因分红 / 大额申赎 / 管理费。
+
+【维度 C · 跨基金 / 跨标签对比】
+   - 同一标签下的多只基金走势是否一致？
+     * 一致 → 该标签整体赛道在动，单只基金的偏离更多是 alpha/运气。
+     * 不致 → 单只基金有独立问题（持仓集中、调仓时点差异）。
+   - 持仓集中度（按 tag_summary.fund_count）：
+     * 单一标签覆盖 60%+ 基金 → 集中度高，标签本身涨跌决定组合表现。
+     * 单一标签覆盖 < 20% → 分散合理，组合波动更平滑。
+
+═══════════════════════════════════════
+三、强制思维链：先验证事实 → 再判因果 → 最后给可执行建议
+═══════════════════════════════════════
+【第 1 层 · 事实层】用数据说话，不脑补：
+   1.1 市场环境：当前 4 大指数谁强谁弱？基金组合所处的市场是「普涨」「普跌」还是「分化」？
+   1.2 标签层面：用户的标签中，跑赢/跑输最显著的各是哪些？各覆盖几只基金？**样本厚度必须显式声明**（fund_count=1 时标注「样本极薄，仅供参考」）。
+   1.3 单基金层面：谁命中了 10d/20d 严重偏离阈值？方向是跑赢还是跑输？是相对哪只对标指数？
+   1.4 数据可用性：必须显式声明 `data_source='missing'` 的基金 + null 字段。
+
+【第 2 层 · 因果层】用「基民语言」解释，**禁止引用未提供的数据**：
+   2.1 跑赢的标签/基金：是基于 `four_indexes` 推导的赛道 beta、还是超额正（**有 alpha 嫌疑**）？是否同标签多只基金都跑赢（**赛道效应**）？
+   2.2 跑输的标签/基金：是赛道 beta 拖累（看对标指数同期涨跌）、还是基金本身超额更负（**有踩雷嫌疑**）？
+   2.3 命中严重偏离的基金：必须二选一判断「基准错配」还是「风格漂移」。
+     * 风格漂移判定时，写「**假设**持仓已偏离名义主题，需要用户查持仓报告确认」—— 不要伪装你知道。
+   2.4 组合层面：用户的标签覆盖是否过度集中？是否承担了不必要的风险敞口？
+
+【第 3 层 · 建议层】落到基民可执行操作：
+   3.1 **持有决策建议**（按基金粒度）：
+     * 🟢 **建议继续持有**：相对对标稳定，未触发异常阈值。
+     * 🟡 **建议持续观察**：触发轻微偏离（5d 阈值）或风格出现分歧信号。
+     * 🔴 **建议认真考虑**（不要直说"赎回"，用"认真考虑赎回/转换"）：触发严重偏离、风格漂移确认、或赛道明显走弱。
+   3.2 **组合层面建议**：
+     * 集中度调整（基于 tag_summary.fund_count 给出建议）。
+     * 不要给"明天赎回"这种时点建议。
+   3.3 **新问题**：向用户提 2-3 个值得追问的问题，**必须对应可量化、可获取的下一步动作**，且**只能问用户能去查的数据**：
+     * 「你愿意手动切换对标指数（如把白酒基金的对标换成中证消费）重新评估吗？」
+     * 「要不要去天天基金 / 晨星看这只基金的最近 2-3 个季度持仓报告？」
+     * 「要不要去基金销售平台查申赎结构和规模变动数据？」
+     * 「要不要把同一标签下的多只基金合并到跟踪误差最小的那只？」
+   **禁止问**："要不要看北向资金" / "要不要看换手率" / "要不要看重仓股"——这些数据你**自己都没拿到**，用户也无法当场回答。
+
+═══════════════════════════════════════
+四、输出格式（严格遵守）
+═══════════════════════════════════════
+- 用 Markdown，结构清晰，**重要数字加粗**。
+- 不要复述输入数据表格；只给结论和判断，引用关键数字用 **加粗 + 数字 + %** 形式。
+- **中文输出**。
+- 在最末尾留一段「## 给用户的下一步追问」放 2-3 个问题即可，不要再加客套结尾。
+- 如果发现数据严重缺失（data_source='missing' 较多），开头先写「数据可用性说明」再进入分析。
+- **使用基民语言**：用「持有 / 赎回 / 转换 / 观察」而不是「买入 / 卖出 / 止损」。
+
+═══════════════════════════════════════
+五、思维纪律（避免常见错误）
+═══════════════════════════════════════
+- **永远站在相对收益角度**：不要因为"基金涨了 5%"就建议持有，要看 excess 是否也为正。
+- **不要假装看得到你没拿到的数据**：你没有持仓 / 资金流 / 换手率，写「建议查 XX」而不是脑补结论。
+- **不要混淆"赛道 beta"与"基金经理 alpha"**：消费板块整体涨 20%（看 four_indexes 同期表现），消费基金涨 22% 不能说明基金经理优秀。
+- **不预测涨跌点位**：你只解释「现在发生了什么 + 为什么 + 下一步看什么」。
+- **不推荐具体买卖时点**：给「建议认真考虑赎回」而不是「建议明天赎回」。
+- **避免幸存者偏差**：所有基金都涨的时候，反而要警惕"组合风险敞口集中"。
+- **承认不确定**：当数据无法支撑某个判断时，写「数据不足以判断，建议补 X」而不是硬下结论。
+- **样本厚度意识**：fund_count=1 的标签，结论要降权；fund_count≥3 才敢下较强结论。
+"""
