@@ -1,6 +1,10 @@
 import akshare as ak
 import pandas as pd
 from datetime import datetime
+import os
+import json
+import sys
+import time
 
 def get_pension_fund_holdings(report_date):
     """
@@ -46,14 +50,74 @@ if __name__ == "__main__":
     # 示例：查询 2025年三季度报 (截止日通常为 03-31, 06-30, 09-30, 12-31)
     # 注意：最新财报披露有一定的滞后性，例如 10月底才披露完三季报
     target_date = "20260331"
-    
+
+    if len(sys.argv) > 1:
+        target_date = sys.argv[1]
+
     holdings = get_pension_fund_holdings(target_date)
-    
+
     if holdings is not None and not holdings.empty:
         # 显示前 10 条
         print(holdings.head(10))
-        
-        # 保存为 Excel (可选)
-        file_name = f"基本养老保险持股_{target_date}.xlsx"
+
+        # 保存为 Excel (按季度归档到 data/yanglaojin 目录)
+        output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'yanglaojin')
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        file_name = os.path.join(output_dir, f"基本养老保险持股_{target_date}.xlsx")
         holdings.to_excel(file_name, index=False)
         print(f"数据已保存至 {file_name}")
+
+        # 同步写入 pension_fund_cache.json (JSON 缓存，供前端读取)
+        records = holdings.to_dict('records')
+
+        from collections import defaultdict
+        agg = defaultdict(lambda: {'基金组合列表': [], '持股总数': 0, '持股市值': 0.0, '持股变动数值': 0.0})
+        for r in records:
+            code = str(r.get('股票代码', ''))
+            name = r.get('股票简称', '')
+            agg[code]['股票简称'] = name
+            agg[code]['基金组合列表'].append(r.get('股东名称', ''))
+            try:
+                agg[code]['持股总数'] += float(r.get('期末持股-数量', 0) or 0)
+            except Exception:
+                pass
+            try:
+                agg[code]['持股变动数值'] += float(r.get('期末持股-数量变化', 0) or 0)
+            except Exception:
+                pass
+
+        cache_records = []
+        for i, (code, v) in enumerate(agg.items(), start=1):
+            change = v['持股变动数值']
+            if change > 0:
+                change_label = '增持'
+            elif change < 0:
+                change_label = '减持'
+            else:
+                change_label = '不变'
+            try:
+                ratio = float(holdings.loc[holdings['股票代码'].astype(str) == code, '期末持股-数量变化比例'].iloc[0])
+            except Exception:
+                ratio = 0.0
+            cache_records.append({
+                '股票代码': code,
+                '股票简称': v['股票简称'],
+                '持股总数': int(v['持股总数']),
+                '持股市值': float(v.get('持股市值', 0.0) or 0.0),
+                '持有基金家数': len(v['基金组合列表']),
+                '持股变动数值': float(change),
+                '持股变动比例': ratio,
+                '序号': i,
+                '持股变化': change_label,
+            })
+
+        cache_data = {
+            'timestamp': time.time(),
+            'date': target_date,
+            'data': cache_records,
+        }
+        cache_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'pension_fund_cache.json')
+        with open(cache_file, 'w', encoding='utf-8') as f:
+            json.dump(cache_data, f, ensure_ascii=False, indent=2)
+        print(f"JSON 缓存已保存至：{cache_file} (共 {len(cache_records)} 条)")
