@@ -195,47 +195,201 @@ class SectorSentiment:
             print(f"Failed to fetch EM history for {em_code}: {e}")
         return None
 
-    def _connect_tdx(self):
-        try:
-            from pytdx.hq import TdxHq_API
-            self.api = TdxHq_API()
-            # Prioritize known good IPs
-            ips = [
-                ('60.191.117.167', 7709), # Stable
-                ('124.71.187.100', 7709),
-                ('218.75.126.9', 7709),
-                ('119.147.212.81', 7709),
-                ('115.238.56.198', 7709)
-            ]
-            
-            # Disable shuffle to try the best ones first
-            # random.shuffle(ips) 
-            
-            for ip, port in ips:
-                # Re-instantiate API for each attempt to ensure clean state
-                if self.api:
-                    try: self.api.disconnect()
-                    except: pass
-                self.api = TdxHq_API()
+    # ---------- TDX 服务器选择 ----------
+    #
+    # 【重要】TDX 很多节点虽然 TCP 可连，但 K 线接口返回空数据。
+    # 历史上硬编码的「杭州电信主站」系列 (60.191.117.167 / 218.75.126.9 /
+    # 115.238.56.198 / ...) 已全部失效（get_index_bars 恒返回空），
+    # 导致所有板块抓取失败。
+    # 因此这里改为「连接 + 健康检查」双验证：只有真正能返回行业板块
+    # K 线数据的服务器才会被采用，并把最优服务器缓存到磁盘，下次优先使用。
+    #
+    # 以下列表由 scripts/probe_tdx_servers.py 于 2026-09-10 实测得出。
+    TDX_KNOWN_GOOD = [
+        ('117.34.114.13', 7709),   # 国泰君安
+        ('117.34.114.14', 7709),   # 国泰君安
+        ('117.34.114.15', 7709),   # 国泰君安
+        ('117.34.114.16', 7709),   # 国泰君安
+        ('117.34.114.17', 7709),   # 国泰君安
+        ('117.34.114.18', 7709),   # 国泰君安
+        ('117.34.114.20', 7709),   # 国泰君安
+        ('117.34.114.27', 7709),   # 国泰君安
+        ('59.36.5.11', 7709),      # 安信
+    ]
+    # 健康检查用的行业板块代码（任一能返回数据即认为服务器可用）。
+    # 数量刻意保持很少：坏节点每个探测都要等 socket 超时，代码越多越慢。
+    TDX_HEALTH_CODES = ('881070', '881001')
 
+    def _tdx_best_server_file(self):
+        return os.path.join(self.data_dir, 'tdx_best_server.json')
+
+    def _load_cached_tdx_server(self):
+        """读取上次验证成功的服务器（若无或过期则返回 None）。"""
+        path = self._tdx_best_server_file()
+        if not os.path.exists(path):
+            return None
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                info = json.load(f)
+            ts_str = info.get('verified_at')
+            if ts_str:
+                verified_at = datetime.datetime.fromisoformat(ts_str)
+                # 超过 3 天视为过期，重新探测
+                if (datetime.datetime.now() - verified_at).total_seconds() > 3 * 86400:
+                    return None
+            ip = info.get('ip')
+            port = int(info.get('port', 7709))
+            if ip:
+                return (ip, port)
+        except Exception:
+            pass
+        return None
+
+    def _save_cached_tdx_server(self, ip, port):
+        try:
+            with open(self._tdx_best_server_file(), 'w', encoding='utf-8') as f:
+                json.dump({
+                    'ip': ip,
+                    'port': port,
+                    'verified_at': datetime.datetime.now().isoformat(),
+                }, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    @staticmethod
+    def _probe_tdx_server(ip, port, label='', connect_timeout=4.0):
+        """在一条**独立**连接上做「连接 + 行业 K 线健康检查」。
+
+        成功返回 ``(api, ip, port, label)``，失败返回 ``None``。
+        成功时 api 所有权移交调用方（本函数不再关闭它）；失败时确保关闭，
+        避免线程里泄漏 socket。
+
+        【为什么需要健康检查】TDX 中大量节点 TCP 可连但 K 线接口恒返回空
+        （例如已失效的「杭州电信主站」系列），仅靠 connect() 成功无法判断。
+        """
+        from pytdx.hq import TdxHq_API
+        api = TdxHq_API()
+        ok = False
+        try:
+            if not api.connect(ip, port, time_out=connect_timeout):
+                return None
+            for code in SectorSentiment.TDX_HEALTH_CODES:
+                for mkt in (1, 0):
+                    try:
+                        data = api.get_index_bars(9, mkt, code, 0, 2)
+                    except Exception:
+                        data = None
+                    if data:
+                        ok = True
+                        return (api, ip, port, label)
+            return None
+        except Exception:
+            return None
+        finally:
+            if not ok:
                 try:
-                    print(f"Connecting to {ip}:{port}...")
-                    if self.api.connect(ip, port, time_out=20):
-                        print(f"Connected to TDX server: {ip}:{port}")
-                        return True
-                    else:
-                        print(f"Connection failed for {ip}:{port}")
-                except Exception as ex:
-                    print(f"Connection error for {ip}:{port}: {ex}")
+                    api.disconnect()
+                except Exception:
                     pass
-            
-            print("Failed to connect to any TDX server")
-            return False
+
+    def _probe_servers_parallel(self, servers, max_workers=9):
+        """并行探测一组候选服务器，返回第一个成功的 ``(api, ip, port, label)``。
+
+        并行很重要：个别节点会「假死」——TCP 已连上但数据请求要等到 socket
+        超时才返回，串行探测会被单个坏节点拖到几十秒。
+
+        采用「认领锁」：第一个成功的线程认领结果，其余线程各自关闭自己的
+        多余连接，因此无需等待所有探测结束即可返回。
+        """
+        import threading
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        servers = list(servers)
+        if not servers:
+            return None
+
+        lock = threading.Lock()
+        claimed = {'winner': None}
+
+        def _worker(ip, port, label):
+            res = self._probe_tdx_server(ip, port, label)
+            if res is None:
+                return None
+            with lock:
+                if claimed['winner'] is None:
+                    claimed['winner'] = res
+                    return res
+            # 已被其他分支抢先 —— 关掉这条多余连接
+            try:
+                res[0].disconnect()
+            except Exception:
+                pass
+            return None
+
+        pool = ThreadPoolExecutor(max_workers=min(max_workers, len(servers)))
+        futures = [pool.submit(_worker, ip, port, label) for ip, port, label in servers]
+        try:
+            for fut in as_completed(futures):
+                try:
+                    res = fut.result()
+                except Exception:
+                    res = None
+                if res is not None:
+                    break
+        finally:
+            # 不等剩余探测（坏节点可能还在等 socket 超时）
+            for f in futures:
+                f.cancel()
+            pool.shutdown(wait=False)
+        return claimed['winner']
+
+    def _connect_tdx(self):
+        """连接 TDX，并做数据健康检查。返回 True 表示 api 已就绪且能取到行业数据。
+
+        优先级：磁盘缓存的已验证服务器 → 实测已知可用列表 → pytdx 内置列表。
+        """
+        try:
+            import pytdx.hq  # noqa: F401
         except Exception as e:
             print(f"TDX init error: {e}")
             if "No module named 'pytdx'" in str(e):
                 print("Missing dependency: Please run 'pip install pytdx'")
             return False
+
+        # 1) 最快路径：上次验证成功的服务器（命中即秒连）
+        cached = self._load_cached_tdx_server()
+        if cached:
+            res = self._probe_tdx_server(cached[0], cached[1], 'cached')
+            if res:
+                self.api = res[0]
+                print(f"Connected to TDX server: {res[1]}:{res[2]} (cached) [verified]")
+                return True
+            print(f"缓存的 TDX 服务器 {cached[0]}:{cached[1]} 已失效，重新探测...")
+
+        # 2) 并行探测实测已知可用的服务器
+        res = self._probe_servers_parallel(
+            [(ip, port, 'known-good') for ip, port in self.TDX_KNOWN_GOOD])
+        if res:
+            self.api = res[0]
+            self._save_cached_tdx_server(res[1], res[2])
+            print(f"Connected to TDX server: {res[1]}:{res[2]} (known-good) [verified]")
+            return True
+
+        # 3) 兜底：pytdx 内置全量服务器列表（数量多，仅在前面全失败时走到）
+        try:
+            from pytdx.config.hosts import hq_hosts
+            candidates = [(ip, port, name) for name, ip, port in hq_hosts]
+        except Exception:
+            candidates = []
+        res = self._probe_servers_parallel(candidates, max_workers=24)
+        if res:
+            self.api = res[0]
+            self._save_cached_tdx_server(res[1], res[2])
+            print(f"Connected to TDX server: {res[1]}:{res[2]} ({res[3]}) [verified]")
+            return True
+
+        print("TDX: 所有候选服务器均无法返回行业 K 线数据（可能处于非交易时段或全节点降级）")
+        self.api = None
+        return False
 
     def _disconnect_tdx(self):
         if self.api:
@@ -332,15 +486,17 @@ class SectorSentiment:
             return []
 
     def fetch_sector_history_raw(self, sector_code, sector_name):
-        """
-        获取板块历史数据，优先使用 AkShare，失败则尝试直接请求
+        """获取板块历史日线成交额（数据源：通达信 pytdx）。
+
+        仅支持 TDX 6 位板块代码（880xxx / 881xxx）。取不到数据时返回 None，
+        由调用方决定跳过该板块。
         """
         # If sector_code looks like a TDX index (880xxx or 881xxx), try pytdx first
         if isinstance(sector_code, str) and sector_code.isdigit() and sector_code.startswith(('880', '881')):
             df_tdx = self._fetch_sector_from_tdx(sector_code)
             if df_tdx is not None and not df_tdx.empty:
                 return df_tdx
-        # 如果通达信也无法获取，则返回 None
+        # 通达信无法获取时返回 None
         return None
 
     def _fetch_sector_from_tdx(self, code, count=500):
@@ -462,11 +618,12 @@ class SectorSentiment:
             print("No sector list available.")
             return {}
 
-        # Connect to TDX (Retry logic)
-        for attempt in range(3):
+        # Connect to TDX（_connect_tdx 内部已遍历候选服务器并做健康检查，
+        # 外层只需少量重试用于覆盖偶发的网络抖动）
+        for attempt in range(2):
             if self._connect_tdx():
                 break
-            print(f"Retrying connection ({attempt+1}/3)...")
+            print(f"Retrying connection ({attempt+1}/2)...")
             time.sleep(2)
         
         if not self.api or not self.api.client: 
