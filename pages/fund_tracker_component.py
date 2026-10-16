@@ -22,9 +22,6 @@ from utils.fund_tracker import FundTracker
 from utils.fund_tracker import (
     compute_multi_period_excess,
     detect_deviation_alerts_v2,
-    aggregate_by_tag,
-    build_llm_prompt_payload,
-    LLM_SYSTEM_PROMPT,
     DEVIATION_RULES,
 )
 
@@ -83,7 +80,6 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
     period_buttons = {}
     tag_filter_container = None    # 标签筛选条
     deviation_container = None     # 单只基金偏离值提示面板
-    llm_container = None           # MiniMax 板块偏离智能分析面板
     scale_overview_container = None  # 规模双因子总览面板
 
     # ── localStorage 读写 ───────────────────────────────
@@ -1387,32 +1383,10 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
             ).classes('text-[10px] text-gray-400 mb-2')
             deviation_container = ui.column().classes('w-full')
 
-        # ── 板块偏离提示（MiniMax 智能分析） ──
-        with ui.card().classes('w-full p-4 rounded-xl shadow-sm border border-violet-100'):
-            with ui.row().classes('w-full items-center justify-between mb-2 flex-wrap gap-2'):
-                with ui.row().classes('items-center gap-2'):
-                    with ui.element('div').classes('w-7 h-7 rounded-md flex items-center justify-center').style(
-                        'background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);'
-                    ):
-                        ui.icon('psychology', color='white').classes('text-sm')
-                    ui.label('板块偏离智能分析').classes('text-sm font-bold text-gray-800')
-                    ui.chip('MiniMax Token Plan', color='violet').props(
-                        'dense outline square'
-                    ).classes('text-[10px]')
-                with ui.row().classes('items-center gap-2'):
-                    ui.button('重新分析', icon='auto_awesome',
-                              on_click=lambda: asyncio.create_task(refresh_llm_analysis(force=True))) \
-                        .props('flat dense no-caps color=violet') \
-                        .classes('text-xs')
-            ui.label(
-                '基于你的标签聚合 + 多周期超额收益，让模型先自己拆解、再下结论、最后向你提出新问题'
-            ).classes('text-[10px] text-gray-400 mb-2')
-            llm_container = ui.column().classes('w-full')
-
         # ── 底部数据源 / 提示 ──
         with ui.row().classes('w-full items-center justify-between text-[10px] text-gray-400 px-2'):
             ui.label('💡 订阅信息保存在浏览器 localStorage 中，可在多设备分别记录自己的基金清单')
-            ui.label('数据源：Tushare Pro + 天天基金 + MiniMax LLM')
+            ui.label('数据源：Tushare Pro + 天天基金')
 
     # ── 订阅基金规模双因子总览 ─────────────────────────
 
@@ -1791,148 +1765,6 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
                                 with ui.element('td').classes('px-3 py-2 font-mono text-xs'):
                                     ui.label(t20).classes(c20)
 
-    # ── MiniMax 板块偏离智能分析 ─────────────────────────
-
-    _llm_cache: dict[str, str] = {}   # as_of_date -> markdown 报告
-
-    async def refresh_llm_analysis(force: bool = False):
-        """调用 MiniMax 让它对 tag_summary + 4 大指数 + 多周期超额做板块级思考。"""
-        if llm_container is None:
-            return
-        if not state['subs']:
-            llm_container.clear()
-            with llm_container:
-                ui.label('添加订阅后将在此展示板块偏离分析').classes(
-                    'text-xs text-gray-400 text-center py-4'
-                )
-            return
-
-        llm_container.clear()
-        with llm_container:
-            with ui.row().classes('w-full items-center justify-center py-4 gap-2'):
-                ui.spinner('dots', size='sm', color='violet')
-                ui.label('正在让 MiniMax 思考板块偏离…').classes('text-xs text-gray-500')
-
-        # ── 0) 浏览器侧场外 OF 数据补齐（与 refresh_deviation 共享 fund_overrides） ──
-        client = page_client
-        of_subs = [s for s in state['subs'] if s.get('ts_code', '').endswith('.OF')]
-        if client is not None and of_subs:
-            for sub in of_subs:
-                ts_code = sub.get('ts_code', '')
-                code6 = ts_code.split('.')[0]
-                if ts_code in state['fund_overrides'] and state['fund_overrides'][ts_code]:
-                    continue
-                data = await _browser_fetch_fund(code6, client=client)
-                if data:
-                    state['fund_overrides'][ts_code] = data
-
-        # 复跑 compute_multi_period_excess（避免和 deviation 抢资源）
-        loop = asyncio.get_running_loop()
-        try:
-            multi = await loop.run_in_executor(
-                executor,
-                lambda: compute_multi_period_excess(
-                    state['subs'],
-                    tracker,
-                    fund_overrides=state.get('fund_overrides') or None,
-                    periods=(5, 10, 20),
-                ),
-            )
-            tag_summary = aggregate_by_tag(multi)
-            payload = build_llm_prompt_payload(state['subs'], tracker, multi, tag_summary)
-        except Exception as e:
-            llm_container.clear()
-            with llm_container:
-                ui.label(f'数据准备失败: {e}').classes('text-xs text-rose-500 text-center py-4')
-            return
-
-        # 缓存命中（按 as_of_date + selected_tags 避免错位）
-        cache_key = f"{payload.get('as_of_date')}|{sorted(state['selected_tags'])}|{len(state['subs'])}"
-        if not force and cache_key in _llm_cache:
-            render_llm_panel(_llm_cache[cache_key], payload)
-            return
-
-        try:
-            from utils.llm_client import call_minimax_analyze  # 延迟导入，避免常驻依赖
-        except Exception as e:
-            llm_container.clear()
-            with llm_container:
-                with ui.column().classes('w-full items-center justify-center py-6 gap-2'):
-                    ui.icon('error_outline', color='rose').classes('text-3xl')
-                    ui.label('LLM 客户端未配置').classes('text-sm font-bold text-rose-600')
-                    ui.label(str(e)).classes('text-[10px] text-gray-500 font-mono')
-                    ui.label('请参考 utils/llm_client.py 配置 MiniMax Token').classes(
-                        'text-[10px] text-gray-400'
-                    )
-            return
-
-        try:
-            md = await call_minimax_analyze(payload, system_prompt=LLM_SYSTEM_PROMPT)
-            _llm_cache[cache_key] = md
-            render_llm_panel(md, payload)
-        except Exception as e:
-            llm_container.clear()
-            with llm_container:
-                with ui.column().classes('w-full items-center justify-center py-6 gap-2'):
-                    ui.icon('error_outline', color='rose').classes('text-3xl')
-                    ui.label(f'MiniMax 调用失败: {e}').classes(
-                        'text-xs text-rose-500 text-center'
-                    )
-
-    def render_llm_panel(md: str, payload: dict | None = None):
-        if llm_container is None:
-            return
-        llm_container.clear()
-        with llm_container:
-            tag_summary = payload.get('tag_summary', {}) if payload else {}
-            # 标签偏离速览（让用户一眼看到哪些板块最热/最冷）
-            if tag_summary:
-                rows = sorted(
-                    tag_summary.items(),
-                    key=lambda kv: abs(kv[1].get('avg_excess_20d') or 0),
-                    reverse=True,
-                )
-                with ui.row().classes('w-full flex-wrap gap-2 mb-3'):
-                    for tag, s in rows[:8]:
-                        e20 = s.get('avg_excess_20d')
-                        e10 = s.get('avg_excess_10d')
-                        e5 = s.get('avg_excess_5d')
-                        # 整体颜色按 20d 偏离符号
-                        if e20 is None:
-                            color = 'border-gray-200 bg-gray-50'
-                            txt = '—'
-                        elif e20 > 0:
-                            color = 'border-emerald-200 bg-emerald-50'
-                            txt = f'+{e20:.1f}%'
-                        else:
-                            color = 'border-rose-200 bg-rose-50'
-                            txt = f'{e20:.1f}%'
-                        with ui.card().classes(
-                            f'px-3 py-2 rounded-lg border {color} min-w-[120px]'
-                        ):
-                            with ui.row().classes('items-center gap-2'):
-                                ui.label(tag).classes('text-xs font-bold text-gray-700')
-                                ui.label(f'{s.get("fund_count", 0)} 只').classes(
-                                    'text-[10px] text-gray-400'
-                                )
-                            ui.label(f'近1月: {txt}').classes(
-                                'text-sm font-bold text-gray-800'
-                            )
-                            with ui.row().classes('gap-2 mt-1'):
-                                ui.label(
-                                    f'5d: {e5:+.1f}%' if e5 is not None else '5d: —'
-                                ).classes('text-[10px] text-gray-500 font-mono')
-                                ui.label(
-                                    f'10d: {e10:+.1f}%' if e10 is not None else '10d: —'
-                                ).classes('text-[10px] text-gray-500 font-mono')
-
-            # 主报告区（Markdown 渲染）
-            with ui.element('div').classes(
-                'w-full p-4 rounded-lg border border-violet-100 bg-white '
-                'prose prose-sm max-w-none'
-            ):
-                ui.markdown(md).classes('w-full text-sm text-gray-800')
-
     # ── 初始化流程 ────────────────────────────────
 
     async def init_all():
@@ -1953,21 +1785,14 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
                 ui.label('添加订阅后将在此展示规模双因子总览').classes(
                     'text-xs text-gray-400 text-center py-4'
                 )
-        # 4) 偏离值 + LLM 板块分析（与上方并发）
+        # 4) 偏离值提示（与上方并发）
         if state['subs']:
             asyncio.create_task(refresh_deviation())
-            asyncio.create_task(refresh_llm_analysis())
         else:
             if deviation_container is not None:
                 deviation_container.clear()
                 with deviation_container:
                     ui.label('添加订阅后将在此展示偏离值提示').classes(
-                        'text-xs text-gray-400 text-center py-4'
-                    )
-            if llm_container is not None:
-                llm_container.clear()
-                with llm_container:
-                    ui.label('添加订阅后将在此展示板块偏离分析').classes(
                         'text-xs text-gray-400 text-center py-4'
                     )
 
@@ -1978,7 +1803,5 @@ def render_fund_tracker_panel(plotly_renderer=None, is_mobile=False):
             refresh_scale_overview(force_update=True),
             refresh_deviation(),
         )
-        # LLM 单独发起（避免阻塞其它任务）
-        asyncio.create_task(refresh_llm_analysis())
 
     ui.timer(0, init_all, once=True)

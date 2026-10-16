@@ -828,15 +828,6 @@ def _em_code_to_ts_code(code, stock_market):
 - `compute_multi_period_excess(subs, tracker, ...)` → 5d/10d/20d 超额
 - `detect_deviation_alerts_v2(multi)` → 偏离告警
 - `aggregate_by_tag(multi, tags_index)` → 标签聚合
-- `build_llm_prompt_payload(...)` → LLM 输入 JSON
-
-### 19.12 LLM Prompt 设计（基民视角红线）
-- **相对收益**：excess = fund_pct − index_pct
-- **禁止编造数据**：持仓 / 北向 / 换手率 / 风格指数具体走势 / 净值绝对数
-- **建议语言**：持有 / 赎回 / 转换 / 观察（不是买 / 卖 / 加仓 / 止损）
-- **样本厚度**：fund_count=1 时标注「样本极薄，仅供参考」
-- **三层思考链**：事实层 → 因果层 → 建议层
-- **判定歧义**：基准错配 vs 风格漂移
 
 ---
 
