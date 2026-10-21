@@ -9,6 +9,13 @@ import threading
 import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from utils.ths_source import (
+    ThsBlockedError,
+    ThsHollowError,
+    ThsSourceError,
+    get_ths_source,
+)
+
 class FundRadar:
     """
     Simplified FundRadar Manager.
@@ -106,16 +113,21 @@ class FundRadar:
                 return result
             except Exception as e:
                 err_msg = str(e).lower()
-                # NoneType parsing error = THS anti-crawl blocked the response
-                # (server returns a CAPTCHA/empty page instead of data)
-                is_anticrawl_parse = "'nonetype' object has no attribute 'text'" in err_msg
+                # THS 被反爬拦截（HTTP 401/403/429 或 chameleon 挑战页）
+                is_anticrawl_blocked = isinstance(e, ThsBlockedError)
+                # THS 返回 200 但是空壳响应（缺少 page_info / 表格为空）
+                is_anticrawl_hollow = isinstance(e, ThsHollowError)
+                # 兼容旧版 akshare：'NoneType' object has no attribute 'text'
+                is_legacy_parse = "'nonetype' object has no attribute 'text'" in err_msg
+                is_anticrawl_parse = is_anticrawl_blocked or is_anticrawl_hollow or is_legacy_parse
                 is_rate_limit = is_anticrawl_parse or any(kw in err_msg for kw in [
                     '403', '429', 'too many', 'rate limit', 'frequent',
                     'banned', 'block', 'access denied', 'timeout',
                     'timed out', 'connection', 'reset by peer'
                 ])
                 if is_anticrawl_parse:
-                    print(f"[AntiCrawl] {_label} blocked by Source (NoneType parse error), attempt {attempt}/{_retry_max}")
+                    reason = "blocked" if (is_anticrawl_blocked or is_legacy_parse) else "hollow"
+                    print(f"[AntiCrawl] {_label} blocked by Source ({reason}), attempt {attempt}/{_retry_max}")
                 
                 with cls._api_lock:
                     cls._api_error_count += 1
