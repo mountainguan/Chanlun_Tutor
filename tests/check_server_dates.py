@@ -1,4 +1,4 @@
-from pytdx.hq import TdxHq_API
+from utils.tdx_compat import create_api
 import pandas as pd
 
 ips = [
@@ -9,7 +9,7 @@ ips = [
 code = '881070' 
 
 for ip, port in ips:
-    api = TdxHq_API()
+    api = create_api()
     try:
         print(f"Connecting to {ip}...")
         if api.connect(ip, port, time_out=4):

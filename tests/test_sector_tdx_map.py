@@ -1,4 +1,4 @@
-from pytdx.hq import TdxHq_API
+from utils.tdx_compat import create_api
 import time
 
 # 用户提供的映射表
@@ -23,7 +23,7 @@ ips = [
     ('124.71.187.100', 7709),
 ]
 
-api = TdxHq_API()
+api = create_api()
 connected_ip = None
 for ip, port in ips:
     try:

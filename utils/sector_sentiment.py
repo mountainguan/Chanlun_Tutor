@@ -199,11 +199,13 @@ class SectorSentiment:
     #
     # 【重要】TDX 很多节点虽然 TCP 可连，但 K 线接口返回空数据。
     # 历史上硬编码的「杭州电信主站」系列 (60.191.117.167 / 218.75.126.9 /
-    # 115.238.56.198 / ...) 已全部失效（get_index_bars 恒返回空），
-    # 导致所有板块抓取失败。
-    # 因此这里改为「连接 + 健康检查」双验证：只有真正能返回行业板块
+    # 115.238.56.198 / ...) 曾因「握手包 SetupCmd3 被服务端拒绝」而
+    # 表现为 get_index_bars 恒返回空（详见 utils/tdx_compat.py 的说明），
+    # 当时误判为节点失效。
+    # 因此这里保留「连接 + 健康检查」双验证：只有真正能返回行业板块
     # K 线数据的服务器才会被采用，并把最优服务器缓存到磁盘，下次优先使用。
     #
+    # 2026-10-23 实测：上述握手问题修复后，本列表中的节点全部可用。
     # 以下列表由 scripts/probe_tdx_servers.py 于 2026-09-10 实测得出。
     TDX_KNOWN_GOOD = [
         ('117.34.114.13', 7709),   # 国泰君安
@@ -267,8 +269,8 @@ class SectorSentiment:
         【为什么需要健康检查】TDX 中大量节点 TCP 可连但 K 线接口恒返回空
         （例如已失效的「杭州电信主站」系列），仅靠 connect() 成功无法判断。
         """
-        from pytdx.hq import TdxHq_API
-        api = TdxHq_API()
+        from utils.tdx_compat import create_api
+        api = create_api()
         ok = False
         try:
             if not api.connect(ip, port, time_out=connect_timeout):
@@ -348,7 +350,11 @@ class SectorSentiment:
         优先级：磁盘缓存的已验证服务器 → 实测已知可用列表 → pytdx 内置列表。
         """
         try:
-            import pytdx.hq  # noqa: F401
+            # 应用 TDX 握手兼容补丁：pytdx 默认会发送服务端已拒绝的
+            # SetupCmd3，导致后续所有 K 线请求恒返回 2 字节空壳响应
+            # （表现为「服务器失效」）。详见 utils/tdx_compat.py。
+            from utils.tdx_compat import patch_tdx
+            patch_tdx()
         except Exception as e:
             print(f"TDX init error: {e}")
             if "No module named 'pytdx'" in str(e):

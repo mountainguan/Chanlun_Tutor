@@ -3,6 +3,10 @@
 用法:
     .venv\\Scripts\\python.exe scripts\\probe_tdx_servers.py
 
+注意: 脚本通过 utils/tdx_compat 修正 pytdx 的握手流程
+(跳过服务端已拒绝的 SetupCmd3)，否则所有节点都会被误判为
+「无法返回 K 线数据」。
+
 输出:
     - 可用服务器列表（能返回 000001 和 881070 的 K 线）
     - 结果写入 data/tdx_server_probe.json
@@ -54,8 +58,9 @@ def probe_one(name, ip, port):
     result['tcp'] = True
 
     try:
-        from pytdx.hq import TdxHq_API
-        api = TdxHq_API()
+        # 应用 TDX 握手兼容补丁，否则所有节点都会被误判为「无法返回 K 线」
+        from utils.tdx_compat import create_api
+        api = create_api()
         ok = api.connect(ip, port, time_out=API_TIMEOUT)
         if not ok:
             result['error'] = 'connect returned falsy'

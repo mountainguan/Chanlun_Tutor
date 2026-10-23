@@ -1,5 +1,5 @@
 from utils.sector_sentiment import tdx_industry_map
-from pytdx.hq import TdxHq_API
+from utils.tdx_compat import create_api
 import json, os, time
 
 ips = [
@@ -8,7 +8,7 @@ ips = [
     ('119.147.212.80', 7709),
     ('124.71.187.100', 7709)
 ]
-api = TdxHq_API()
+api = create_api()
 connected = False
 for ip, port in ips:
     try:
