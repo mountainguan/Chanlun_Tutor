@@ -1,6 +1,6 @@
 {
   "trade_date": "2026-10-26",
-  "generated_at": "2026-10-26 16:16",
+  "generated_at": "2026-10-27 10:39",
   "lookback_years": 3,
   "index_defs": [
     {
@@ -18353,29 +18353,6 @@
           "prev_is_streak": false,
           "streak_len": 1,
           "note": "强吞没 · 前一日无连续趋势，注意反转力度"
-        },
-        {
-          "ts_code": "000300.SH",
-          "name": "沪深300",
-          "trade_date": "2023-09-28",
-          "pattern": "bearish",
-          "prev_open": 3694.9607,
-          "prev_close": 3700.495,
-          "prev_high": 3731.1405,
-          "prev_low": 3694.3938,
-          "prev_body": 5.534299999999803,
-          "prev_pct_chg": 0.2059,
-          "curr_open": 3711.2117,
-          "curr_close": 3689.5172,
-          "curr_high": 3716.0569,
-          "curr_low": 3685.3001,
-          "curr_body": 21.694500000000062,
-          "curr_pct_chg": -0.2967,
-          "body_ratio": 3.920007950418451,
-          "cover_ratio": 2.0,
-          "prev_is_streak": false,
-          "streak_len": 1,
-          "note": "强吞没 · 前一日无连续趋势，注意反转力度"
         }
       ],
       "signals_total": {
@@ -22633,8 +22610,8 @@
           "body_ratio": 2.028656914893681,
           "cover_ratio": 2.0,
           "prev_is_streak": true,
-          "streak_len": 3,
-          "note": "强吞没 · 前续 3 日同向"
+          "streak_len": 2,
+          "note": "强吞没 · 前续 2 日同向"
         }
       ],
       "signals_total": {
@@ -31530,29 +31507,6 @@
           "prev_is_streak": false,
           "streak_len": 1,
           "note": "标准吞没 · 前一日无连续趋势，注意反转力度"
-        },
-        {
-          "ts_code": "930050.CSI",
-          "name": "中证A50",
-          "trade_date": "2023-09-28",
-          "pattern": "bearish",
-          "prev_open": 1482.1844,
-          "prev_close": 1483.5107,
-          "prev_high": 1492.8542,
-          "prev_low": 1480.0626,
-          "prev_body": 1.3262999999999465,
-          "prev_pct_chg": 0.157,
-          "curr_open": 1488.1299,
-          "curr_close": 1474.4972,
-          "curr_high": 1488.1299,
-          "curr_low": 1473.9547,
-          "curr_body": 13.632699999999886,
-          "curr_pct_chg": -0.6076,
-          "body_ratio": 10.278745381889795,
-          "cover_ratio": 2.0,
-          "prev_is_streak": false,
-          "streak_len": 1,
-          "note": "强吞没 · 前一日无连续趋势，注意反转力度"
         }
       ],
       "signals_total": {
