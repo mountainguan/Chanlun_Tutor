@@ -634,16 +634,72 @@ start_dt = end_dt - timedelta(days=days + buffer)
 
 **文件**: [`utils/social_security_fund.py`](utils/social_security_fund.py) `class SocialSecurityFund`
 
-### 17.1 fund_type → AKShare symbol
+### 17.1 fund_type → 数据来源
 | fund_type | symbol | 数据形态 |
 |---|---|---|
-| `social_security` | `社保持仓` | AKShare `stock_report_fund_hold` |
-| `pension` | `基本养老保险` | **本地 Excel**（`data/yanglaojin/基本养老保险持股_<date>.xlsx`） |
-| `huijin` | `中央汇金` | **本地 JSON**（`data/huijin/*.json`，脚本 `scripts/fetch_huijin_data.py`） |
+| `social_security` | `社保持仓` | **东财直连接口**（`utils/em_fund_hold.py`，`type=3`） |
+| `pension` | `基本养老保险` | **东财十大流通股东**（`utils/em_gdfx_hold.py`）→ 归档 Excel `data/yanglaojin/基本养老保险持股_<date>.xlsx` |
+| `huijin` | `中央汇金` | **东财十大流通股东**（`utils/em_gdfx_hold.py`）→ 归档 Excel `data/huijin/中央汇金持股_<date>.xlsx` |
+
+> ⚠️ **不要用 AKShare 的 `stock_report_fund_hold` 抓社保持仓。**
+> 该函数对东财返回的 JSON 做 **按位置** 重命名（`big_df.columns = [...]`），
+> 东财新增字段（如 `HOLDCHA_VALUE`）会让所有列整体错位，
+> 股票代码/持股市值等数值被静默污染（前端会显示 `-2.067167e+07` 这类垃圾值）。
+> `utils/em_fund_hold.fetch_fund_holdings()` 按 **字段名** 映射，不受上游字段顺序影响。
+
+### 17.1.1 东财主力持仓字段映射（按名映射）
+| 输出列 | 东财原始字段 |
+|---|---|
+| `股票代码` | `SECURITY_CODE`（补齐 6 位字符串） |
+| `股票简称` | `SECURITY_NAME_ABBR` |
+| `持有基金家数` | `HOULD_NUM` |
+| `持股总数` | `TOTAL_SHARES` |
+| `持股市值` | `HOLD_VALUE`（**不是** `FREESHARES_RATIO`） |
+| `持股变化` | `HOLDCHA` |
+| `持股变动数值` | `HOLDCHA_NUM` |
+| `持股变动比例` | `HOLDCHA_RATIO` |
+
+- 接口：`http://data.eastmoney.com/dataapi/zlsj/list`，参数 `date=YYYY-MM-DD&type=3&pageSize=500`
+- 排序：`持有基金家数` 降序 + `股票代码` 升序（与历史归档行序一致）
+- 报告期未披露时接口返回裸列表 `[]`（非字典），需容错
+
+### 17.1.2 东财十大流通股东字段映射（养老金 / 汇金）
+| 输出列 | 东财原始字段 |
+|---|---|
+| `股票代码` | `SECURITY_CODE`（补齐 6 位字符串） |
+| `股票简称` | `SECURITY_NAME_ABBR` |
+| `股东名称` | `HOLDER_NAME` |
+| `股东名次` | `HOLDER_RANK` |
+| `期末持股-数量` | `HOLD_NUM` |
+| `期末持股-数量变化` | `XZCHANGE`（新进为 `NaN`） |
+| `期末持股-数量变化比例` | `HOLD_RATIO_CHANGE`（新进为 `NaN`） |
+| `期末持股-持股变动` | `HOLDNUM_CHANGE_NAME`（新进 / 增加 / 减少 / 不变） |
+| `期末持股-流通市值` | `HOLDER_MARKET_CAP` |
+| `持股占流通比例` | `HOLD_RATIO` |
+| `公告日` | `UPDATE_DATE` |
+
+- 接口：`https://datacenter-web.eastmoney.com/api/data/v1/get`
+  - `reportName=RPT_CUSTOM_F10_EH_FREEHOLDERS_JOIN_FREEHOLDER_SHAREANALYSIS`（十大流通股东）
+  - `filter=(END_DATE='YYYY-MM-DD')`，`pageSize=500`，需翻页取全量（单季 5~7 万行）
+  - 交叉校验口径：`RPT_CUSTOM_DMSK_HOLDERS_JOIN_HOLDER_SHAREANALYSIS`（十大股东，含限售股）
+- 抓取封装：`utils.em_gdfx_hold.fetch_free_holders()`（按 **字段名** 映射），
+  全市场结果会缓存到系统临时目录 `em_gdfx_cache/`，两个脚本可复用，避免重复下载
+- 排序：`公告日` 降序 + `股票代码` 升序 + `股东名次` 升序（与东财接口原生排序一致，归档行序即接口行序）
+- **股东名称过滤**（客户端过滤，服务端 `like` 过滤在该接口无效，会返回 `count=None`）：
+  - 养老金：关键字 `基本养老保险`、`养老保险基金`
+  - 汇金：关键字 **必须精确为 `中央汇金`**。用更宽的 `汇金` 会误召
+    中汇金玖锐信、厦门信托-汇金1667号、钎镱汇金1号、盛势汇金等无关产品
+- 汇金主体只有三个：`中央汇金投资有限责任公司`、`中央汇金资产管理有限责任公司`、
+  `华夏基金-中央汇金资产管理有限责任公司-华夏基金-汇金资管单一资产管理计划`
+
+> ⚠️ **汇金持股数量在 2026Q2 断崖式下降（153 → 21 只）不是数据缺陷。**
+> 用十大流通股东与十大股东两个独立报表交叉验证，结论一致：中央汇金自 2026Q2 起
+> 大幅减持，只保留了 21 只股票（工行、建行、中行、农行、中信、中金、平安等）。
+> 历史参考：20250630=171 / 20250930=162 / 20251231=156 / 20260331=153 / 20260630=21 / 20260930=21。
 
 ### 17.2 核心字段
-- 股票代码 / 股票简称 / 持股总数 / 持股市值（由代码 + 估算股价 15 元兜底）
-- 持股变化（新进 / 增仓 / 减仓 / 不变 / 退出）
+- 股票代码 / 股票简称 / 持股总数 / 持股市值（社保为东财 `HOLD_VALUE`；养老金为 估算股价 15 元 × 持股总数；汇金为东财 `HOLDER_MARKET_CAP` 合计）
+- 持股变化（社保：新进 / 增仓 / 减仓 / 不变 / 退出；养老金：新增 / 增加 / 减少 / 不变；汇金：新进 / 增加 / 减少 / 不变）
 - 持股变动数值 / 持股变动比例
 
 ### 17.3 变动判定
@@ -654,12 +710,39 @@ start_dt = end_dt - timedelta(days=days + buffer)
 ### 17.4 缓存策略
 - `*_fund_cache.json`：24h TTL，`{timestamp, date, data}`
 - `*_changes_cache.json`：增量缓存 `exited` 数据（避免每次拉取前一季）
+- 缓存写入统一走 `SocialSecurityFund.write_cache()`：NaN/NaT → `null`（`allow_nan=False`）
 - **代码校正**：股票代码若不在 AKShare `stock_info_a_code_name()`，通过名称反查修正（新三板转板、合并重组）
+- **JSON 合法性**：写缓存必须把 `NaN` 转成 `null`（`allow_nan=False`），
+  否则会写出 `NaN` 字面量——Python 的 `json.load` 能容忍，但 `jq` 等严格解析器会失败
 
 ### 17.5 UI 表格规则（pages/social_security_component.py）
 - 变动类型颜色：增仓=红 / 减仓=绿 / 新进=橙 / 退出=灰斜体
 - 导出 Excel：`持股市值(亿)/持股数量/变动类型/变动数值` 四列
 - AG Grid 分页 50 条
+
+### 17.6 更新数据
+```powershell
+python scripts/get_social_security_holdings.py 20260930   # 社保基金
+python scripts/get_yanglaojin.py 20260930                 # 基本养老保险（养老金）
+python scripts/fetch_huijin_data.py 20260930              # 中央汇金
+```
+- 社保：产出 `data/shebaojijin/社保基金持股_<date>.xlsx` + `data/social_security_fund_cache.json`
+- 养老金：产出 `data/yanglaojin/基本养老保险持股_<date>.xlsx` + `data/pension_fund_cache.json`
+  （7 列原始明细，**不**按股票汇总；汇总只在缓存里做）
+- 汇金：产出 `data/huijin/中央汇金持股_<date>.xlsx` + `data/huijin_fund_cache.json`
+  （9 列，按股票汇总，与既有归档同格式）
+- 归档目录分别是 `data/shebaojijin/`、`data/yanglaojin/`、`data/huijin/`（**都不在** `data/` 根目录），
+  `_find_latest_excel` / `find_latest_excel` 查找时必须带上对应子目录
+- 脚本每次都会重写缓存，跑完旧季度需重跑目标季度以恢复缓存
+- 也可以只从已有归档重建缓存（不联网）：
+  `python scripts/sync_latest_data.py --type all|pension|huijin`
+- 养老金归档的行序 = 东财接口原生行序（`公告日` 降序）；
+  汇金归档按 `股票代码` 升序。两者不要混用排序口径
+
+> ⚠️ **养老金「持股变化」标签的既有约定（保持不变）**：汇总后若 `持股变动数值` 汇总为 0
+> 一律标成 `新进`（而不是 `不变`）。因此前端「本季新进」统计会偏高
+> （20260930 标 110 只，实际全部组合均为新进的只有 67 只）。这是既有口径，
+> 本次更新沿用，未改变历史季度语义。
 
 ---
 
@@ -1425,11 +1508,11 @@ BASE_C_FLAT = 1.0   # 横盘 ±1%
 | `fund_tracker_cache/indexes/` | 4 大指数日线 CSV |
 | `fund_tracker_cache/custom_indexes/` | 自定义指数日线 CSV |
 | `fund_filter_cache/` | 基金筛选结果 |
-| `huijin/` | 中央汇金 JSON |
+| `huijin/` | 中央汇金持股_<date>.xlsx |
 | `index_constituents_cache/` | index_cons_<code>.json |
 | `sector_crowding/` | 派生 pickle (sector_crowding_derived.pkl) |
 | `sector_history_cache/` | 板块历史 |
-| `shebaojijin/` | 社保 |
+| `shebaojijin/` | 社保基金持股_<date>.xlsx |
 | `special_announcements/` | 特殊公告 |
 | `trading_crowding/` | 极端行情占比 |
 | `volume_leaders_cache/` | 量能龙头 |
@@ -1473,13 +1556,16 @@ BASE_C_FLAT = 1.0   # 横盘 ±1%
 | `stock_zh_index_spot_sina` | 上证指数快照 | fund_radar |
 | `stock_fund_flow_individual` | THS 个股资金流 | fund_radar (volume leaders) |
 | `index_stock_cons` | 指数成分股 | fund_radar |
-| `stock_report_fund_hold` | 社保持仓 | social_security |
+| `stock_report_fund_hold` | ~~社保持仓~~ **已弃用**（按位置重命名会串列，见 17.1） | — |
+| `stock_gdfx_free_holding_analyse_em` | ~~养老金/汇金十大流通股东~~ **已弃用**（改用 `utils/em_gdfx_hold.py` 直连，见 17.1.2） | — |
 | `stock_info_a_code_name` | 股票代码-名称 | social_security |
 | `stock_zh_a_gdhs` | 股东户数 | money_flow |
 
 ### 32.3 HTTP（东方财富 / 新浪 / 腾讯 / 金十 / 同花顺 / 中国货币网）
 | URL | 用途 |
 |---|---|
+| `data.eastmoney.com/dataapi/zlsj/list` | EM 主力持仓（社保等），按字段名映射 |
+| `datacenter-web.eastmoney.com/api/data/v1/get` | EM 十大流通股东（养老金/汇金），按字段名映射 |
 | `push2his.eastmoney.com/api/qt/stock/kline/get` | EM 个股 K 线 |
 | `push2his.eastmoney.com/.../fflow/kline/get` | EM 个股资金流 |
 | `stock_zh_a_gdhs_detail_em` | EM 股东户数详情 |
@@ -1507,7 +1593,7 @@ BASE_C_FLAT = 1.0   # 横盘 ±1%
 
 # 文档结束
 
-> **最后更新**: 2026-09-10
+> **最后更新**: 2026-10-31
 > **下次更新触发条件**:
 > 1. 任何 utils/ 模块的阈值常量变更
 > 2. 新增/移除页面或数据源

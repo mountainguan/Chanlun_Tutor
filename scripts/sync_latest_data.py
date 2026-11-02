@@ -23,6 +23,8 @@ from datetime import datetime
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from utils.social_security_fund import SocialSecurityFund
+
 def get_data_dir():
     """获取数据目录路径"""
     return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
@@ -97,50 +99,16 @@ def convert_social_security_data(excel_path, report_date):
         return None
 
 def convert_pension_data(excel_path, report_date):
-    """将养老金Excel数据转换为缓存格式"""
+    """将养老金Excel数据转换为缓存格式（复用 utils 的共享口径）"""
     print(f"正在处理养老金数据: {excel_path}")
 
     try:
-        df = pd.read_excel(excel_path)
+        ssf = SocialSecurityFund(fund_type='pension')
+        df = ssf.load_pension_from_excel(excel_path, report_date)
+        if df is None or df.empty:
+            print("养老金数据为空")
+            return None
         print(f"读取到 {len(df)} 条记录")
-
-        # 重命名列以匹配系统格式
-        column_mapping = {
-            '期末持股-数量': '持股总数',
-            '期末持股-数量变化': '持股变动数值',
-            '期末持股-数量变化比例': '持股变动比例'
-        }
-        df = df.rename(columns=column_mapping)
-
-        # 确保股票代码为6位字符串
-        df['股票代码'] = df['股票代码'].astype(str).str.zfill(6)
-
-        # 添加序号
-        df['序号'] = range(1, len(df) + 1)
-
-        # 添加持有基金家数
-        if '持有基金家数' not in df.columns:
-            df['持有基金家数'] = 1
-
-        # 如果没有市值列，使用估算值
-        if '持股市值' not in df.columns:
-            df['持股市值'] = df['持股总数'] * 15.0  # 估算
-
-        # 确定持股变化类型
-        if '持股变化' not in df.columns:
-            def determine_change(row):
-                change_val = row.get('持股变动数值', 0)
-                if pd.isna(change_val) or change_val == 0:
-                    return '新进'
-                elif change_val > 0:
-                    return '增加'
-                else:
-                    return '减少'
-            df['持股变化'] = df.apply(determine_change, axis=1)
-
-        # 处理NaN值
-        df = df.fillna(0)
-
         return df
 
     except Exception as e:
@@ -148,43 +116,16 @@ def convert_pension_data(excel_path, report_date):
         return None
 
 def convert_huijin_data(excel_path, report_date):
-    """将汇金Excel数据转换为缓存格式"""
+    """将汇金Excel数据转换为缓存格式（复用 utils 的共享口径）"""
     print(f"正在处理汇金数据: {excel_path}")
 
     try:
-        df = pd.read_excel(excel_path)
+        ssf = SocialSecurityFund(fund_type='huijin')
+        df = ssf.load_huijin_from_excel(excel_path, report_date)
+        if df is None or df.empty:
+            print("汇金数据为空")
+            return None
         print(f"读取到 {len(df)} 条记录")
-
-        # 确保股票代码为6位字符串
-        df['股票代码'] = df['股票代码'].astype(str).str.zfill(6)
-
-        # 确保必要的列存在
-        required_columns = ['股票代码', '股票简称', '持股总数', '持股市值']
-        for col in required_columns:
-            if col not in df.columns:
-                print(f"缺少必要列: {col}")
-                return None
-
-        # 添加序号
-        df['序号'] = range(1, len(df) + 1)
-
-        # 添加持有基金家数
-        if '持有基金家数' not in df.columns:
-            df['持有基金家数'] = 1
-
-        # 添加持股变动相关列
-        if '持股变动数值' not in df.columns:
-            df['持股变动数值'] = 0
-        if '持股变动比例' not in df.columns:
-            df['持股变动比例'] = 0
-
-        # 确定持股变化类型
-        if '持股变化' not in df.columns:
-            df['持股变化'] = '不变'
-
-        # 处理NaN值
-        df = df.fillna(0)
-
         return df
 
     except Exception as e:
@@ -200,6 +141,15 @@ def convert_to_serializable(obj):
         return None
     elif isinstance(obj, float) and pd.isna(obj):
         return None
+    if isinstance(obj, dict):
+        return {k: convert_to_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [convert_to_serializable(v) for v in obj]
+    if hasattr(obj, 'item'):
+        try:
+            return obj.item()
+        except (AttributeError, ValueError):
+            pass
     return obj
 
 def save_cache(df, cache_file, report_date):
@@ -218,8 +168,9 @@ def save_cache(df, cache_file, report_date):
         'data': data_records
     }
 
+    # allow_nan=False：NaN 会在写入时报错，因此先统一转成 None，保证输出的是合法 JSON
     with open(cache_file, 'w', encoding='utf-8') as f:
-        json.dump(cache_data, f, ensure_ascii=False, indent=2)
+        json.dump(cache_data, f, ensure_ascii=False, indent=2, allow_nan=False)
 
     print(f"已保存缓存: {cache_file} (日期: {report_date}, 记录数: {len(df)})")
 
@@ -233,14 +184,14 @@ def sync_data(target_date=None, data_type='all'):
     if data_type in ['all', 'social']:
         print("\n=== 同步社保基金数据 ===")
         if target_date:
-            excel_path = os.path.join(data_dir, f'社保基金持股_{target_date}.xlsx')
+            excel_path = os.path.join(data_dir, 'shebaojijin', f'社保基金持股_{target_date}.xlsx')
             if os.path.exists(excel_path):
                 report_date = target_date
             else:
                 print(f"文件不存在: {excel_path}")
-                excel_path, report_date = find_latest_excel('社保基金持股_', data_dir)
+                excel_path, report_date = find_latest_excel('社保基金持股_', data_dir, 'shebaojijin')
         else:
-            excel_path, report_date = find_latest_excel('社保基金持股_', data_dir)
+            excel_path, report_date = find_latest_excel('社保基金持股_', data_dir, 'shebaojijin')
 
         if excel_path and report_date:
             df = convert_social_security_data(excel_path, report_date)
@@ -273,14 +224,14 @@ def sync_data(target_date=None, data_type='all'):
     if data_type in ['all', 'huijin']:
         print("\n=== 同步汇金数据 ===")
         if target_date:
-            excel_path = os.path.join(data_dir, f'中央汇金持股_{target_date}.xlsx')
+            excel_path = os.path.join(data_dir, 'huijin', f'中央汇金持股_{target_date}.xlsx')
             if os.path.exists(excel_path):
                 report_date = target_date
             else:
                 print(f"文件不存在: {excel_path}")
-                excel_path, report_date = find_latest_excel('中央汇金持股_', data_dir)
+                excel_path, report_date = find_latest_excel('中央汇金持股_', data_dir, 'huijin')
         else:
-            excel_path, report_date = find_latest_excel('中央汇金持股_', data_dir)
+            excel_path, report_date = find_latest_excel('中央汇金持股_', data_dir, 'huijin')
 
         if excel_path and report_date:
             df = convert_huijin_data(excel_path, report_date)

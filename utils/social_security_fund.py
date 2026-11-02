@@ -7,6 +7,12 @@ import time
 from typing import Dict, List, Optional
 from zoneinfo import ZoneInfo
 
+from utils.em_fund_hold import FUND_TYPE_MAP, fetch_fund_holdings
+
+# 养老金 / 汇金没有权威的持仓市值来源，沿用仓库既有口径：按估算股价 15 元计算持股市值
+ESTIMATED_STOCK_PRICE = 15.0
+
+
 class SocialSecurityFund:
     """
     社保基金持股数据管理器
@@ -47,6 +53,23 @@ class SocialSecurityFund:
         if not os.path.exists(self.data_dir):
             os.makedirs(self.data_dir)
 
+    def _fetch_holdings(self, report_date: str) -> pd.DataFrame:
+        """
+        按报告期抓取持仓明细。
+
+        走 utils.em_fund_hold 的直连接口（按字段名映射），不再使用 AKShare 的
+        ``stock_report_fund_hold``——后者按 **字段位置** 重命名列，东财新增字段
+        （如 HOLDCHA_VALUE）会导致所有列整体错位、数据被静默污染。
+        """
+        if self.symbol not in FUND_TYPE_MAP:
+            # 养老/汇金等非东财主力持仓类型，AKShare 也无对应接口
+            return pd.DataFrame()
+        try:
+            return fetch_fund_holdings(report_date, symbol=self.symbol)
+        except Exception as e:
+            print(f"获取 {report_date} 的[{self.symbol}]数据失败: {e}")
+            return pd.DataFrame()
+
     def _get_start_date_by_quarter_diff(self, base_date: datetime.datetime, quarters_back: int) -> str:
         # Helper to calculate date strings
         # ... (Simplified logic valid for this use case?)
@@ -57,6 +80,28 @@ class SocialSecurityFund:
         month = target_months % 12 + 1
         day = 31 if month in [3, 12] else 30
         return f"{year}{month:02d}{day:02d}"
+
+    @staticmethod
+    def _sanitize_for_json(obj):
+        """把 NaN / NaT 递归替换为 None，避免写出非法 JSON 字面量 ``NaN``"""
+        if isinstance(obj, dict):
+            return {k: SocialSecurityFund._sanitize_for_json(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [SocialSecurityFund._sanitize_for_json(v) for v in obj]
+        if obj is None:
+            return None
+        if isinstance(obj, float) and pd.isna(obj):
+            return None
+        if isinstance(obj, (pd.Timestamp,)):
+            return obj.strftime('%Y-%m-%d %H:%M:%S')
+        try:
+            if pd.isna(obj):
+                return None
+        except (TypeError, ValueError):
+            pass
+        if hasattr(obj, 'item'):
+            return obj.item()
+        return obj
 
     def _load_changes_cache(self):
         if os.path.exists(self.changes_cache_file):
@@ -70,7 +115,8 @@ class SocialSecurityFund:
     def _save_changes_cache(self, cache_data):
         try:
             with open(self.changes_cache_file, 'w', encoding='utf-8') as f:
-                json.dump(cache_data, f, ensure_ascii=False, indent=2)
+                json.dump(self._sanitize_for_json(cache_data), f,
+                          ensure_ascii=False, indent=2, allow_nan=False)
         except Exception as e:
             print(f"保存变动缓存失败: {e}")
 
@@ -122,7 +168,7 @@ class SocialSecurityFund:
         prev_date_str = self._get_start_date_by_quarter_diff(curr_date, 1)
 
         try:
-            prev_df = ak.stock_report_fund_hold(symbol=self.symbol, date=prev_date_str)
+            prev_df = self._fetch_holdings(prev_date_str)
             if prev_df is None or prev_df.empty: return pd.DataFrame()
             prev_codes = set(prev_df['股票代码'].tolist())
         except:
@@ -176,15 +222,31 @@ class SocialSecurityFund:
             return pd.DataFrame()
 
         # 缓存数据
-        cache_data = {
-            'timestamp': time.time(),
-            'date': self.report_date if self.report_date else '20250930',  # 优先使用加载的日期，默认20250930
-            'data': df.to_dict('records')
-        }
-        with open(self.cache_file, 'w', encoding='utf-8') as f:
-            json.dump(cache_data, f, ensure_ascii=False, indent=2)
+        self.write_cache(df, self.report_date)
 
         return df
+
+    def write_cache(self, df: pd.DataFrame, report_date: str = None) -> str:
+        """
+        把持仓 DataFrame 写入前端读取的 JSON 缓存。
+
+        NaN / NaT 会被转成 ``null``，保证输出的是合法 JSON（``allow_nan=False``）。
+
+        Args:
+            df: 持仓 DataFrame
+            report_date: 报告期，缺省沿用当前值
+
+        Returns:
+            str: 缓存文件路径
+        """
+        cache_data = {
+            'timestamp': time.time(),
+            'date': report_date or self.report_date or '',
+            'data': self._sanitize_for_json(df.to_dict('records'))
+        }
+        with open(self.cache_file, 'w', encoding='utf-8') as f:
+            json.dump(cache_data, f, ensure_ascii=False, indent=2, allow_nan=False)
+        return self.cache_file
 
     def _get_stock_prices(self, stock_codes):
         """
@@ -193,7 +255,7 @@ class SocialSecurityFund:
         price_dict = {}
         # 由于网络问题，使用估算股价 15元
         for code in stock_codes:
-            price_dict[str(code)] = 15.0
+            price_dict[str(code)] = ESTIMATED_STOCK_PRICE
         return price_dict
 
     def _calculate_market_value(self, row, price_dict):
@@ -294,16 +356,26 @@ class SocialSecurityFund:
             print("未找到养老保险数据文件")
             return pd.DataFrame()
 
-        self.report_date = report_date
+        return self.load_pension_from_excel(excel_file, report_date)
+
+    def load_pension_from_excel(self, excel_file: str, report_date: str = None) -> pd.DataFrame:
+        """
+        从指定的养老保险 Excel 归档构建持仓 DataFrame（按股票汇总）
+
+        Args:
+            excel_file: 归档文件路径
+            report_date: 报告期（如 '20260930'），缺省沿用当前值
+        """
+        self.report_date = report_date or self.report_date
         print(f"使用养老保险数据文件: {excel_file} (日期: {report_date})")
-        
+
         try:
             df = pd.read_excel(excel_file)
             print(f"成功加载养老保险数据，共{len(df)}条记录")
-            
+
             # 转换数据结构以匹配社保基金格式
             df_processed = df.copy()
-            
+
             # 重命名列
             column_mapping = {
                 '股票代码': '股票代码',
@@ -313,29 +385,30 @@ class SocialSecurityFund:
                 '期末持股-数量变化比例': '持股变动比例'
             }
             df_processed = df_processed.rename(columns=column_mapping)
-            
+
             # 将股票代码统一为6位字符串
             df_processed['股票代码'] = df_processed['股票代码'].astype(str).str.zfill(6)
-            
+
             # 校正股票代码
             df_processed = self._correct_stock_codes(df_processed)
-            
+
             # 添加缺失的列
             df_processed['序号'] = range(1, len(df_processed) + 1)
             df_processed['持有基金家数'] = 1  # 每个记录代表一个组合
-            
+
             # 获取股价数据
             print("正在获取股价数据...")
             price_dict = self._get_stock_prices(df_processed['股票代码'].tolist())
-            
+
             # 计算市值
-            df_processed['持股市值'] = df_processed.apply(lambda row: self._calculate_market_value(row, price_dict), axis=1)
-            
+            df_processed['持股市值'] = df_processed.apply(
+                lambda row: self._calculate_market_value(row, price_dict), axis=1)
+
             # 如果没有获取到股价，使用估算市值（平均股价约15元）
             if not price_dict:
                 print("未获取到股价数据，使用估算市值（平均股价15元）")
-                df_processed['持股市值'] = df_processed['持股总数'] * 15.0
-            
+                df_processed['持股市值'] = df_processed['持股总数'] * ESTIMATED_STOCK_PRICE
+
             # 根据持股变动数值判断持股变化类型
             def determine_change_type(row):
                 change_val = row['持股变动数值']
@@ -347,9 +420,9 @@ class SocialSecurityFund:
                     return '增加'
                 else:
                     return '减少'
-            
+
             df_processed['持股变化'] = df_processed.apply(determine_change_type, axis=1)
-            
+
             # 按股票代码汇总（因为同一个股票可能被多个组合持有）
             df_grouped = df_processed.groupby(['股票代码', '股票简称']).agg({
                 '持股总数': 'sum',
@@ -358,22 +431,22 @@ class SocialSecurityFund:
                 '持股变动数值': 'sum',
                 '持股变动比例': 'mean'  # 平均变动比例
             }).reset_index()
-            
+
             # 重新添加序号
             df_grouped['序号'] = range(1, len(df_grouped) + 1)
-            
+
             # 复制 DataFrame 以避免警告
             df_processed = df_grouped.copy()
-            
+
             # 由于汇总后，持股变化需要重新判断
             df_processed['持股变化'] = df_processed.apply(
-                lambda row: '新进' if pd.isna(row['持股变动数值']) or row['持股变动数值'] == 0 else 
-                           ('增加' if row['持股变动数值'] > 0 else '减少'), 
+                lambda row: '新进' if pd.isna(row['持股变动数值']) or row['持股变动数值'] == 0 else
+                           ('增加' if row['持股变动数值'] > 0 else '减少'),
                 axis=1
             )
-            
+
             return df_processed
-            
+
         except Exception as e:
             print(f"加载养老保险数据失败: {e}")
             return pd.DataFrame()
@@ -384,42 +457,10 @@ class SocialSecurityFund:
         优先使用最新的 Excel 文件
         """
         # 首先尝试从本地Excel文件加载
-        excel_file, report_date = self._find_latest_excel('中央汇金持股_')
+        excel_file, report_date = self._find_latest_excel('中央汇金持股_', 'huijin')
 
         if excel_file:
-            print(f"使用本地汇金数据文件: {excel_file} (日期: {report_date})")
-            self.report_date = report_date
-            try:
-                df = pd.read_excel(excel_file)
-                print(f"成功加载中央汇金数据，共{len(df)}条记录")
-
-                # 确保股票代码为6位字符串
-                df['股票代码'] = df['股票代码'].astype(str).str.zfill(6)
-
-                # 添加序号
-                df['序号'] = range(1, len(df) + 1)
-
-                # 添加持有基金家数
-                if '持有基金家数' not in df.columns:
-                    df['持有基金家数'] = 1
-
-                # 添加持股变动相关列
-                if '持股变动数值' not in df.columns:
-                    df['持股变动数值'] = 0
-                if '持股变动比例' not in df.columns:
-                    df['持股变动比例'] = 0
-
-                # 确定持股变化类型
-                if '持股变化' not in df.columns:
-                    df['持股变化'] = '不变'
-
-                # 处理NaN值
-                df = df.fillna(0)
-
-                return df
-
-            except Exception as e:
-                print(f"加载本地汇金数据失败: {e}")
+            return self.load_huijin_from_excel(excel_file, report_date)
 
         # 如果本地Excel没有，尝试读取JSON缓存
         cache_file = os.path.join(self.data_dir, 'huijin_fund_cache.json')
@@ -442,19 +483,63 @@ class SocialSecurityFund:
             print(f"成功加载中央汇金数据，共{len(df)}条记录")
 
             # 确保列名正确
-            required_columns = ['股票代码', '股票简称', '持股总数', '持股市值', '持股变动数值', '持股变动比例', '持股变化']
+            required_columns = ['股票代码', '股票简称', '持股总数', '持股市值',
+                                '持股变动数值', '持股变动比例', '持股变化']
             for col in required_columns:
                 if col not in df.columns:
                     print(f"中央汇金数据缺少列: {col}")
                     if col == '持股变化':
-                         df['持股变化'] = '不变'
+                        df['持股变化'] = '不变'
                     else:
-                         df[col] = 0
+                        df[col] = 0
 
             return df
 
         except Exception as e:
             print(f"加载中央汇金数据失败: {e}")
+            return pd.DataFrame()
+
+    def load_huijin_from_excel(self, excel_file: str, report_date: str = None) -> pd.DataFrame:
+        """
+        从指定的中央汇金 Excel 归档构建持仓 DataFrame
+
+        Args:
+            excel_file: 归档文件路径
+            report_date: 报告期（如 '20260930'），缺省沿用当前值
+        """
+        self.report_date = report_date or self.report_date
+        print(f"使用本地汇金数据文件: {excel_file} (日期: {report_date})")
+        try:
+            df = pd.read_excel(excel_file)
+            print(f"成功加载中央汇金数据，共{len(df)}条记录")
+
+            # 确保股票代码为6位字符串
+            df['股票代码'] = df['股票代码'].astype(str).str.zfill(6)
+
+            # 添加序号
+            df['序号'] = range(1, len(df) + 1)
+
+            # 添加持有基金家数
+            if '持有基金家数' not in df.columns:
+                df['持有基金家数'] = 1
+
+            # 添加持股变动相关列
+            if '持股变动数值' not in df.columns:
+                df['持股变动数值'] = 0
+            if '持股变动比例' not in df.columns:
+                df['持股变动比例'] = 0
+
+            # 确定持股变化类型
+            if '持股变化' not in df.columns:
+                df['持股变化'] = '不变'
+
+            # 处理NaN值
+            df = df.fillna(0)
+
+            return df
+
+        except Exception as e:
+            print(f"加载本地汇金数据失败: {e}")
             return pd.DataFrame()
 
     def _load_social_security_data(self) -> pd.DataFrame:
@@ -463,7 +548,7 @@ class SocialSecurityFund:
         优先使用本地最新的Excel文件，如果没有则从AKShare获取
         """
         # 首先尝试从本地Excel文件加载
-        excel_file, report_date = self._find_latest_excel('社保基金持股_')
+        excel_file, report_date = self._find_latest_excel('社保基金持股_', 'shebaojijin')
 
         if excel_file:
             print(f"使用本地社保基金数据文件: {excel_file} (日期: {report_date})")
@@ -509,12 +594,10 @@ class SocialSecurityFund:
             except Exception as e:
                 print(f"加载本地社保基金数据失败: {e}")
 
-        # 如果本地没有，从AKShare获取
-        print("本地社保基金数据不可用，尝试从AKShare获取...")
+        # 如果本地没有，从东方财富接口获取
+        print("本地社保基金数据不可用，尝试从东方财富接口获取...")
         current_date = datetime.datetime.now(ZoneInfo('Asia/Shanghai'))
         quarters = []
-        preferred_date = '20250930'
-        quarters.append(preferred_date)
         for year in range(current_date.year, current_date.year - 4, -1):
             for month in [12, 9, 6, 3]:
                 if year == current_date.year and month > current_date.month:
@@ -525,8 +608,8 @@ class SocialSecurityFund:
         for date_str in quarters[:6]:
             try:
                 print(f"尝试获取 {date_str} 的[{self.symbol}]数据...")
-                df = ak.stock_report_fund_hold(symbol=self.symbol, date=date_str)
-                if not df.empty:
+                df = self._fetch_holdings(date_str)
+                if df is not None and not df.empty:
                     print(f"成功获取 {date_str} 数据，共{len(df)}只股票")
                     self.report_date = date_str
                     break
@@ -564,19 +647,21 @@ class SocialSecurityFund:
                      quarter = 4
                      year -= 1
  
-             # Skip future/unsupported?
-             if year >= 2026: continue # Example
- 
              month = (quarter - 1) * 3 + 3
              day = 31 if month in [3, 12] else 30
              date_str = f"{year}{month:02d}{day:02d}"
+
+             # 仅跳过尚未到来的报告期
+             if date_str > current_date.strftime('%Y%m%d'):
+                 continue
+
              quarter_dates.append(date_str)
 
         for stock_code in stock_codes:
             stock_history = []
             for date_str in quarter_dates:
                 try:
-                    df = ak.stock_report_fund_hold(symbol=self.symbol, date=date_str)
+                    df = self._fetch_holdings(date_str)
                     if not isinstance(df, pd.DataFrame):
                         print(f"获取 {date_str} 数据失败: 返回类型不是DataFrame")
                         continue
