@@ -1,6 +1,7 @@
 import pandas as pd
 import requests
 import datetime
+import math
 import time
 import urllib3
 import os
@@ -116,23 +117,16 @@ class MarketSentiment:
                 "fqt": "1",
                 "beg": beg,
                 "end": "20500000",
-                "lmt": "800" # 最近800天
+                "lmt": "800", # 最近800天
+                "ut": "fa5fd1943c7b386f172d6893dbfba10b",
             }
-            # 更新 Headers 模拟浏览器
             headers = self.headers.copy()
             headers.update({
                 "Referer": "https://quote.eastmoney.com/",
                 "Accept": "*/*",
-                "Host": "push2his.eastmoney.com"
             })
             
             for url in self.kline_urls:
-                # 动态调整 Host
-                if "push2.eastmoney.com" in url:
-                    headers["Host"] = "push2.eastmoney.com"
-                else:
-                    headers["Host"] = "push2his.eastmoney.com"
-
                 try:
                     # verify=False 避免 SSL 握手失败
                     r = requests.get(url, params=params, headers=headers, timeout=5, verify=False)
@@ -532,21 +526,30 @@ class MarketSentiment:
                             print(f"Detected missing margin data for {last_idx.date()}, attempting estimation (After close CST {cst_now.strftime('%H:%M')})...")
                             prev_ratio = 8.5 # 默认兜底值
                             
-                            # 获取前一天的融资占比
-                            prev_valid_row = None
+                            # 获取最近一条有效的融资占比，避免 NaN 被传播到估算结果。
+                            previous_rows = []
                             if len(df_new) > 1:
-                                prev_valid_row = df_new.iloc[-2]
-                            elif cache is not None and not cache.empty:
-                                prev_valid_row = cache.iloc[-1]
-                                
-                            if prev_valid_row is not None:
+                                previous_rows.extend(
+                                    df_new.iloc[:-1].iloc[::-1].to_dict('records')
+                                )
+                            if cache is not None and not cache.empty:
+                                previous_rows.extend(
+                                    cache.iloc[::-1].to_dict('records')
+                                )
+
+                            for previous_row in previous_rows:
                                 try:
-                                    p_to = prev_valid_row['turnover_trillion']
-                                    p_mb = prev_valid_row['margin_buy']
-                                    if p_to > 0:
+                                    p_to = float(previous_row['turnover_trillion'])
+                                    p_mb = float(previous_row['margin_buy'])
+                                    if (
+                                        pd.notna(p_to) and pd.notna(p_mb)
+                                        and p_to > 0 and p_mb >= 0
+                                        and math.isfinite(p_to) and math.isfinite(p_mb)
+                                    ):
                                         prev_ratio = (p_mb / (p_to * 1e12)) * 100
-                                except Exception:
-                                    pass
+                                        break
+                                except (KeyError, TypeError, ValueError):
+                                    continue
                             
                             # 使用前一天的比例估算今天的融资买入额
                             est_margin_buy = (prev_ratio / 100) * (df_new.at[last_idx, 'turnover_trillion'] * 1e12)
