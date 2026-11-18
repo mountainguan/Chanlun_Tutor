@@ -1,0 +1,127 @@
+{
+  "trade_date": "2026-11-18",
+  "generated_at": "2026-11-18 17:16",
+  "lookback_years": 3,
+  "index_defs": [
+    {
+      "ts_code": "000001.SH",
+      "name": "上证指数",
+      "short": "上证",
+      "color": "red",
+      "accent": "#dc2626"
+    },
+    {
+      "ts_code": "399001.SZ",
+      "name": "深证成指",
+      "short": "深证",
+      "color": "blue",
+      "accent": "#2563eb"
+    },
+    {
+      "ts_code": "399006.SZ",
+      "name": "创业板指",
+      "short": "创业板",
+      "color": "purple",
+      "accent": "#9333ea"
+    },
+    {
+      "ts_code": "000300.SH",
+      "name": "沪深300",
+      "short": "沪深300",
+      "color": "orange",
+      "accent": "#ea580c"
+    },
+    {
+      "ts_code": "000688.SH",
+      "name": "科创50",
+      "short": "科创50",
+      "color": "teal",
+      "accent": "#0d9488"
+    },
+    {
+      "ts_code": "000905.SH",
+      "name": "中证500",
+      "short": "中证500",
+      "color": "cyan",
+      "accent": "#0891b2"
+    },
+    {
+      "ts_code": "930050.CSI",
+      "name": "中证A50",
+      "short": "中证A50",
+      "color": "indigo",
+      "accent": "#4f46e5"
+    }
+  ],
+  "summary": {
+    "bullish": 0,
+    "bearish": 0,
+    "index_with_recent_signal": 0,
+    "index_total": 7
+  },
+  "results": {
+    "000001.SH": {
+      "ts_code": "000001.SH",
+      "name": "上证指数",
+      "error": "数据不足",
+      "kline": [],
+      "signals": [],
+      "latest": null,
+      "last_date": null
+    },
+    "399001.SZ": {
+      "ts_code": "399001.SZ",
+      "name": "深证成指",
+      "error": "数据不足",
+      "kline": [],
+      "signals": [],
+      "latest": null,
+      "last_date": null
+    },
+    "399006.SZ": {
+      "ts_code": "399006.SZ",
+      "name": "创业板指",
+      "error": "数据不足",
+      "kline": [],
+      "signals": [],
+      "latest": null,
+      "last_date": null
+    },
+    "000300.SH": {
+      "ts_code": "000300.SH",
+      "name": "沪深300",
+      "error": "数据不足",
+      "kline": [],
+      "signals": [],
+      "latest": null,
+      "last_date": null
+    },
+    "000688.SH": {
+      "ts_code": "000688.SH",
+      "name": "科创50",
+      "error": "数据不足",
+      "kline": [],
+      "signals": [],
+      "latest": null,
+      "last_date": null
+    },
+    "000905.SH": {
+      "ts_code": "000905.SH",
+      "name": "中证500",
+      "error": "数据不足",
+      "kline": [],
+      "signals": [],
+      "latest": null,
+      "last_date": null
+    },
+    "930050.CSI": {
+      "ts_code": "930050.CSI",
+      "name": "中证A50",
+      "error": "数据不足",
+      "kline": [],
+      "signals": [],
+      "latest": null,
+      "last_date": null
+    }
+  }
+}
