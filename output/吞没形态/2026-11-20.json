@@ -1,6 +1,6 @@
 {
   "trade_date": "2026-11-20",
-  "generated_at": "2026-11-20 16:13",
+  "generated_at": "2026-11-23 15:31",
   "lookback_years": 3,
   "index_defs": [
     {
@@ -14031,29 +14031,6 @@
           "prev_is_streak": true,
           "streak_len": 2,
           "note": "强吞没 · 前续 2 日同向"
-        },
-        {
-          "ts_code": "399006.SZ",
-          "name": "创业板指",
-          "trade_date": "2023-10-25",
-          "pattern": "bearish",
-          "prev_open": 1872.2906,
-          "prev_close": 1880.8143,
-          "prev_high": 1890.099,
-          "prev_low": 1859.8643,
-          "prev_body": 8.523699999999963,
-          "prev_pct_chg": 0.8529,
-          "curr_open": 1890.4845,
-          "curr_close": 1863.7961,
-          "curr_high": 1894.535,
-          "curr_low": 1863.7682,
-          "curr_body": 26.6884,
-          "curr_pct_chg": -0.9048,
-          "body_ratio": 3.131081572556533,
-          "cover_ratio": 2.0,
-          "prev_is_streak": false,
-          "streak_len": 1,
-          "note": "强吞没 · 前一日无连续趋势，注意反转力度"
         }
       ],
       "signals_total": {
